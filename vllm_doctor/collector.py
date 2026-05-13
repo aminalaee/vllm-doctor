@@ -1,12 +1,12 @@
 import asyncio
 
+from vllm_doctor.clients import Client
+from vllm_doctor.metrics import query_requests_running, query_requests_waiting
 from vllm_doctor.models import MetricSnapshot
-from vllm_doctor.prometheus import PrometheusClient
-from vllm_doctor.promql import query_requests_running, query_requests_waiting
 
 
 async def collect(
-    client: PrometheusClient,
+    client: Client,
     window: str,
     model: str | None = None,
 ) -> MetricSnapshot:
