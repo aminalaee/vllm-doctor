@@ -1,0 +1,39 @@
+[build-system]
+requires = ["uv_build>=0.9.17,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "vllm_doctor"
+module-root = ""
+
+[project]
+name = "vllm-doctor"
+version = "0.1.0"
+description = "Diagnostic tool for vLLM inference servers."
+readme = "README.md"
+authors = [{ name = "Amin Alaee", email = "mohammadamin.alaee@gmail.com" }]
+keywords = ["vllm", "llm", "inference", "diagnostics", "prometheus", "cli"]
+requires-python = ">=3.10"
+license = "BSD-3-Clause"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Intended Audience :: Developers",
+  "Intended Audience :: System Administrators",
+  "License :: OSI Approved :: BSD License",
+  "Topic :: System :: Monitoring",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+]
+[project.urls]
+Documentation = "https://aminalaee.github.io/vllm-doctor"
+Issues = "https://github.com/aminalaee/vllm-doctor/issues"
+Source = "https://github.com/aminalaee/vllm-doctor"
