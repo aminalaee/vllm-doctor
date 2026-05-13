@@ -33,6 +33,23 @@ classifiers = [
   "Environment :: Console",
   "Operating System :: OS Independent",
 ]
+dependencies = [
+  "httpx>=0.27",
+  "pydantic>=2",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==9.0.3",
+  "pytest-asyncio",
+  "pytest-cov",
+  "ruff==0.15.12",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
 [project.urls]
 Documentation = "https://aminalaee.github.io/vllm-doctor"
 Issues = "https://github.com/aminalaee/vllm-doctor/issues"
