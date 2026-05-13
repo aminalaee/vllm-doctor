@@ -107,7 +107,9 @@ class TestInstantQuery:
 class TestRangeQuery:
     @pytest.mark.asyncio
     async def test_returns_result(self, range_client: PrometheusClient) -> None:
-        assert await range_client.query_range("up", "now-1h", "now", "1m") == RANGE_RESULT
+        assert (
+            await range_client.query_range("up", "now-1h", "now", "1m") == RANGE_RESULT
+        )
 
     @pytest.mark.asyncio
     async def test_empty_result(self, empty_client: PrometheusClient) -> None:
