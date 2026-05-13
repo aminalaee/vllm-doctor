@@ -1,5 +1,7 @@
 import httpx
 
+from vllm_doctor.clients.models import MetricSample
+
 
 class PrometheusError(Exception):
     pass
@@ -23,7 +25,7 @@ class PrometheusClient:
         self.base_url = base_url.rstrip("/")
         self._client = client or httpx.AsyncClient(timeout=timeout)
 
-    async def query(self, promql: str, time: str | None = None) -> list[dict]:
+    async def query(self, promql: str, time: str | None = None) -> list[MetricSample]:
         params: dict[str, str] = {"query": promql}
         if time is not None:
             params["time"] = time
@@ -42,11 +44,18 @@ class PrometheusClient:
         if data.get("status") != "success":
             raise PrometheusQueryError(data.get("error", "unknown error"))
 
-        return data["data"]["result"]
+        return [
+            MetricSample(
+                labels=r["metric"],
+                value=float(r["value"][1]),
+                timestamp=float(r["value"][0]),
+            )
+            for r in data["data"]["result"]
+        ]
 
     async def query_range(
         self, promql: str, start: str, end: str, step: str
-    ) -> list[dict]:
+    ) -> list[MetricSample]:
         params = {"query": promql, "start": start, "end": end, "step": step}
 
         try:
@@ -63,7 +72,15 @@ class PrometheusClient:
         if data.get("status") != "success":
             raise PrometheusQueryError(data.get("error", "unknown error"))
 
-        return data["data"]["result"]
+        return [
+            MetricSample(
+                labels=r["metric"],
+                value=float(point[1]),
+                timestamp=float(point[0]),
+            )
+            for r in data["data"]["result"]
+            for point in r["values"]
+        ]
 
     async def aclose(self) -> None:
         await self._client.aclose()

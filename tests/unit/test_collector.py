@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from vllm_doctor.collector import collect
-from vllm_doctor.prometheus import PrometheusClient
+from vllm_doctor.clients import PrometheusClient
 
 
 def _make_client(running: str, waiting: str) -> PrometheusClient:
