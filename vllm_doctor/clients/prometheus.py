@@ -25,8 +25,10 @@ class PrometheusClient:
         self.base_url = base_url.rstrip("/")
         self._client = client or httpx.AsyncClient(timeout=timeout)
 
-    async def query(self, promql: str, time: str | None = None) -> list[MetricSample]:
-        params: dict[str, str] = {"query": promql}
+    async def query(
+        self, metric_name: str, time: str | None = None
+    ) -> list[MetricSample]:
+        params: dict[str, str] = {"query": metric_name}
         if time is not None:
             params["time"] = time
 
@@ -54,9 +56,9 @@ class PrometheusClient:
         ]
 
     async def query_range(
-        self, promql: str, start: str, end: str, step: str
+        self, metric_name: str, start: str, end: str, step: str
     ) -> list[MetricSample]:
-        params = {"query": promql, "start": start, "end": end, "step": step}
+        params = {"query": metric_name, "start": start, "end": end, "step": step}
 
         try:
             response = await self._client.get(
