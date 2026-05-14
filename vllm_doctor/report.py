@@ -53,29 +53,37 @@ def _metrics_panel(snapshot: MetricSnapshot) -> Panel:
     )
 
 
-def _bullet_panel(title: str, items: list[str], border_color: str = "dim") -> Panel:
-    lines = Group(*[Text(f"  • {item}") for item in items])
-    return Panel(
-        lines, title=f"[dim]{title}[/dim]", border_style=border_color, padding=(0, 1)
-    )
-
-
 def _finding_sections(finding: Finding) -> list[RenderableType]:
     color = _SEVERITY_COLOR[finding.severity]
     label = _SEVERITY_LABEL[finding.severity]
-    sections: list[RenderableType] = [
-        Text.assemble(("Health: ", "bold"), (label, f"bold {color}")),
-        Text.assemble(("Main issue: ", "bold"), finding.title),
-        Text.assemble(("Confidence: ", "bold"), finding.confidence.value.capitalize()),
+
+    lines: list[RenderableType] = []
+    if finding.evidence:
+        lines.append(Text("Evidence", style="bold dim"))
+        for e in finding.evidence:
+            lines.append(Text(f"  • {e}"))
+        if finding.recommendations:
+            lines.append(Text())
+    if finding.recommendations:
+        lines.append(Text("Recommendation", style="bold dim"))
+        for r in finding.recommendations:
+            lines.append(Text(f"  • {r}"))
+
+    title = Text.assemble(
+        (f"{label}  ", f"bold {color}"),
+        (finding.title, "bold"),
+        (f"  · {finding.confidence.value.capitalize()} confidence", "dim"),
+    )
+    return [
+        Panel(
+            Group(*lines),
+            title=title,
+            title_align="left",
+            border_style=color,
+            padding=(0, 1),
+        ),
         Text(),
     ]
-    if finding.evidence:
-        sections.append(_bullet_panel("Evidence", finding.evidence))
-        sections.append(Text())
-    if finding.recommendations:
-        sections.append(_bullet_panel("Recommendation", finding.recommendations))
-        sections.append(Text())
-    return sections
 
 
 def render_text(
@@ -95,6 +103,13 @@ def render_text(
             Text(),
         ]
     else:
+        worst = min(findings, key=lambda f: list(Severity).index(f.severity))
+        color = _SEVERITY_COLOR[worst.severity]
+        label = _SEVERITY_LABEL[worst.severity]
+        sections += [
+            Text.assemble(("Health: ", "bold"), (label, f"bold {color}")),
+            Text(),
+        ]
         for i, finding in enumerate(findings):
             if i > 0:
                 sections.append(Text())

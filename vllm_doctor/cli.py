@@ -6,11 +6,12 @@ from vllm_doctor.clients import resolve_client
 from vllm_doctor.collector import collect
 from vllm_doctor.diagnosis import run
 from vllm_doctor.report import render_text
+from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 from vllm_doctor.rules.queue_pressure import QueuePressureRule
 
 app = typer.Typer(help="Diagnostic tool for vLLM inference servers.")
 
-_RULES = [QueuePressureRule()]
+_RULES = [QueuePressureRule(), KVCachePressureRule()]
 
 
 async def _diagnose(url: str, window: str) -> None:

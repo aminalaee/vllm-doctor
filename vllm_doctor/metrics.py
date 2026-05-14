@@ -20,3 +20,10 @@ async def query_requests_waiting(
 ) -> float | None:
     label = f'{{model_name="{model}"}}' if model else ""
     return _sum_values(await client.query(f"vllm:num_requests_waiting{label}"))
+
+
+async def query_gpu_cache_usage(
+    client: Client, model: str | None = None
+) -> float | None:
+    label = f'{{model_name="{model}"}}' if model else ""
+    return _sum_values(await client.query(f"vllm:gpu_cache_usage_perc{label}"))
