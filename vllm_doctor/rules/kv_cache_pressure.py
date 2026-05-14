@@ -33,6 +33,7 @@ class KVCachePressureRule(Rule):
         if not cache_high:
             return []
 
+        signals: list[str] = []
         evidence = [
             f"GPU KV cache usage: {snapshot.gpu_cache_usage_perc:.0%} "
             f"(threshold: {self.high_cache_usage:.0%})"
@@ -43,9 +44,10 @@ class KVCachePressureRule(Rule):
             and snapshot.num_requests_waiting > 0
         )
         if waiting_high:
+            signals.append("Cache saturation blocking new request admission")
             evidence.append(
                 f"Waiting requests: {snapshot.num_requests_waiting:.0f} "
-                "(cache pressure causing queuing)"
+                "(blocked by full cache)"
             )
 
         confidence = Confidence.high if waiting_high else Confidence.medium
@@ -59,6 +61,7 @@ class KVCachePressureRule(Rule):
                     f"GPU KV cache at {snapshot.gpu_cache_usage_perc:.0%} — "
                     "new requests cannot be admitted until sequences complete."
                 ),
+                signals=signals,
                 evidence=evidence,
                 likely_causes=[
                     "Long-context requests holding large KV cache allocations",

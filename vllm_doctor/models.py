@@ -28,6 +28,7 @@ class Finding(BaseModel):
     confidence: Confidence
     title: str
     summary: str
+    signals: list[str] = []
     evidence: list[str] = []
     likely_causes: list[str] = []
     recommendations: list[str] = []
