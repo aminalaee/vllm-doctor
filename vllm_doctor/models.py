@@ -20,6 +20,7 @@ class MetricSnapshot(BaseModel):
     window: str
     num_requests_running: float | None = None
     num_requests_waiting: float | None = None
+    gpu_cache_usage_perc: float | None = None
 
 
 class Finding(BaseModel):

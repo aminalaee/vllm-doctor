@@ -5,29 +5,24 @@ from vllm_doctor.collector import collect
 from vllm_doctor.clients import PrometheusClient
 
 
-def _make_client(running: str, waiting: str) -> PrometheusClient:
-    call_count = 0
-
+@pytest.fixture
+def client() -> PrometheusClient:
     def handler(r: httpx.Request) -> httpx.Response:
-        nonlocal call_count
-        if "num_requests_running" in str(r.url):
-            value = running
+        url = str(r.url)
+        if "num_requests_running" in url:
+            value = "10"
+        elif "num_requests_waiting" in url:
+            value = "3"
         else:
-            value = waiting
+            value = "0.72"
         result = [{"metric": {}, "value": [1234567890, value]}]
         body = {"status": "success", "data": {"resultType": "vector", "result": result}}
-        call_count += 1
         return httpx.Response(200, json=body)
 
     return PrometheusClient(
         base_url="http://localhost:9090",
         client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )
-
-
-@pytest.fixture
-def client() -> PrometheusClient:
-    return _make_client(running="10", waiting="3")
 
 
 @pytest.fixture
@@ -46,6 +41,7 @@ class TestCollect:
         snapshot = await collect(client, window="1h")
         assert snapshot.num_requests_running == 10.0
         assert snapshot.num_requests_waiting == 3.0
+        assert snapshot.gpu_cache_usage_perc == 0.72
         assert snapshot.window == "1h"
 
     async def test_sets_model_name(self, client: PrometheusClient) -> None:
@@ -58,3 +54,4 @@ class TestCollect:
         snapshot = await collect(empty_client, window="1h")
         assert snapshot.num_requests_running is None
         assert snapshot.num_requests_waiting is None
+        assert snapshot.gpu_cache_usage_perc is None
