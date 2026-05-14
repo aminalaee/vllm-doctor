@@ -6,6 +6,9 @@ setup:
 test:
 	uv run pytest --cov=vllm_doctor --cov-report=term-missing
 
+test-integration:
+	uv run pytest tests/integration/ -v
+
 lint:
 	uv run ruff check vllm_doctor tests
 	uv run ruff format --check vllm_doctor tests
@@ -17,4 +20,4 @@ format:
 build:
 	uv build
 
-.PHONY: all setup test lint format build
+.PHONY: all setup test test-integration lint format build
