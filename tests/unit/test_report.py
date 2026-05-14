@@ -61,7 +61,7 @@ class TestRenderText:
         render_text(
             [queue_finding], snapshot, console=Console(file=buf, highlight=False)
         )
-        assert "Evidence" in buf.getvalue()
+        assert "Waiting requests: 20" in buf.getvalue()
 
     def test_shows_recommendation(
         self, snapshot: MetricSnapshot, queue_finding: Finding
@@ -70,4 +70,4 @@ class TestRenderText:
         render_text(
             [queue_finding], snapshot, console=Console(file=buf, highlight=False)
         )
-        assert "Recommendation" in buf.getvalue()
+        assert "Add replicas" in buf.getvalue()

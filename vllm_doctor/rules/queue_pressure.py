@@ -37,19 +37,22 @@ class QueuePressureRule(Rule):
         if not waiting_high:
             return []
 
-        signals = [
+        signals: list[str] = []
+        evidence = [
             f"Waiting requests: {snapshot.num_requests_waiting:.0f} (threshold: {self.high_waiting})"
         ]
 
-        if (
+        running_high = (
             snapshot.num_requests_running is not None
             and snapshot.num_requests_running > self.high_running
-        ):
-            signals.append(
+        )
+        if running_high:
+            signals.append("Queue pressure compounding with server saturation")
+            evidence.append(
                 f"Running requests: {snapshot.num_requests_running:.0f} (threshold: {self.high_running})"
             )
 
-        confidence = Confidence.high if len(signals) >= 2 else Confidence.low
+        confidence = Confidence.high if running_high else Confidence.low
 
         return [
             Finding(
@@ -57,7 +60,8 @@ class QueuePressureRule(Rule):
                 confidence=confidence,
                 title="Queue pressure",
                 summary="Requests are queuing faster than the server can process them.",
-                evidence=signals,
+                signals=signals,
+                evidence=evidence,
                 likely_causes=[
                     "Insufficient replica capacity for current traffic",
                     "Autoscaling has not reacted yet",

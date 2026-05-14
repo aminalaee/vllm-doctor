@@ -1,8 +1,5 @@
 from rich.console import Console
-from rich.console import Group, RenderableType
-from rich.panel import Panel
-from rich.progress_bar import ProgressBar
-from rich.table import Table
+from rich.rule import Rule
 from rich.text import Text
 
 from vllm_doctor.models import Finding, MetricSnapshot, Severity
@@ -13,77 +10,49 @@ _SEVERITY_COLOR = {
     Severity.info: "blue",
 }
 
-_SEVERITY_LABEL = {
-    Severity.critical: "CRITICAL",
-    Severity.warning: "WARNING",
-    Severity.info: "INFO",
+_SEVERITY_ICON = {
+    Severity.critical: "✖",
+    Severity.warning: "⚠",
+    Severity.info: "ℹ",
 }
 
-_BAR_WIDTH = 20
 
-
-def _bar(value: float, cap: float) -> ProgressBar:
-    pct = min(value / cap, 1.0) if cap > 0 else 0.0
-    color = "red" if pct >= 0.9 else "yellow" if pct >= 0.6 else "green"
-    return ProgressBar(
-        total=100, completed=pct * 100, width=_BAR_WIDTH, complete_style=color
-    )
-
-
-def _metrics_panel(snapshot: MetricSnapshot) -> Panel:
-    table = Table(box=None, padding=(0, 2), show_header=False, show_edge=False)
-    table.add_column("Metric", style="bold", min_width=22)
-    table.add_column("Value", justify="right", min_width=6)
-    table.add_column("", min_width=_BAR_WIDTH + 2)
-    table.add_column("%", justify="right", min_width=5, style="dim")
-
-    def _row(label: str, value: float | None, cap: float) -> None:
-        if value is None:
-            table.add_row(
-                label, "n/a", ProgressBar(total=100, completed=0, width=_BAR_WIDTH), ""
-            )
-        else:
-            pct = min(value / cap, 1.0) if cap > 0 else 0.0
-            table.add_row(label, f"{value:.0f}", _bar(value, cap), f"{pct:.0%}")
-
-    _row("Requests Running", snapshot.num_requests_running, 50.0)
-    _row("Requests Waiting", snapshot.num_requests_waiting, 5.0)
-    return Panel(
-        table, title="[dim]Supporting Metrics[/dim]", border_style="dim", padding=(0, 1)
-    )
-
-
-def _finding_sections(finding: Finding) -> list[RenderableType]:
+def _print_finding(finding: Finding, console: Console) -> None:
     color = _SEVERITY_COLOR[finding.severity]
-    label = _SEVERITY_LABEL[finding.severity]
+    icon = _SEVERITY_ICON[finding.severity]
 
-    lines: list[RenderableType] = []
-    if finding.evidence:
-        lines.append(Text("Evidence", style="bold dim"))
-        for e in finding.evidence:
-            lines.append(Text(f"  • {e}"))
-        if finding.recommendations:
-            lines.append(Text())
-    if finding.recommendations:
-        lines.append(Text("Recommendation", style="bold dim"))
-        for r in finding.recommendations:
-            lines.append(Text(f"  • {r}"))
-
-    title = Text.assemble(
-        (f"{label}  ", f"bold {color}"),
-        (finding.title, "bold"),
-        (f"  · {finding.confidence.value.capitalize()} confidence", "dim"),
+    console.print(
+        Text.assemble(
+            (f"{icon} ", f"bold {color}"),
+            (finding.title, "bold"),
+            (f"  [{finding.confidence.value} confidence]", "dim"),
+        )
     )
-    return [
-        Panel(
-            Group(*lines),
-            title=title,
-            title_align="left",
-            border_style=color,
-            padding=(0, 1),
-        ),
-        Text(),
-    ]
+
+    if finding.signals:
+        for s in finding.signals:
+            console.print(Text(f"  {s}", style="dim"))
+        console.print()
+
+    if finding.evidence:
+        for e in finding.evidence:
+            console.print(Text(f"  {e}"))
+        console.print()
+
+    if finding.recommendations:
+        for r in finding.recommendations:
+            console.print(Text.assemble(("  → ", f"bold {color}"), (r, "")))
+        console.print()
+
+
+def _print_metrics(snapshot: MetricSnapshot, console: Console) -> None:
+    def _row(label: str, value: float | None, fmt: str = ".0f") -> None:
+        val = "n/a" if value is None else f"{value:{fmt}}"
+        console.print(Text(f"  {label:<24}{val:>8}"))
+
+    _row("Requests Running", snapshot.num_requests_running)
+    _row("Requests Waiting", snapshot.num_requests_waiting)
+    _row("GPU Cache Usage", snapshot.gpu_cache_usage_perc, fmt=".0%")
 
 
 def render_text(
@@ -93,36 +62,37 @@ def render_text(
 ) -> None:
     console = console or Console()
 
-    sections: list[RenderableType] = []
-
     if not findings:
-        sections += [
-            Text.assemble(("Health: ", "bold"), ("OK", "bold green")),
-            Text(),
-            Text("  No issues detected.", style="dim"),
-            Text(),
-        ]
+        health = Text.assemble(("Health: ", "bold"), ("OK", "bold green"))
     else:
         worst = min(findings, key=lambda f: list(Severity).index(f.severity))
         color = _SEVERITY_COLOR[worst.severity]
-        label = _SEVERITY_LABEL[worst.severity]
-        sections += [
-            Text.assemble(("Health: ", "bold"), (label, f"bold {color}")),
-            Text(),
-        ]
-        for i, finding in enumerate(findings):
-            if i > 0:
-                sections.append(Text())
-            sections.extend(_finding_sections(finding))
-
-    sections.append(_metrics_panel(snapshot))
+        health = Text.assemble(
+            ("Health: ", "bold"), (worst.severity.value.upper(), f"bold {color}")
+        )
 
     console.print(
-        Panel(
-            Group(*sections),
-            title="[bold]vLLM Doctor[/bold]",
-            title_align="center",
-            border_style="dim",
-            padding=(1, 2),
+        Rule(
+            Text.assemble(
+                ("vLLM Doctor", "bold"),
+                ("  ·  ", "dim"),
+                health,
+                ("  ·  ", "dim"),
+                Text(f"Window: {snapshot.window}", style="dim"),
+            ),
+            style="dim",
         )
     )
+    console.print()
+
+    if not findings:
+        console.print(Text("  No issues detected.", style="green"))
+        console.print()
+    else:
+        for finding in findings:
+            _print_finding(finding, console)
+
+    console.print(Rule("Observed Metrics", style="dim"))
+    console.print()
+    _print_metrics(snapshot, console)
+    console.print()

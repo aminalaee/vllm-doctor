@@ -9,7 +9,7 @@ from vllm_doctor.report import render_text
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 from vllm_doctor.rules.queue_pressure import QueuePressureRule
 
-app = typer.Typer(help="Diagnostic tool for vLLM inference servers.")
+app = typer.Typer(help="Diagnostic tool for vLLM inference servers")
 
 _RULES = [QueuePressureRule(), KVCachePressureRule()]
 
