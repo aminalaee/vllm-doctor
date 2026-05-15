@@ -20,7 +20,7 @@ This rule is suppressed when `num_requests_waiting > 0` — a queue means the lo
 
 | Signals matched                                  | Confidence |
 | ------------------------------------------------ | ---------- |
-| Both prefill and decode low, or very few running | High       |
+| Both prefill and decode low, or very few running | Medium     |
 | Only one metric low                              | Low        |
 
 ## Likely causes

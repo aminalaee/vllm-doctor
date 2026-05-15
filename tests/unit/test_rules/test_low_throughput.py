@@ -59,7 +59,7 @@ class TestLowThroughputRule:
     def test_high_confidence_when_both_low(
         self, rule: LowThroughputRule, low_throughput_snapshot: MetricSnapshot
     ) -> None:
-        assert rule.evaluate(low_throughput_snapshot)[0].confidence == Confidence.high
+        assert rule.evaluate(low_throughput_snapshot)[0].confidence == Confidence.medium
 
     def test_high_confidence_when_running_low(
         self,
@@ -68,7 +68,7 @@ class TestLowThroughputRule:
     ) -> None:
         assert (
             rule.evaluate(low_throughput_with_low_running_snapshot)[0].confidence
-            == Confidence.high
+            == Confidence.medium
         )
 
     def test_low_confidence_when_only_prompt_low(self, rule: LowThroughputRule) -> None:

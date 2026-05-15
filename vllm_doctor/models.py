@@ -23,6 +23,9 @@ class MetricSnapshot(BaseModel):
     gpu_cache_usage_perc: float | None = None
     prompt_tokens_per_second: float | None = None
     generation_tokens_per_second: float | None = None
+    request_success_total: float | None = None
+    request_error_total: float | None = None
+    request_abort_total: float | None = None
 
 
 class Finding(BaseModel):
