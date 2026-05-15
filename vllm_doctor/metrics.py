@@ -29,6 +29,17 @@ async def query_gpu_cache_usage(
     return _sum_values(await client.query(f"vllm:gpu_cache_usage_perc{label}"))
 
 
+async def query_requests_by_reason(
+    client: Client, reason: str, model: str | None = None
+) -> float | None:
+    model_label = f'model_name="{model}",' if model else ""
+    return _sum_values(
+        await client.query(
+            f'vllm:request_success_total{{{model_label}finished_reason="{reason}"}}'
+        )
+    )
+
+
 async def query_prompt_tokens_per_second(
     client: Client, model: str | None = None
 ) -> float | None:

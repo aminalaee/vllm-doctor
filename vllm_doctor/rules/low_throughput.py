@@ -14,7 +14,7 @@ Suppressed when requests are waiting — low throughput with a queue is a
 capacity problem (queue pressure), not an underutilization problem.
 
 Confidence:
-  both prompt and gen low, or running very low  → high
+  both prompt and gen low, or running very low  → medium
   only one metric low                           → low
 """
 
@@ -95,7 +95,7 @@ class LowThroughputRule(Rule):
             evidence.append(f"Requests running: {snapshot.num_requests_running:.0f}")
 
         confidence = (
-            Confidence.high
+            Confidence.medium
             if (prompt_low and gen_low) or running_low
             else Confidence.low
         )
