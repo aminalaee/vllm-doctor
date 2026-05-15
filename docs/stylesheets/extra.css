@@ -1,0 +1,66 @@
+.md-header {
+  box-shadow: none;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-tabs {
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset h1 {
+  color: var(--md-default-fg-color);
+  font-weight: 750;
+  letter-spacing: 0;
+}
+
+.md-typeset h2 {
+  color: var(--md-default-fg-color);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.md-typeset .vd-wordmark {
+  display: block;
+  height: auto;
+  margin: 0 0 1.2rem;
+  max-width: min(24rem, 100%);
+}
+
+.md-typeset table:not([class]) {
+  border-radius: 0.4rem;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--md-default-fg-color--lightest);
+}
+
+.md-typeset table:not([class]) th {
+  background: var(--md-default-fg-color--lightest);
+  color: var(--md-default-fg-color);
+  font-weight: 700;
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 0.4rem;
+  box-shadow: none;
+}
+
+.md-typeset .admonition.note {
+  border-color: var(--md-accent-fg-color);
+}
+
+.md-typeset .admonition.note>.admonition-title {
+  background-color: color-mix(in srgb, var(--md-accent-fg-color) 12%, transparent);
+}
+
+.md-typeset .highlight {
+  border-radius: 0.4rem;
+}
+
+.md-typeset code {
+  border-radius: 0.25rem;
+}
+
+.md-nav__title,
+.md-nav__item .md-nav__link--active {
+  font-weight: 700;
+}

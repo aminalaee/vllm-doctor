@@ -17,7 +17,13 @@ format:
 	uv run ruff format vllm_doctor tests
 	uv run ruff check --fix vllm_doctor tests
 
+docs:
+	uv run mkdocs serve
+
+docs-build:
+	uv run mkdocs build --strict
+
 build:
 	uv build
 
-.PHONY: all setup test test-integration lint format build
+.PHONY: all setup test test-integration lint format docs docs-build build
