@@ -27,3 +27,17 @@ async def query_gpu_cache_usage(
 ) -> float | None:
     label = f'{{model_name="{model}"}}' if model else ""
     return _sum_values(await client.query(f"vllm:gpu_cache_usage_perc{label}"))
+
+
+async def query_prompt_tokens_per_second(
+    client: Client, model: str | None = None
+) -> float | None:
+    label = f'{{model_name="{model}"}}' if model else ""
+    return _sum_values(await client.query(f"vllm:prompt_tokens_per_second{label}"))
+
+
+async def query_generation_tokens_per_second(
+    client: Client, model: str | None = None
+) -> float | None:
+    label = f'{{model_name="{model}"}}' if model else ""
+    return _sum_values(await client.query(f"vllm:generation_tokens_per_second{label}"))

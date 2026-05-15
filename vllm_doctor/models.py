@@ -21,6 +21,8 @@ class MetricSnapshot(BaseModel):
     num_requests_running: float | None = None
     num_requests_waiting: float | None = None
     gpu_cache_usage_perc: float | None = None
+    prompt_tokens_per_second: float | None = None
+    generation_tokens_per_second: float | None = None
 
 
 class Finding(BaseModel):
