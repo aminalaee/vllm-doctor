@@ -37,6 +37,7 @@ nav:
   - Rules:
       - Queue Pressure: "rules/queue-pressure.md"
       - KV Cache Pressure: "rules/kv-cache-pressure.md"
+      - Low Throughput: "rules/low-throughput.md"
   - Metrics: "metrics.md"
 
 extra_css:
