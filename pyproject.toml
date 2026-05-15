@@ -9,7 +9,7 @@ module-root = ""
 [project]
 name = "vllm-doctor"
 version = "0.1.0"
-description = "Diagnostic tool for vLLM inference servers."
+description = "Diagnostic tool for vLLM inference servers"
 readme = "README.md"
 authors = [{ name = "Amin Alaee", email = "mohammadamin.alaee@gmail.com" }]
 keywords = ["vllm", "llm", "inference", "diagnostics", "prometheus", "cli"]
@@ -50,6 +50,7 @@ dev = [
   "pytest-asyncio",
   "pytest-cov",
   "ruff==0.15.12",
+  "mkdocs-material",
 ]
 
 [tool.pytest.ini_options]

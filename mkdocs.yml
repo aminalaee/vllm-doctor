@@ -1,0 +1,70 @@
+site_name: vLLM Doctor
+site_description: Diagnostic tool for vLLM inference servers
+site_url: https://aminalaee.github.io/vllm-doctor
+
+theme:
+  name: "material"
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - content.code.copy
+    - toc.follow
+
+repo_name: aminalaee/vllm-doctor
+repo_url: https://github.com/aminalaee/vllm-doctor
+edit_uri: ""
+
+nav:
+  - Introduction: "index.md"
+  - Rules:
+      - Queue Pressure: "rules/queue-pressure.md"
+      - KV Cache Pressure: "rules/kv-cache-pressure.md"
+  - Metrics: "metrics.md"
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - markdown.extensions.codehilite:
+      guess_lang: false
+  - admonition
+  - tables
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.superfences
+  - attr_list
+
+watch:
+  - vllm_doctor/
+  - docs/
+  - docs/stylesheets/
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/aminalaee
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/amin-alaee

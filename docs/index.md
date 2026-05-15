@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/docs/assets/wordmark.svg" alt="vLLM Doctor" width="360">
+<img src="assets/wordmark.svg" alt="vLLM Doctor" class="vd-wordmark">
 
 Diagnose vLLM serving issues from `/metrics`.
 
@@ -8,7 +8,8 @@ vLLM Doctor reads production metrics and turns them into operational findings: w
 vllm-doctor --url http://localhost:8000/metrics
 ```
 
-> vLLM Doctor is not a dashboard replacement. It is a fast diagnostic snapshot for a single server or Prometheus target.
+!!! note "Built for incident context"
+    vLLM Doctor is not a dashboard replacement. It is a fast diagnostic snapshot for a single server or Prometheus target.
 
 ## Why not just a dashboard?
 
@@ -24,31 +25,31 @@ Dashboards show metrics. vLLM Doctor explains inference-system behavior.
 
 ## Installation
 
-With pip:
+=== "pip"
 
-```shell
-pip install vllm-doctor
-```
+    ```shell
+    pip install vllm-doctor
+    ```
 
-With uv:
+=== "uv"
 
-```shell
-uv tool install vllm-doctor
-```
+    ```shell
+    uv tool install vllm-doctor
+    ```
 
 ## Quickstart
 
-Direct scrape:
+=== "Direct scrape"
 
-```shell
-vllm-doctor --url http://localhost:8000/metrics
-```
+    ```shell
+    vllm-doctor --url http://localhost:8000/metrics
+    ```
 
-Prometheus:
+=== "Prometheus"
 
-```shell
-vllm-doctor --url http://localhost:9090
-```
+    ```shell
+    vllm-doctor --url http://localhost:9090
+    ```
 
 ## Example output
 
@@ -78,7 +79,3 @@ vllm-doctor --url http://localhost:9090
   Requests Waiting    7
   GPU Cache Usage   94%
 ```
-
-## Documentation
-
-Read the full documentation: https://aminalaee.github.io/vllm-doctor
