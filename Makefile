@@ -4,7 +4,7 @@ setup:
 	uv sync --all-groups
 
 test:
-	uv run pytest --cov=vllm_doctor --cov-report=term-missing
+	uv run pytest tests/unit --cov=vllm_doctor --cov-report=term-missing --cov-fail-under=90
 
 test-integration:
 	uv run pytest tests/integration/ -v
@@ -23,7 +23,13 @@ docs:
 docs-build:
 	uv run mkdocs build --strict
 
+docs-deploy:
+	uv run mkdocs gh-deploy --force
+
 build:
 	uv build
 
-.PHONY: all setup test test-integration lint format docs docs-build build
+publish:
+	uv publish
+
+.PHONY: all setup test test-integration lint format docs docs-build docs-deploy build publish

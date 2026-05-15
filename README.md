@@ -1,5 +1,14 @@
 <img src="https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/docs/assets/wordmark.svg" alt="vLLM Doctor" width="360">
 
+<p>
+<a href="https://pypi.org/project/vllm-doctor/">
+    <img src="https://badge.fury.io/py/vllm-doctor.svg" alt="Package version">
+</a>
+<a href="https://pypi.org/project/vllm-doctor/">
+    <img src="https://img.shields.io/pypi/pyversions/vllm-doctor.svg?color=%2334D058" alt="Supported Python versions">
+</a>
+</p>
+
 Diagnose vLLM serving issues from `/metrics`.
 
 vLLM Doctor reads production metrics and turns them into operational findings: what looks wrong, how confident the diagnosis is, and which vLLM knobs are worth checking first.
