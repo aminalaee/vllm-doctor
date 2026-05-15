@@ -6,6 +6,7 @@ import typer
 from vllm_doctor.clients import resolve_client
 from vllm_doctor.collector import collect
 from vllm_doctor.diagnosis import run
+from vllm_doctor.models import DiagnosisResult
 from vllm_doctor.reports import json as json_report
 from vllm_doctor.reports import text as text_report
 from vllm_doctor.rules.error_rate import ErrorRateRule
@@ -31,11 +32,11 @@ class Format(str, Enum):
 async def _diagnose(url: str, window: str, fmt: Format) -> None:
     async with await resolve_client(url) as client:
         snapshot = await collect(client, window=window)
-        findings = run(snapshot, _RULES)
+        result = DiagnosisResult(snapshot=snapshot, findings=run(snapshot, _RULES))
         if fmt == Format.json:
-            typer.echo(json_report.render(findings, snapshot))
+            typer.echo(json_report.render(result))
         else:
-            text_report.render(findings, snapshot)
+            text_report.render(result)
 
 
 @app.command()

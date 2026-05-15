@@ -1,31 +1,22 @@
 from pydantic import BaseModel
 
-from vllm_doctor.models import Finding, MetricSnapshot, Severity
+from vllm_doctor.models import DiagnosisResult, Finding, Health, Metrics
 
 
 class DiagnosisReport(BaseModel):
-    health: str
+    health: Health
+    model_name: str | None
     window: str
     findings: list[Finding]
-    metrics: MetricSnapshot
-
-    model_config = {"json_encoders": {}}
+    metrics: Metrics
 
 
-def render(findings: list[Finding], snapshot: MetricSnapshot) -> str:
-    health = (
-        "ok"
-        if not findings
-        else min(
-            findings, key=lambda f: list(Severity).index(f.severity)
-        ).severity.value
-    )
+def render(result: DiagnosisResult) -> str:
     report = DiagnosisReport(
-        health=health,
-        window=snapshot.window,
-        findings=findings,
-        metrics=snapshot,
+        health=result.health,
+        model_name=result.snapshot.model_name,
+        window=result.snapshot.window,
+        findings=result.findings,
+        metrics=result.snapshot.metrics,
     )
-    return report.model_dump_json(
-        indent=2, exclude={"metrics": {"window", "model_name"}}
-    )
+    return report.model_dump_json(indent=2)

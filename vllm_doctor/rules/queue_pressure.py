@@ -30,8 +30,8 @@ class QueuePressureRule(Rule):
 
     def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
         waiting_high = (
-            snapshot.num_requests_waiting is not None
-            and snapshot.num_requests_waiting > self.high_waiting
+            snapshot.metrics.num_requests_waiting is not None
+            and snapshot.metrics.num_requests_waiting > self.high_waiting
         )
 
         if not waiting_high:
@@ -39,17 +39,17 @@ class QueuePressureRule(Rule):
 
         signals: list[str] = []
         evidence = [
-            f"Waiting requests: {snapshot.num_requests_waiting:.0f} (threshold: {self.high_waiting})"
+            f"Waiting requests: {snapshot.metrics.num_requests_waiting:.0f} (threshold: {self.high_waiting})"
         ]
 
         running_high = (
-            snapshot.num_requests_running is not None
-            and snapshot.num_requests_running > self.high_running
+            snapshot.metrics.num_requests_running is not None
+            and snapshot.metrics.num_requests_running > self.high_running
         )
         if running_high:
             signals.append("Queue pressure compounding with server saturation")
             evidence.append(
-                f"Running requests: {snapshot.num_requests_running:.0f} (threshold: {self.high_running})"
+                f"Running requests: {snapshot.metrics.num_requests_running:.0f} (threshold: {self.high_running})"
             )
 
         confidence = Confidence.high if running_high else Confidence.low

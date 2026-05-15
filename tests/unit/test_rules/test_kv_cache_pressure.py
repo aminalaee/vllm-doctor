@@ -1,6 +1,6 @@
 import pytest
 
-from vllm_doctor.models import Confidence, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 
 
@@ -11,13 +11,13 @@ def rule() -> KVCachePressureRule:
 
 @pytest.fixture
 def high_cache_snapshot() -> MetricSnapshot:
-    return MetricSnapshot(window="now", gpu_cache_usage_perc=0.95)
+    return MetricSnapshot(window="now", metrics=Metrics(gpu_cache_usage_perc=0.95))
 
 
 @pytest.fixture
 def high_cache_with_waiting_snapshot() -> MetricSnapshot:
     return MetricSnapshot(
-        window="now", gpu_cache_usage_perc=0.95, num_requests_waiting=5
+        window="now", metrics=Metrics(gpu_cache_usage_perc=0.95, num_requests_waiting=5)
     )
 
 
@@ -27,17 +27,23 @@ class TestKVCachePressureRule:
 
     def test_no_finding_below_threshold(self, rule: KVCachePressureRule) -> None:
         assert (
-            rule.evaluate(MetricSnapshot(window="now", gpu_cache_usage_perc=0.80)) == []
+            rule.evaluate(
+                MetricSnapshot(window="now", metrics=Metrics(gpu_cache_usage_perc=0.80))
+            )
+            == []
         )
 
     def test_no_finding_at_threshold_boundary(self, rule: KVCachePressureRule) -> None:
         assert (
-            rule.evaluate(MetricSnapshot(window="now", gpu_cache_usage_perc=0.89)) == []
+            rule.evaluate(
+                MetricSnapshot(window="now", metrics=Metrics(gpu_cache_usage_perc=0.89))
+            )
+            == []
         )
 
     def test_finding_at_threshold(self, rule: KVCachePressureRule) -> None:
         findings = rule.evaluate(
-            MetricSnapshot(window="now", gpu_cache_usage_perc=0.90)
+            MetricSnapshot(window="now", metrics=Metrics(gpu_cache_usage_perc=0.90))
         )
         assert len(findings) == 1
         assert findings[0].severity == Severity.critical
@@ -61,7 +67,8 @@ class TestKVCachePressureRule:
         self, rule: KVCachePressureRule
     ) -> None:
         snapshot = MetricSnapshot(
-            window="now", gpu_cache_usage_perc=0.95, num_requests_waiting=0
+            window="now",
+            metrics=Metrics(gpu_cache_usage_perc=0.95, num_requests_waiting=0),
         )
         assert rule.evaluate(snapshot)[0].confidence == Confidence.medium
 
@@ -82,9 +89,18 @@ class TestKVCachePressureRule:
     def test_custom_threshold(self) -> None:
         rule = KVCachePressureRule(high_cache_usage=0.75)
         assert (
-            rule.evaluate(MetricSnapshot(window="now", gpu_cache_usage_perc=0.74)) == []
+            rule.evaluate(
+                MetricSnapshot(window="now", metrics=Metrics(gpu_cache_usage_perc=0.74))
+            )
+            == []
         )
         assert (
-            len(rule.evaluate(MetricSnapshot(window="now", gpu_cache_usage_perc=0.75)))
+            len(
+                rule.evaluate(
+                    MetricSnapshot(
+                        window="now", metrics=Metrics(gpu_cache_usage_perc=0.75)
+                    )
+                )
+            )
             == 1
         )

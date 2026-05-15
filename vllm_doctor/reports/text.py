@@ -2,12 +2,19 @@ from rich.console import Console
 from rich.rule import Rule
 from rich.text import Text
 
-from vllm_doctor.models import Finding, MetricSnapshot, Severity
+from vllm_doctor.models import DiagnosisResult, Finding, Health, Metrics, Severity
 
 _SEVERITY_COLOR = {
     Severity.critical: "red",
     Severity.warning: "yellow",
     Severity.info: "blue",
+}
+
+_HEALTH_COLOR = {
+    Health.ok: "green",
+    Health.info: "blue",
+    Health.warning: "yellow",
+    Health.critical: "red",
 }
 
 _SEVERITY_ICON = {
@@ -45,31 +52,23 @@ def _print_finding(finding: Finding, console: Console) -> None:
         console.print()
 
 
-def _print_metrics(snapshot: MetricSnapshot, console: Console) -> None:
-    def _row(label: str, value: float | None, fmt: str = ".0f") -> None:
-        val = "n/a" if value is None else f"{value:{fmt}}"
-        console.print(Text(f"  {label:<24}{val:>8}"))
+def _print_metrics(result: DiagnosisResult, console: Console) -> None:
+    for name, field in Metrics.model_fields.items():
+        value = getattr(result.snapshot.metrics, name)
+        if value is None:
+            continue
+        label = field.title or name
+        fmt = str((field.json_schema_extra or {}).get("fmt", ".0f"))
+        formatted = format(value, fmt)
+        console.print(Text(f"  {label:<24}{formatted:>8}"))
 
-    _row("Requests Running", snapshot.num_requests_running)
-    _row("Requests Waiting", snapshot.num_requests_waiting)
-    _row("GPU Cache Usage", snapshot.gpu_cache_usage_perc, fmt=".0%")
 
-
-def render(
-    findings: list[Finding],
-    snapshot: MetricSnapshot,
-    console: Console | None = None,
-) -> None:
+def render(result: DiagnosisResult, console: Console | None = None) -> None:
     console = console or Console()
 
-    if not findings:
-        health = Text.assemble(("Health: ", "bold"), ("OK", "bold green"))
-    else:
-        worst = min(findings, key=lambda f: list(Severity).index(f.severity))
-        color = _SEVERITY_COLOR[worst.severity]
-        health = Text.assemble(
-            ("Health: ", "bold"), (worst.severity.value.upper(), f"bold {color}")
-        )
+    h = result.health
+    color = _HEALTH_COLOR[h]
+    health = Text.assemble(("Health: ", "bold"), (h.value.upper(), f"bold {color}"))
 
     console.print(
         Rule(
@@ -78,21 +77,21 @@ def render(
                 ("  ·  ", "dim"),
                 health,
                 ("  ·  ", "dim"),
-                Text(f"Window: {snapshot.window}", style="dim"),
+                Text(f"Window: {result.snapshot.window}", style="dim"),
             ),
             style="dim",
         )
     )
     console.print()
 
-    if not findings:
+    if not result.findings:
         console.print(Text("  No issues detected.", style="green"))
         console.print()
     else:
-        for finding in findings:
+        for finding in result.findings:
             _print_finding(finding, console)
 
     console.print(Rule("Observed Metrics", style="dim"))
     console.print()
-    _print_metrics(snapshot, console)
+    _print_metrics(result, console)
     console.print()

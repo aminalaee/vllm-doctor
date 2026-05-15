@@ -2,7 +2,13 @@ import json
 
 import pytest
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import (
+    Confidence,
+    DiagnosisResult,
+    Finding,
+    MetricSnapshot,
+    Severity,
+)
 from vllm_doctor.reports import json as json_report
 
 
@@ -26,30 +32,36 @@ def queue_finding() -> Finding:
 
 class TestRenderJson:
     def test_ok_health_no_findings(self, snapshot: MetricSnapshot) -> None:
-        output = json.loads(json_report.render([], snapshot))
+        result = DiagnosisResult(snapshot=snapshot, findings=[])
+        output = json.loads(json_report.render(result))
         assert output["health"] == "ok"
 
     def test_health_reflects_worst_severity(
         self, snapshot: MetricSnapshot, queue_finding: Finding
     ) -> None:
-        output = json.loads(json_report.render([queue_finding], snapshot))
+        result = DiagnosisResult(snapshot=snapshot, findings=[queue_finding])
+        output = json.loads(json_report.render(result))
         assert output["health"] == "warning"
 
     def test_findings_in_output(
         self, snapshot: MetricSnapshot, queue_finding: Finding
     ) -> None:
-        output = json.loads(json_report.render([queue_finding], snapshot))
+        result = DiagnosisResult(snapshot=snapshot, findings=[queue_finding])
+        output = json.loads(json_report.render(result))
         assert len(output["findings"]) == 1
         assert output["findings"][0]["title"] == "Queue pressure"
 
     def test_empty_findings(self, snapshot: MetricSnapshot) -> None:
-        output = json.loads(json_report.render([], snapshot))
+        result = DiagnosisResult(snapshot=snapshot, findings=[])
+        output = json.loads(json_report.render(result))
         assert output["findings"] == []
 
     def test_metrics_in_output(self, snapshot: MetricSnapshot) -> None:
-        output = json.loads(json_report.render([], snapshot))
+        result = DiagnosisResult(snapshot=snapshot, findings=[])
+        output = json.loads(json_report.render(result))
         assert "metrics" in output
 
     def test_window_in_output(self, snapshot: MetricSnapshot) -> None:
-        output = json.loads(json_report.render([], snapshot))
+        result = DiagnosisResult(snapshot=snapshot, findings=[])
+        output = json.loads(json_report.render(result))
         assert output["window"] == "1h"

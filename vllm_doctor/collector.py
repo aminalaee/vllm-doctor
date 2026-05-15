@@ -9,7 +9,7 @@ from vllm_doctor.metrics import (
     query_requests_running,
     query_requests_waiting,
 )
-from vllm_doctor.models import MetricSnapshot
+from vllm_doctor.models import Metrics, MetricSnapshot
 
 
 async def collect(
@@ -39,12 +39,14 @@ async def collect(
     return MetricSnapshot(
         model_name=model,
         window=window,
-        num_requests_running=running,
-        num_requests_waiting=waiting,
-        gpu_cache_usage_perc=gpu_cache,
-        prompt_tokens_per_second=prompt_tps,
-        generation_tokens_per_second=gen_tps,
-        request_success_total=success,
-        request_error_total=errors,
-        request_abort_total=aborts,
+        metrics=Metrics(
+            num_requests_running=running,
+            num_requests_waiting=waiting,
+            gpu_cache_usage_perc=gpu_cache,
+            prompt_tokens_per_second=prompt_tps,
+            generation_tokens_per_second=gen_tps,
+            request_success_total=success,
+            request_error_total=errors,
+            request_abort_total=aborts,
+        ),
     )

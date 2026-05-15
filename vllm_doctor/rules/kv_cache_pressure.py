@@ -26,27 +26,27 @@ class KVCachePressureRule(Rule):
         self.high_cache_usage = high_cache_usage
 
     def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        if snapshot.gpu_cache_usage_perc is None:
+        if snapshot.metrics.gpu_cache_usage_perc is None:
             return []
 
-        cache_high = snapshot.gpu_cache_usage_perc >= self.high_cache_usage
+        cache_high = snapshot.metrics.gpu_cache_usage_perc >= self.high_cache_usage
         if not cache_high:
             return []
 
         signals: list[str] = []
         evidence = [
-            f"GPU KV cache usage: {snapshot.gpu_cache_usage_perc:.0%} "
+            f"GPU KV cache usage: {snapshot.metrics.gpu_cache_usage_perc:.0%} "
             f"(threshold: {self.high_cache_usage:.0%})"
         ]
 
         waiting_high = (
-            snapshot.num_requests_waiting is not None
-            and snapshot.num_requests_waiting > 0
+            snapshot.metrics.num_requests_waiting is not None
+            and snapshot.metrics.num_requests_waiting > 0
         )
         if waiting_high:
             signals.append("Cache saturation blocking new request admission")
             evidence.append(
-                f"Waiting requests: {snapshot.num_requests_waiting:.0f} "
+                f"Waiting requests: {snapshot.metrics.num_requests_waiting:.0f} "
                 "(blocked by full cache)"
             )
 
@@ -58,7 +58,7 @@ class KVCachePressureRule(Rule):
                 confidence=confidence,
                 title="KV cache pressure",
                 summary=(
-                    f"GPU KV cache at {snapshot.gpu_cache_usage_perc:.0%} — "
+                    f"GPU KV cache at {snapshot.metrics.gpu_cache_usage_perc:.0%} — "
                     "new requests cannot be admitted until sequences complete."
                 ),
                 signals=signals,

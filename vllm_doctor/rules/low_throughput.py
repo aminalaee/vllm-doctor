@@ -39,18 +39,18 @@ class LowThroughputRule(Rule):
 
     def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
         if (
-            snapshot.prompt_tokens_per_second is None
-            and snapshot.generation_tokens_per_second is None
+            snapshot.metrics.prompt_tokens_per_second is None
+            and snapshot.metrics.generation_tokens_per_second is None
         ):
             return []
 
         prompt_low = (
-            snapshot.prompt_tokens_per_second is not None
-            and snapshot.prompt_tokens_per_second < self.low_prompt_tps
+            snapshot.metrics.prompt_tokens_per_second is not None
+            and snapshot.metrics.prompt_tokens_per_second < self.low_prompt_tps
         )
         gen_low = (
-            snapshot.generation_tokens_per_second is not None
-            and snapshot.generation_tokens_per_second < self.low_gen_tps
+            snapshot.metrics.generation_tokens_per_second is not None
+            and snapshot.metrics.generation_tokens_per_second < self.low_gen_tps
         )
 
         if not prompt_low and not gen_low:
@@ -58,8 +58,8 @@ class LowThroughputRule(Rule):
 
         # Not underutilized if requests are waiting — that's queue pressure, not low throughput
         if (
-            snapshot.num_requests_waiting is not None
-            and snapshot.num_requests_waiting > 0
+            snapshot.metrics.num_requests_waiting is not None
+            and snapshot.metrics.num_requests_waiting > 0
         ):
             return []
 
@@ -75,24 +75,26 @@ class LowThroughputRule(Rule):
         else:
             signals.append("Decode throughput below threshold")
 
-        if snapshot.prompt_tokens_per_second is not None:
+        if snapshot.metrics.prompt_tokens_per_second is not None:
             evidence.append(
-                f"Prompt tokens/s: {snapshot.prompt_tokens_per_second:.1f} "
+                f"Prompt tokens/s: {snapshot.metrics.prompt_tokens_per_second:.1f} "
                 f"(threshold: {self.low_prompt_tps:.1f})"
             )
-        if snapshot.generation_tokens_per_second is not None:
+        if snapshot.metrics.generation_tokens_per_second is not None:
             evidence.append(
-                f"Generation tokens/s: {snapshot.generation_tokens_per_second:.1f} "
+                f"Generation tokens/s: {snapshot.metrics.generation_tokens_per_second:.1f} "
                 f"(threshold: {self.low_gen_tps:.1f})"
             )
 
         running_low = (
-            snapshot.num_requests_running is not None
-            and snapshot.num_requests_running < self.low_running
+            snapshot.metrics.num_requests_running is not None
+            and snapshot.metrics.num_requests_running < self.low_running
         )
         if running_low:
             signals.append("Very few active requests — no batching benefit")
-            evidence.append(f"Requests running: {snapshot.num_requests_running:.0f}")
+            evidence.append(
+                f"Requests running: {snapshot.metrics.num_requests_running:.0f}"
+            )
 
         confidence = (
             Confidence.medium
