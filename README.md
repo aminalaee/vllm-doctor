@@ -59,6 +59,12 @@ Prometheus:
 vllm-doctor --url http://localhost:9090
 ```
 
+JSON output:
+
+```shell
+vllm-doctor --url http://localhost:8000/metrics --format json
+```
+
 ## Example output
 
 ```shell

@@ -1,11 +1,13 @@
 import asyncio
+from enum import Enum
 
 import typer
 
 from vllm_doctor.clients import resolve_client
 from vllm_doctor.collector import collect
 from vllm_doctor.diagnosis import run
-from vllm_doctor.report import render_text
+from vllm_doctor.reports import json as json_report
+from vllm_doctor.reports import text as text_report
 from vllm_doctor.rules.error_rate import ErrorRateRule
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 from vllm_doctor.rules.low_throughput import LowThroughputRule
@@ -21,11 +23,19 @@ _RULES = [
 ]
 
 
-async def _diagnose(url: str, window: str) -> None:
+class Format(str, Enum):
+    text = "text"
+    json = "json"
+
+
+async def _diagnose(url: str, window: str, fmt: Format) -> None:
     async with await resolve_client(url) as client:
         snapshot = await collect(client, window=window)
         findings = run(snapshot, _RULES)
-        render_text(findings, snapshot)
+        if fmt == Format.json:
+            typer.echo(json_report.render(findings, snapshot))
+        else:
+            text_report.render(findings, snapshot)
 
 
 @app.command()
@@ -39,8 +49,11 @@ def main(
     window: str = typer.Option(
         "now", "--window", "-w", help="Time window (e.g. '1h', '30m', 'now')."
     ),
+    fmt: Format = typer.Option(
+        Format.text, "--format", "-f", help="Output format (text or json)."
+    ),
 ) -> None:
     try:
-        asyncio.run(_diagnose(url, window))
+        asyncio.run(_diagnose(url, window, fmt))
     except KeyboardInterrupt:
         pass

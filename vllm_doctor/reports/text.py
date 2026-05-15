@@ -55,7 +55,7 @@ def _print_metrics(snapshot: MetricSnapshot, console: Console) -> None:
     _row("GPU Cache Usage", snapshot.gpu_cache_usage_perc, fmt=".0%")
 
 
-def render_text(
+def render(
     findings: list[Finding],
     snapshot: MetricSnapshot,
     console: Console | None = None,
