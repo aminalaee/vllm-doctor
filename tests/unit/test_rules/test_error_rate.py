@@ -1,6 +1,6 @@
 import pytest
 
-from vllm_doctor.models import Confidence, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.error_rate import ErrorRateRule
 
 
@@ -12,9 +12,11 @@ def rule() -> ErrorRateRule:
 def _snapshot(success: float, errors: float, aborts: float) -> MetricSnapshot:
     return MetricSnapshot(
         window="now",
-        request_success_total=success,
-        request_error_total=errors,
-        request_abort_total=aborts,
+        metrics=Metrics(
+            request_success_total=success,
+            request_error_total=errors,
+            request_abort_total=aborts,
+        ),
     )
 
 
@@ -63,7 +65,6 @@ class TestErrorRateRule:
     def test_only_error_metric_present(self, rule: ErrorRateRule) -> None:
         snapshot = MetricSnapshot(
             window="now",
-            request_error_total=10.0,
-            request_success_total=90.0,
+            metrics=Metrics(request_error_total=10.0, request_success_total=90.0),
         )
         assert len(rule.evaluate(snapshot)) == 1

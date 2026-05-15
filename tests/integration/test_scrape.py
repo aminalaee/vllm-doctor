@@ -36,10 +36,10 @@ class TestLiveScrape:
     async def test_snapshot_fields_populated(self, client: ScrapeClient) -> None:
         snapshot = await collect(client, window="now")
         assert isinstance(snapshot, MetricSnapshot)
-        assert snapshot.num_requests_running is not None
-        assert snapshot.num_requests_waiting is not None
-        assert snapshot.num_requests_running >= 0
-        assert snapshot.num_requests_waiting >= 0
+        assert snapshot.metrics.num_requests_running is not None
+        assert snapshot.metrics.num_requests_waiting is not None
+        assert snapshot.metrics.num_requests_running >= 0
+        assert snapshot.metrics.num_requests_waiting >= 0
 
     async def test_diagnosis_runs_without_error(self, client: ScrapeClient) -> None:
         snapshot = await collect(client, window="now")

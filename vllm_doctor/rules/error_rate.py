@@ -36,9 +36,9 @@ class ErrorRateRule(Rule):
         self.high_abort_rate = high_abort_rate
 
     def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        errors = snapshot.request_error_total
-        aborts = snapshot.request_abort_total
-        success = snapshot.request_success_total
+        errors = snapshot.metrics.request_error_total
+        aborts = snapshot.metrics.request_abort_total
+        success = snapshot.metrics.request_success_total
 
         if errors is None and aborts is None:
             return []
