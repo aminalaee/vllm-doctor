@@ -40,6 +40,12 @@ class Metrics(BaseModel):
     request_success_total: Annotated[_Metric, Field(title="Requests Success")] = None
     request_error_total: Annotated[_Metric, Field(title="Requests Error")] = None
     request_abort_total: Annotated[_Metric, Field(title="Requests Aborted")] = None
+    ttft_p95_seconds: Annotated[
+        _Metric, Field(title="TTFT p95 (s)", json_schema_extra={"fmt": ".3f"})
+    ] = None
+    tpot_p95_seconds: Annotated[
+        _Metric, Field(title="TPOT p95 (s)", json_schema_extra={"fmt": ".3f"})
+    ] = None
 
 
 class MetricSnapshot(BaseModel):

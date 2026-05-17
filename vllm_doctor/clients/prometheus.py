@@ -1,3 +1,5 @@
+import math
+
 import httpx
 
 from vllm_doctor.clients.models import MetricSample
@@ -83,6 +85,16 @@ class PrometheusClient:
             for r in data["data"]["result"]
             for point in r["values"]
         ]
+
+    async def query_percentile(
+        self, metric: str, quantile: float, model: str | None = None, window: str = "5m"
+    ) -> float | None:
+        label = f'{{model_name="{model}"}}' if model else ""
+        expr = f"histogram_quantile({quantile}, sum by (le) (rate({metric}_bucket{label}[{window}])))"
+        samples = await self.query(expr)
+        if not samples or not math.isfinite(samples[0].value):
+            return None
+        return samples[0].value
 
     async def aclose(self) -> None:
         await self._client.aclose()

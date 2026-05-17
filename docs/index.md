@@ -45,6 +45,9 @@ Dashboards show metrics. vLLM Doctor explains inference-system behavior.
     vllm-doctor --url http://localhost:8000/metrics
     ```
 
+    !!! note
+        Direct scrape mode reads instant gauge values. Latency percentile rules (TTFT, TPOT) are not available — use Prometheus mode for full diagnosis.
+
 === "Prometheus"
 
     ```shell

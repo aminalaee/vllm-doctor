@@ -15,6 +15,9 @@ from vllm_doctor.clients.models import MetricSample
 @runtime_checkable
 class Client(Protocol):
     async def query(self, metric_name: str) -> list[MetricSample]: ...
+    async def query_percentile(
+        self, metric: str, quantile: float, model: str | None = None, window: str = "5m"
+    ) -> float | None: ...
     async def aclose(self) -> None: ...
 
 
