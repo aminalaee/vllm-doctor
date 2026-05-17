@@ -98,3 +98,11 @@ class TestScrapeClient:
         async with scrape_client as c:
             result = await c.query("vllm:num_requests_waiting")
             assert len(result) == 1
+
+    async def test_query_percentile_returns_none(
+        self, scrape_client: ScrapeClient
+    ) -> None:
+        result = await scrape_client.query_percentile(
+            "vllm:time_to_first_token_seconds", 0.95
+        )
+        assert result is None

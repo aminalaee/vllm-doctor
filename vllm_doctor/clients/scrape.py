@@ -27,6 +27,11 @@ class ScrapeClient:
 
         return _parse(response.text, metric_name)
 
+    async def query_percentile(
+        self, metric: str, quantile: float, model: str | None = None, window: str = "5m"
+    ) -> float | None:
+        return None
+
     async def aclose(self) -> None:
         await self._client.aclose()
 
