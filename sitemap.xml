@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/queue-pressure/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/kv-cache-pressure/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/low-throughput/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/error-rate/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/ttft-bottleneck/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/tpot-bottleneck/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/metrics/</loc>
+      </url>
+</urlset>
