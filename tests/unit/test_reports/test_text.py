@@ -92,7 +92,7 @@ class TestRenderText:
     def test_verbose_shows_metrics(self, snapshot: MetricSnapshot) -> None:
         snapshot = MetricSnapshot(
             window="1h",
-            metrics=Metrics(num_requests_running=5, gpu_cache_usage_perc=0.5),
+            metrics=Metrics(num_requests_running=5, kv_cache_usage_perc=0.5),
         )
         buf = io.StringIO()
         render(
@@ -106,7 +106,7 @@ class TestRenderText:
     def test_verbose_shows_cache_bar(self, snapshot: MetricSnapshot) -> None:
         snapshot = MetricSnapshot(
             window="1h",
-            metrics=Metrics(gpu_cache_usage_perc=0.94),
+            metrics=Metrics(kv_cache_usage_perc=0.94),
         )
         buf = io.StringIO()
         render(
@@ -119,7 +119,7 @@ class TestRenderText:
     def test_verbose_nan_cache_shows_na(self) -> None:
         snapshot = MetricSnapshot(
             window="1h",
-            metrics=Metrics(gpu_cache_usage_perc=float("nan")),
+            metrics=Metrics(kv_cache_usage_perc=float("nan")),
         )
         buf = io.StringIO()
         render(

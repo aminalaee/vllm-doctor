@@ -30,4 +30,8 @@ jobs:
       - name: "Publish"
         run: |
           make publish
-          make docs-deploy
+      - name: "Publish docs"
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site

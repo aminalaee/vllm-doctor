@@ -3,12 +3,12 @@ from vllm_doctor.clients.models import MetricSample
 
 NUM_REQUESTS_RUNNING = "vllm:num_requests_running"
 NUM_REQUESTS_WAITING = "vllm:num_requests_waiting"
-GPU_CACHE_USAGE_PERC = "vllm:gpu_cache_usage_perc"
+GPU_CACHE_USAGE_PERC = "vllm:kv_cache_usage_perc"
 REQUEST_SUCCESS_TOTAL = "vllm:request_success_total"
 PROMPT_TOKENS_PER_SECOND = "vllm:prompt_tokens_per_second"
 GENERATION_TOKENS_PER_SECOND = "vllm:generation_tokens_per_second"
 TIME_TO_FIRST_TOKEN_SECONDS = "vllm:time_to_first_token_seconds"
-TIME_PER_OUTPUT_TOKEN_SECONDS = "vllm:time_per_output_token_seconds"
+TIME_PER_OUTPUT_TOKEN_SECONDS = "vllm:request_time_per_output_token_seconds"
 
 
 def _sum_values(samples: list[MetricSample]) -> float | None:

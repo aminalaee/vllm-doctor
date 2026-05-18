@@ -41,7 +41,7 @@ class TestCollect:
         snapshot = await collect(client, window="1h")
         assert snapshot.metrics.num_requests_running == 10.0
         assert snapshot.metrics.num_requests_waiting == 3.0
-        assert snapshot.metrics.gpu_cache_usage_perc == 0.72
+        assert snapshot.metrics.kv_cache_usage_perc == 0.72
         assert snapshot.window == "1h"
 
     async def test_sets_model_name(self, client: PrometheusClient) -> None:
@@ -54,4 +54,4 @@ class TestCollect:
         snapshot = await collect(empty_client, window="1h")
         assert snapshot.metrics.num_requests_running is None
         assert snapshot.metrics.num_requests_waiting is None
-        assert snapshot.metrics.gpu_cache_usage_perc is None
+        assert snapshot.metrics.kv_cache_usage_perc is None
