@@ -7,7 +7,7 @@ compute is otherwise available. This is the most common cause of latency spikes
 under long-context or high-concurrency workloads.
 
 Signals (each matching signal increases confidence):
-  - gpu_cache_usage_perc >= threshold: cache is critically full
+  - kv_cache_usage_perc >= threshold: cache is critically full
   - num_requests_waiting > 0: cache pressure is already causing queuing
 
 Confidence:
@@ -26,16 +26,16 @@ class KVCachePressureRule(Rule):
         self.high_cache_usage = high_cache_usage
 
     def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        if snapshot.metrics.gpu_cache_usage_perc is None:
+        if snapshot.metrics.kv_cache_usage_perc is None:
             return []
 
-        cache_high = snapshot.metrics.gpu_cache_usage_perc >= self.high_cache_usage
+        cache_high = snapshot.metrics.kv_cache_usage_perc >= self.high_cache_usage
         if not cache_high:
             return []
 
         signals: list[str] = []
         evidence = [
-            f"GPU KV cache usage: {snapshot.metrics.gpu_cache_usage_perc:.0%} "
+            f"GPU KV cache usage: {snapshot.metrics.kv_cache_usage_perc:.0%} "
             f"(threshold: {self.high_cache_usage:.0%})"
         ]
 
@@ -58,7 +58,7 @@ class KVCachePressureRule(Rule):
                 confidence=confidence,
                 title="KV cache pressure",
                 summary=(
-                    f"GPU KV cache at {snapshot.metrics.gpu_cache_usage_perc:.0%} — "
+                    f"GPU KV cache at {snapshot.metrics.kv_cache_usage_perc:.0%} — "
                     "new requests cannot be admitted until sequences complete."
                 ),
                 signals=signals,
@@ -75,7 +75,7 @@ class KVCachePressureRule(Rule):
                     "Route long-context requests to a dedicated replica",
                 ],
                 related_metrics=[
-                    "vllm:gpu_cache_usage_perc",
+                    "vllm:kv_cache_usage_perc",
                     "vllm:num_requests_waiting",
                 ],
             )

@@ -49,7 +49,7 @@ async def collect(
         metrics=Metrics(
             num_requests_running=running,
             num_requests_waiting=waiting,
-            gpu_cache_usage_perc=gpu_cache,
+            kv_cache_usage_perc=gpu_cache,
             prompt_tokens_per_second=prompt_tps,
             generation_tokens_per_second=gen_tps,
             request_success_total=success,

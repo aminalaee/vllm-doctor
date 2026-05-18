@@ -12,7 +12,7 @@ Classic failure mode: a few long-context requests fill the cache, blocking all o
 
 | Signal               | Condition                                      |
 | -------------------- | ---------------------------------------------- |
-| Cache near full      | `gpu_cache_usage_perc >= 0.90` (default)       |
+| Cache near full      | `kv_cache_usage_perc >= 0.90` (default)        |
 | Cache blocking queue | `num_requests_waiting > 0` while cache is full |
 
 ## Confidence
@@ -37,7 +37,7 @@ Classic failure mode: a few long-context requests fill the cache, blocking all o
 
 ## Metrics used
 
-- `vllm:gpu_cache_usage_perc`
+- `vllm:kv_cache_usage_perc`
 - `vllm:num_requests_waiting`
 
 ## Configuration

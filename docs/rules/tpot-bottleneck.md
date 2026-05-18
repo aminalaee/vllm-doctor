@@ -43,7 +43,7 @@ Unlike TTFT, which reflects prefill or queue pressure, high TPOT with normal TTF
 
 ## Metrics used
 
-- `vllm:time_per_output_token_seconds` (histogram)
+- `vllm:request_time_per_output_token_seconds` (histogram)
 - `vllm:generation_tokens_per_second`
 - `vllm:time_to_first_token_seconds` (histogram)
 
