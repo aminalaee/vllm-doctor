@@ -39,6 +39,8 @@ nav:
       - KV Cache Pressure: "rules/kv-cache-pressure.md"
       - Low Throughput: "rules/low-throughput.md"
       - Error Rate: "rules/error-rate.md"
+      - High TTFT: "rules/ttft-bottleneck.md"
+      - High TPOT: "rules/tpot-bottleneck.md"
   - Metrics: "metrics.md"
 
 extra_css:
