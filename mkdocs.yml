@@ -3,30 +3,20 @@ site_description: Diagnostic tool for vLLM inference servers
 site_url: https://aminalaee.github.io/vllm-doctor
 
 theme:
-  name: "material"
+  name: "zensical"
   logo: assets/logo.svg
   favicon: assets/logo.svg
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: white
-      accent: teal
+    - scheme: default
       toggle:
-        icon: material/brightness-7
+        icon: lucide/sun
         name: Switch to dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: black
-      accent: teal
+    - scheme: slate
       toggle:
-        icon: material/brightness-4
+        icon: lucide/moon
         name: Switch to light mode
-  features:
-    - navigation.sections
-    - navigation.top
-    - navigation.tracking
-    - content.code.copy
-    - toc.follow
+  icon:
+    repo: simple/github
 
 repo_name: aminalaee/vllm-doctor
 repo_url: https://github.com/aminalaee/vllm-doctor
@@ -43,9 +33,6 @@ nav:
       - High TPOT: "rules/tpot-bottleneck.md"
   - Metrics: "metrics.md"
 
-extra_css:
-  - stylesheets/extra.css
-
 markdown_extensions:
   - markdown.extensions.codehilite:
       guess_lang: false
@@ -61,7 +48,6 @@ markdown_extensions:
 watch:
   - vllm_doctor/
   - docs/
-  - docs/stylesheets/
 
 plugins:
   - search

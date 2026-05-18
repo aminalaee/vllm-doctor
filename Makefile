@@ -18,13 +18,10 @@ format:
 	uv run ruff check --fix vllm_doctor tests
 
 docs:
-	uv run mkdocs serve
+	uv run zensical serve
 
 docs-build:
-	uv run mkdocs build --strict
-
-docs-deploy:
-	uv run mkdocs gh-deploy --force
+	uv run zensical build
 
 build:
 	uv build
@@ -32,4 +29,4 @@ build:
 publish:
 	uv publish
 
-.PHONY: all setup test test-integration lint format docs docs-build docs-deploy build publish
+.PHONY: all setup test test-integration lint format docs docs-build build publish
