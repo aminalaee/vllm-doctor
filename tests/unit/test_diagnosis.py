@@ -65,6 +65,34 @@ class TestRun:
         )
         assert len(findings) == 2
 
+    def test_sorts_by_confidence_within_same_severity(
+        self, snapshot: MetricSnapshot
+    ) -> None:
+        low = Finding(
+            severity=Severity.warning,
+            confidence=Confidence.low,
+            title="low",
+            summary="test",
+        )
+        medium = Finding(
+            severity=Severity.warning,
+            confidence=Confidence.medium,
+            title="medium",
+            summary="test",
+        )
+        high = Finding(
+            severity=Severity.warning,
+            confidence=Confidence.high,
+            title="high",
+            summary="test",
+        )
+        findings = run(snapshot, [FixedRule([low, medium, high])])
+        assert [f.confidence for f in findings] == [
+            Confidence.high,
+            Confidence.medium,
+            Confidence.low,
+        ]
+
     def test_sorts_by_severity(
         self,
         snapshot: MetricSnapshot,
