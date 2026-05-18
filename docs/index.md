@@ -60,31 +60,36 @@ Dashboards show metrics. vLLM Doctor explains inference-system behavior.
     vllm-doctor --url http://localhost:8000/metrics --format json
     ```
 
+=== "Verbose"
+
+    ```shell
+    vllm-doctor --url http://localhost:8000/metrics --verbose
+    ```
+
 ## Example output
 
 ```shell
-─────────── vLLM Doctor  ·  Health: CRITICAL  ·  Window: now ───────────
+─────────── vLLM Doctor  ·  Health: CRITICAL  ·  Window: 5m ────────────
 
-✖ KV cache pressure  [high confidence]
-  Cache saturation blocking new request admission
+╭─ ✖ KV cache pressure  [high confidence] ─────────────────────────────╮
+│   GPU KV cache usage: 94%  ·  Waiting requests: 7                    │
+│                                                                      │
+│   → Reduce max_num_seqs to limit concurrent sequences                │
+│   → Increase gpu_memory_utilization if GPU memory headroom exists    │
+╰──────────────────────────────────────────────────────────────────────╯
+╭─ ⚠ Queue pressure  [low confidence] ─────────────────────────────────╮
+│   Waiting requests: 7                                                │
+│                                                                      │
+│   → Add replicas or increase concurrency limits                      │
+│   → Inspect autoscaling thresholds                                   │
+╰──────────────────────────────────────────────────────────────────────╯
 
-  GPU KV cache usage: 94% (threshold: 90%)
-  Waiting requests: 7 (blocked by full cache)
+─────────────────────────── Observed Metrics ───────────────────────────
 
-  → Reduce max_num_seqs to limit concurrent sequences
-  → Reduce max_num_batched_tokens to cap memory per step
-  → Increase gpu_memory_utilization if GPU memory headroom exists
-  → Route long-context requests to a dedicated replica
-
-⚠ Queue pressure  [low confidence]
-  Waiting requests: 7 (threshold: 5)
-
-  → Add replicas or increase concurrency limits
-  → Inspect autoscaling thresholds
-
-────────────────────────── Observed Metrics ─────────────────────────────
-
-  Requests Running   12
-  Requests Waiting    7
-  GPU Cache Usage   94%
+  Requests Running                             12
+  Requests Waiting                              7
+  GPU Cache Usage        ███████████████████░ 94%
+  Generation Tokens/s                        42.0
+  TTFT p95 (s)                              3.200
+  TPOT p95 (s)                              0.050
 ```

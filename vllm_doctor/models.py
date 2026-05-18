@@ -29,7 +29,8 @@ class Metrics(BaseModel):
     num_requests_running: Annotated[_Metric, Field(title="Requests Running")] = None
     num_requests_waiting: Annotated[_Metric, Field(title="Requests Waiting")] = None
     gpu_cache_usage_perc: Annotated[
-        _Metric, Field(title="GPU Cache Usage", json_schema_extra={"fmt": ".0%"})
+        _Metric,
+        Field(title="GPU Cache Usage", json_schema_extra={"fmt": ".0%", "bar": True}),
     ] = None
     prompt_tokens_per_second: Annotated[
         _Metric, Field(title="Prompt Tokens/s", json_schema_extra={"fmt": ".1f"})
