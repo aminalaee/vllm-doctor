@@ -36,14 +36,8 @@ def _print_finding(finding: Finding, console: Console) -> None:
         )
     )
 
-    if finding.signals:
-        for s in finding.signals:
-            console.print(Text(f"  {s}", style="dim"))
-        console.print()
-
     if finding.evidence:
-        for e in finding.evidence:
-            console.print(Text(f"  {e}"))
+        console.print(Text(f"  {'  ·  '.join(finding.evidence)}", style="dim"))
         console.print()
 
     if finding.recommendations:
@@ -63,7 +57,9 @@ def _print_metrics(result: DiagnosisResult, console: Console) -> None:
         console.print(Text(f"  {label:<24}{formatted:>8}"))
 
 
-def render(result: DiagnosisResult, console: Console | None = None) -> None:
+def render(
+    result: DiagnosisResult, console: Console | None = None, verbose: bool = False
+) -> None:
     console = console or Console()
 
     h = result.health
@@ -91,7 +87,8 @@ def render(result: DiagnosisResult, console: Console | None = None) -> None:
         for finding in result.findings:
             _print_finding(finding, console)
 
-    console.print(Rule("Observed Metrics", style="dim"))
-    console.print()
-    _print_metrics(result, console)
-    console.print()
+    if verbose:
+        console.print(Rule("Observed Metrics", style="dim"))
+        console.print()
+        _print_metrics(result, console)
+        console.print()
