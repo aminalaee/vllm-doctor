@@ -33,14 +33,14 @@ class Format(str, Enum):
     json = "json"
 
 
-async def _diagnose(url: str, window: str, fmt: Format) -> None:
+async def _diagnose(url: str, window: str, fmt: Format, verbose: bool) -> None:
     async with await resolve_client(url) as client:
         snapshot = await collect(client, window=window)
         result = DiagnosisResult(snapshot=snapshot, findings=run(snapshot, _RULES))
         if fmt == Format.json:
-            typer.echo(json_report.render(result))
+            typer.echo(json_report.render(result, verbose=verbose))
         else:
-            text_report.render(result)
+            text_report.render(result, verbose=verbose)
 
 
 @app.command()
@@ -57,8 +57,11 @@ def main(
     fmt: Format = typer.Option(
         Format.text, "--format", "-f", help="Output format (text or json)."
     ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Show additional diagnostic detail."
+    ),
 ) -> None:
     try:
-        asyncio.run(_diagnose(url, window, fmt))
+        asyncio.run(_diagnose(url, window, fmt, verbose))
     except KeyboardInterrupt:
         pass

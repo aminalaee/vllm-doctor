@@ -11,7 +11,7 @@ class DiagnosisReport(BaseModel):
     metrics: Metrics
 
 
-def render(result: DiagnosisResult) -> str:
+def render(result: DiagnosisResult, verbose: bool = False) -> str:
     report = DiagnosisReport(
         health=result.health,
         model_name=result.snapshot.model_name,
@@ -19,4 +19,7 @@ def render(result: DiagnosisResult) -> str:
         findings=result.findings,
         metrics=result.snapshot.metrics,
     )
-    return report.model_dump_json(indent=2)
+    exclude: dict = {"findings": {"__all__": {"signals"}}}
+    if not verbose:
+        exclude["metrics"] = True
+    return report.model_dump_json(indent=2, exclude=exclude)

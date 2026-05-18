@@ -56,9 +56,14 @@ class TestRenderJson:
         output = json.loads(json_report.render(result))
         assert output["findings"] == []
 
-    def test_metrics_in_output(self, snapshot: MetricSnapshot) -> None:
+    def test_metrics_not_in_default_output(self, snapshot: MetricSnapshot) -> None:
         result = DiagnosisResult(snapshot=snapshot, findings=[])
         output = json.loads(json_report.render(result))
+        assert "metrics" not in output
+
+    def test_metrics_in_verbose_output(self, snapshot: MetricSnapshot) -> None:
+        result = DiagnosisResult(snapshot=snapshot, findings=[])
+        output = json.loads(json_report.render(result, verbose=True))
         assert "metrics" in output
 
     def test_window_in_output(self, snapshot: MetricSnapshot) -> None:
