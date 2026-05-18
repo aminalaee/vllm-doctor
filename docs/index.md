@@ -1,3 +1,5 @@
+# Introduction
+
 <img src="assets/wordmark.svg" alt="vLLM Doctor" class="vd-wordmark">
 
 Diagnose vLLM serving issues from `/metrics`.
