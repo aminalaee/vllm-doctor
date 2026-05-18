@@ -1,5 +1,9 @@
+import math
+
 from rich.console import Console
+from rich.panel import Panel
 from rich.rule import Rule
+from rich.table import Table
 from rich.text import Text
 
 from vllm_doctor.models import DiagnosisResult, Finding, Health, Metrics, Severity
@@ -23,38 +27,64 @@ _SEVERITY_ICON = {
     Severity.info: "ℹ",
 }
 
+_BAR_WIDTH = 20
+_BAR_FILLED = "█"
+_BAR_EMPTY = "░"
 
-def _print_finding(finding: Finding, console: Console) -> None:
+
+def _cache_bar(value: float, color: str) -> Text:
+    filled = round(value * _BAR_WIDTH)
+    bar = _BAR_FILLED * filled + _BAR_EMPTY * (_BAR_WIDTH - filled)
+    pct = f"{value:.0%}"
+    return Text.assemble((bar, f"bold {color}"), (f" {pct}", f"bold {color}"))
+
+
+def _finding_panel(finding: Finding, console: Console) -> None:
     color = _SEVERITY_COLOR[finding.severity]
     icon = _SEVERITY_ICON[finding.severity]
 
-    console.print(
-        Text.assemble(
-            (f"{icon} ", f"bold {color}"),
-            (finding.title, "bold"),
-            (f"  [{finding.confidence.value} confidence]", "dim"),
-        )
+    title = Text.assemble(
+        (f"{icon} ", f"bold {color}"),
+        (finding.title, "bold"),
+        (f"  [{finding.confidence.value} confidence]", "dim"),
     )
 
+    body = Text()
     if finding.evidence:
-        console.print(Text(f"  {'  ·  '.join(finding.evidence)}", style="dim"))
-        console.print()
-
+        body.append("  " + "  ·  ".join(finding.evidence) + "\n", style="dim")
     if finding.recommendations:
+        body.append("\n")
         for r in finding.recommendations:
-            console.print(Text.assemble(("  → ", f"bold {color}"), (r, "")))
-        console.print()
+            body.append("  → ", style=f"bold {color}")
+            body.append(f"{r}\n")
+
+    body.rstrip()
+    console.print(Panel(body, title=title, title_align="left", border_style=color))
 
 
-def _print_metrics(result: DiagnosisResult, console: Console) -> None:
+def _metrics_table(result: DiagnosisResult, console: Console) -> None:
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column(style="dim", no_wrap=True)
+    table.add_column(justify="right", no_wrap=True)
+
     for name, field in Metrics.model_fields.items():
         value = getattr(result.snapshot.metrics, name)
         if value is None:
             continue
         label = field.title or name
-        fmt = str((field.json_schema_extra or {}).get("fmt", ".0f"))
-        formatted = format(value, fmt)
-        console.print(Text(f"  {label:<24}{formatted:>8}"))
+        extra = field.json_schema_extra or {}
+        fmt = str(extra.get("fmt", ".0f"))
+
+        if extra.get("bar"):
+            if not math.isfinite(value):
+                table.add_row(label, Text("n/a", style="dim"))
+            else:
+                color = "red" if value >= 0.9 else "yellow" if value >= 0.7 else "green"
+                table.add_row(label, _cache_bar(value, color))
+        else:
+            table.add_row(label, Text(format(value, fmt), style="bold"))
+
+    console.print(table)
 
 
 def render(
@@ -85,10 +115,11 @@ def render(
         console.print()
     else:
         for finding in result.findings:
-            _print_finding(finding, console)
+            _finding_panel(finding, console)
+        console.print()
 
     if verbose:
         console.print(Rule("Observed Metrics", style="dim"))
         console.print()
-        _print_metrics(result, console)
+        _metrics_table(result, console)
         console.print()

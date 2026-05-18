@@ -8,6 +8,7 @@ from vllm_doctor.models import (
     DiagnosisResult,
     Finding,
     MetricSnapshot,
+    Metrics,
     Severity,
 )
 from vllm_doctor.reports.text import render
@@ -87,3 +88,56 @@ class TestRenderText:
             console=Console(file=buf, highlight=False),
         )
         assert "Add replicas" in buf.getvalue()
+
+    def test_verbose_shows_metrics(self, snapshot: MetricSnapshot) -> None:
+        snapshot = MetricSnapshot(
+            window="1h",
+            metrics=Metrics(num_requests_running=5, gpu_cache_usage_perc=0.5),
+        )
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(snapshot=snapshot, findings=[]),
+            console=Console(file=buf, highlight=False),
+            verbose=True,
+        )
+        assert "Observed Metrics" in buf.getvalue()
+        assert "Requests Running" in buf.getvalue()
+
+    def test_verbose_shows_cache_bar(self, snapshot: MetricSnapshot) -> None:
+        snapshot = MetricSnapshot(
+            window="1h",
+            metrics=Metrics(gpu_cache_usage_perc=0.94),
+        )
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(snapshot=snapshot, findings=[]),
+            console=Console(file=buf, highlight=False),
+            verbose=True,
+        )
+        assert "█" in buf.getvalue()
+
+    def test_verbose_nan_cache_shows_na(self) -> None:
+        snapshot = MetricSnapshot(
+            window="1h",
+            metrics=Metrics(gpu_cache_usage_perc=float("nan")),
+        )
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(snapshot=snapshot, findings=[]),
+            console=Console(file=buf, highlight=False),
+            verbose=True,
+        )
+        assert "n/a" in buf.getvalue()
+
+    def test_non_verbose_hides_metrics(self, snapshot: MetricSnapshot) -> None:
+        snapshot = MetricSnapshot(
+            window="1h",
+            metrics=Metrics(num_requests_running=5),
+        )
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(snapshot=snapshot, findings=[]),
+            console=Console(file=buf, highlight=False),
+            verbose=False,
+        )
+        assert "Observed Metrics" not in buf.getvalue()
