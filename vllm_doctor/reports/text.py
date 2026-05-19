@@ -1,6 +1,6 @@
 import math
 
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
@@ -39,7 +39,7 @@ def _cache_bar(value: float, color: str) -> Text:
     return Text.assemble((bar, f"bold {color}"), (f" {pct}", f"bold {color}"))
 
 
-def _finding_panel(finding: Finding, console: Console) -> None:
+def _finding_panel(finding: Finding) -> Panel:
     color = _SEVERITY_COLOR[finding.severity]
     icon = _SEVERITY_ICON[finding.severity]
 
@@ -59,10 +59,10 @@ def _finding_panel(finding: Finding, console: Console) -> None:
             body.append(f"{r}\n")
 
     body.rstrip()
-    console.print(Panel(body, title=title, title_align="left", border_style=color))
+    return Panel(body, title=title, title_align="left", border_style=color)
 
 
-def _metrics_table(result: DiagnosisResult, console: Console) -> None:
+def _metrics_table(result: DiagnosisResult) -> Table:
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style="dim", no_wrap=True)
     table.add_column(justify="right", no_wrap=True)
@@ -84,19 +84,15 @@ def _metrics_table(result: DiagnosisResult, console: Console) -> None:
         else:
             table.add_row(label, Text(format(value, fmt), style="bold"))
 
-    console.print(table)
+    return table
 
 
-def render(
-    result: DiagnosisResult, console: Console | None = None, verbose: bool = False
-) -> None:
-    console = console or Console()
-
+def build(result: DiagnosisResult, verbose: bool = False) -> Group:
     h = result.health
     color = _HEALTH_COLOR[h]
     health = Text.assemble(("Health: ", "bold"), (h.value.upper(), f"bold {color}"))
 
-    console.print(
+    items: list = [
         Rule(
             Text.assemble(
                 ("vLLM Doctor", "bold"),
@@ -106,20 +102,29 @@ def render(
                 Text(f"Window: {result.snapshot.window}", style="dim"),
             ),
             style="dim",
-        )
-    )
-    console.print()
+        ),
+        Text(),
+    ]
 
     if not result.findings:
-        console.print(Text("  No issues detected.", style="green"))
-        console.print()
+        items += [Text("  No issues detected.", style="green"), Text()]
     else:
         for finding in result.findings:
-            _finding_panel(finding, console)
-        console.print()
+            items.append(_finding_panel(finding))
+        items.append(Text())
 
     if verbose:
-        console.print(Rule("Observed Metrics", style="dim"))
-        console.print()
-        _metrics_table(result, console)
-        console.print()
+        items += [
+            Rule("Observed Metrics", style="dim"),
+            Text(),
+            _metrics_table(result),
+            Text(),
+        ]
+
+    return Group(*items)
+
+
+def render(
+    result: DiagnosisResult, console: Console | None = None, verbose: bool = False
+) -> None:
+    (console or Console()).print(build(result, verbose))
