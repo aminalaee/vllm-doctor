@@ -53,6 +53,7 @@ class Metrics(BaseModel):
     queue_time_p95_seconds: Annotated[
         _Metric, Field(title="Queue Time p95 (s)", json_schema_extra={"fmt": ".3f"})
     ] = None
+    num_preemptions_total: Annotated[_Metric, Field(title="Preemptions Total")] = None
 
 
 class MetricSnapshot(BaseModel):
