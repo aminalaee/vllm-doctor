@@ -9,6 +9,7 @@ from vllm_doctor.metrics import (
     PREFIX_CACHE_HITS_TOTAL,
     PREFIX_CACHE_QUERIES_TOTAL,
     PROMPT_TOKENS_PER_SECOND,
+    REQUEST_QUEUE_TIME_SECONDS,
     REQUEST_SUCCESS_TOTAL,
     TIME_PER_OUTPUT_TOKEN_SECONDS,
     TIME_TO_FIRST_TOKEN_SECONDS,
@@ -51,6 +52,7 @@ async def collect(
         tpot_p95,
         prefix_hits,
         prefix_queries,
+        queue_time_p95,
     ) = await asyncio.gather(
         _query(client, NUM_REQUESTS_RUNNING, model),
         _query(client, NUM_REQUESTS_WAITING, model),
@@ -68,6 +70,7 @@ async def collect(
         ),
         _query(client, PREFIX_CACHE_HITS_TOTAL, model),
         _query(client, PREFIX_CACHE_QUERIES_TOTAL, model),
+        _query_percentile(client, REQUEST_QUEUE_TIME_SECONDS, 0.95, model, rate_window),
     )
     prefix_hit_rate = (
         prefix_hits / prefix_queries
@@ -89,5 +92,6 @@ async def collect(
             ttft_p95_seconds=ttft_p95,
             tpot_p95_seconds=tpot_p95,
             prefix_cache_hit_rate=prefix_hit_rate,
+            queue_time_p95_seconds=queue_time_p95,
         ),
     )

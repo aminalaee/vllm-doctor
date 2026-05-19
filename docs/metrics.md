@@ -16,6 +16,7 @@ vLLM Doctor reads the following metrics from the vLLM `/metrics` endpoint or Pro
 | `vllm:request_time_per_output_token_seconds` | Histogram of time per output token during decode                                                                         | Prometheus |
 | `vllm:prefix_cache_hits_total`               | Cumulative prefix cache hits in tokens                                                                                   | Both       |
 | `vllm:prefix_cache_queries_total`            | Cumulative prefix cache queries in tokens                                                                                | Both       |
+| `vllm:request_queue_time_seconds`            | Histogram of time spent in the WAITING phase before prefill begins                                                       | Prometheus |
 
 ## Notes
 

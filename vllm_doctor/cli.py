@@ -16,6 +16,7 @@ from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 from vllm_doctor.rules.low_throughput import LowThroughputRule
 from vllm_doctor.rules.queue_pressure import QueuePressureRule
 from vllm_doctor.rules.prefix_cache_efficiency import PrefixCacheEfficiencyRule
+from vllm_doctor.rules.queue_latency import QueueLatencyRule
 from vllm_doctor.rules.tpot_bottleneck import TPOTBottleneckRule
 from vllm_doctor.rules.ttft_bottleneck import TTFTBottleneckRule
 
@@ -23,6 +24,7 @@ app = typer.Typer(help="Diagnostic tool for vLLM inference servers")
 
 _RULES = [
     QueuePressureRule(),
+    QueueLatencyRule(),
     KVCachePressureRule(),
     LowThroughputRule(),
     ErrorRateRule(),
