@@ -17,6 +17,7 @@ vLLM Doctor reads the following metrics from the vLLM `/metrics` endpoint or Pro
 | `vllm:prefix_cache_hits_total`               | Cumulative prefix cache hits in tokens                                                                                   | Both       |
 | `vllm:prefix_cache_queries_total`            | Cumulative prefix cache queries in tokens                                                                                | Both       |
 | `vllm:request_queue_time_seconds`            | Histogram of time spent in the WAITING phase before prefill begins                                                       | Prometheus |
+| `vllm:num_preemptions_total`                 | Cumulative number of sequence preemptions due to KV cache exhaustion                                                     | Both       |
 
 ## Notes
 

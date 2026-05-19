@@ -9,6 +9,7 @@ from vllm_doctor.rules.error_rate import ErrorRateRule
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 from vllm_doctor.rules.low_throughput import LowThroughputRule
 from vllm_doctor.rules.prefix_cache_efficiency import PrefixCacheEfficiencyRule
+from vllm_doctor.rules.preemption_pressure import PreemptionPressureRule
 from vllm_doctor.rules.queue_latency import QueueLatencyRule
 from vllm_doctor.rules.queue_pressure import QueuePressureRule
 from vllm_doctor.rules.tpot_bottleneck import TPOTBottleneckRule
@@ -72,12 +73,18 @@ class TestLiveScrape:
         snapshot = await collect(client, window="now")
         assert snapshot.metrics.queue_time_p95_seconds is None
 
+    async def test_preemptions_is_numeric(self, client: ScrapeClient) -> None:
+        snapshot = await collect(client, window="now")
+        assert snapshot.metrics.num_preemptions_total is not None
+        assert snapshot.metrics.num_preemptions_total >= 0
+
     async def test_diagnosis_runs_with_all_rules(self, client: ScrapeClient) -> None:
         snapshot = await collect(client, window="now")
         all_rules = [
             QueuePressureRule(),
             QueueLatencyRule(),
             KVCachePressureRule(),
+            PreemptionPressureRule(),
             LowThroughputRule(),
             ErrorRateRule(),
             TTFTBottleneckRule(),

@@ -4,6 +4,7 @@ from vllm_doctor.clients import Client
 from vllm_doctor.metrics import (
     GENERATION_TOKENS_PER_SECOND,
     GPU_CACHE_USAGE_PERC,
+    NUM_PREEMPTIONS_TOTAL,
     NUM_REQUESTS_RUNNING,
     NUM_REQUESTS_WAITING,
     PREFIX_CACHE_HITS_TOTAL,
@@ -53,6 +54,7 @@ async def collect(
         prefix_hits,
         prefix_queries,
         queue_time_p95,
+        preemptions,
     ) = await asyncio.gather(
         _query(client, NUM_REQUESTS_RUNNING, model),
         _query(client, NUM_REQUESTS_WAITING, model),
@@ -71,6 +73,7 @@ async def collect(
         _query(client, PREFIX_CACHE_HITS_TOTAL, model),
         _query(client, PREFIX_CACHE_QUERIES_TOTAL, model),
         _query_percentile(client, REQUEST_QUEUE_TIME_SECONDS, 0.95, model, rate_window),
+        _query(client, NUM_PREEMPTIONS_TOTAL, model),
     )
     prefix_hit_rate = (
         prefix_hits / prefix_queries
@@ -93,5 +96,6 @@ async def collect(
             tpot_p95_seconds=tpot_p95,
             prefix_cache_hit_rate=prefix_hit_rate,
             queue_time_p95_seconds=queue_time_p95,
+            num_preemptions_total=preemptions,
         ),
     )
