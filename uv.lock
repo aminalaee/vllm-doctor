@@ -830,6 +830,7 @@ dependencies = [
     { name = "prometheus-client" },
     { name = "pydantic" },
     { name = "rich" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
 ]
 
@@ -848,6 +849,7 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.20" },
     { name = "pydantic", specifier = ">=2" },
     { name = "rich", specifier = ">=13" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
     { name = "typer", specifier = ">=0.12" },
 ]
 

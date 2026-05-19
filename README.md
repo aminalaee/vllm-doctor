@@ -70,6 +70,7 @@ Options:
   -f, --format   [text|json]  Output format.  [default: text]
   -v, --verbose               Show additional diagnostic detail.
   -l, --live     INTEGER      Refresh interval in seconds (e.g. --live 10).
+  -c, --config   PATH         Path to config file (default: vllm-doctor.toml).
       --help                  Show this message and exit.
 ```
 
