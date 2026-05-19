@@ -2,16 +2,34 @@ import asyncio
 
 from vllm_doctor.clients import Client
 from vllm_doctor.metrics import (
-    query_generation_tokens_per_second,
-    query_gpu_cache_usage,
-    query_prompt_tokens_per_second,
-    query_requests_by_reason,
-    query_requests_running,
-    query_requests_waiting,
-    query_tpot_p95,
-    query_ttft_p95,
+    GENERATION_TOKENS_PER_SECOND,
+    GPU_CACHE_USAGE_PERC,
+    NUM_REQUESTS_RUNNING,
+    NUM_REQUESTS_WAITING,
+    PREFIX_CACHE_HITS_TOTAL,
+    PREFIX_CACHE_QUERIES_TOTAL,
+    PROMPT_TOKENS_PER_SECOND,
+    REQUEST_SUCCESS_TOTAL,
+    TIME_PER_OUTPUT_TOKEN_SECONDS,
+    TIME_TO_FIRST_TOKEN_SECONDS,
 )
 from vllm_doctor.models import Metrics, MetricSnapshot
+
+
+async def _query(
+    client: Client, metric: str, model: str | None, **labels: str
+) -> float | None:
+    parts = [f'model_name="{model}"'] if model else []
+    parts += [f'{k}="{v}"' for k, v in labels.items()]
+    label = "{" + ",".join(parts) + "}" if parts else ""
+    samples = await client.query(f"{metric}{label}")
+    return sum(s.value for s in samples) if samples else None
+
+
+async def _query_percentile(
+    client: Client, metric: str, quantile: float, model: str | None, window: str
+) -> float | None:
+    return await client.query_percentile(metric, quantile, model, window)
 
 
 async def collect(
@@ -31,17 +49,30 @@ async def collect(
         aborts,
         ttft_p95,
         tpot_p95,
+        prefix_hits,
+        prefix_queries,
     ) = await asyncio.gather(
-        query_requests_running(client, model),
-        query_requests_waiting(client, model),
-        query_gpu_cache_usage(client, model),
-        query_prompt_tokens_per_second(client, model),
-        query_generation_tokens_per_second(client, model),
-        query_requests_by_reason(client, "stop", model),
-        query_requests_by_reason(client, "error", model),
-        query_requests_by_reason(client, "abort", model),
-        query_ttft_p95(client, model, rate_window),
-        query_tpot_p95(client, model, rate_window),
+        _query(client, NUM_REQUESTS_RUNNING, model),
+        _query(client, NUM_REQUESTS_WAITING, model),
+        _query(client, GPU_CACHE_USAGE_PERC, model),
+        _query(client, PROMPT_TOKENS_PER_SECOND, model),
+        _query(client, GENERATION_TOKENS_PER_SECOND, model),
+        _query(client, REQUEST_SUCCESS_TOTAL, model, finished_reason="stop"),
+        _query(client, REQUEST_SUCCESS_TOTAL, model, finished_reason="error"),
+        _query(client, REQUEST_SUCCESS_TOTAL, model, finished_reason="abort"),
+        _query_percentile(
+            client, TIME_TO_FIRST_TOKEN_SECONDS, 0.95, model, rate_window
+        ),
+        _query_percentile(
+            client, TIME_PER_OUTPUT_TOKEN_SECONDS, 0.95, model, rate_window
+        ),
+        _query(client, PREFIX_CACHE_HITS_TOTAL, model),
+        _query(client, PREFIX_CACHE_QUERIES_TOTAL, model),
+    )
+    prefix_hit_rate = (
+        prefix_hits / prefix_queries
+        if prefix_hits is not None and prefix_queries is not None and prefix_queries > 0
+        else None
     )
     return MetricSnapshot(
         model_name=model,
@@ -57,5 +88,6 @@ async def collect(
             request_abort_total=aborts,
             ttft_p95_seconds=ttft_p95,
             tpot_p95_seconds=tpot_p95,
+            prefix_cache_hit_rate=prefix_hit_rate,
         ),
     )

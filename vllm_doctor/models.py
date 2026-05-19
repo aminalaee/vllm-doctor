@@ -47,6 +47,9 @@ class Metrics(BaseModel):
     tpot_p95_seconds: Annotated[
         _Metric, Field(title="TPOT p95 (s)", json_schema_extra={"fmt": ".3f"})
     ] = None
+    prefix_cache_hit_rate: Annotated[
+        _Metric, Field(title="Prefix Cache Hit Rate", json_schema_extra={"fmt": ".0%"})
+    ] = None
 
 
 class MetricSnapshot(BaseModel):

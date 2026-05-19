@@ -31,6 +31,7 @@ nav:
       - Error Rate: "rules/error-rate.md"
       - High TTFT: "rules/ttft-bottleneck.md"
       - High TPOT: "rules/tpot-bottleneck.md"
+      - Prefix Cache Efficiency: "rules/prefix-cache-efficiency.md"
   - Metrics: "metrics.md"
 
 markdown_extensions:

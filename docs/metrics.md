@@ -14,6 +14,8 @@ vLLM Doctor reads the following metrics from the vLLM `/metrics` endpoint or Pro
 | `vllm:request_success_total`                 | Cumulative finished requests, broken down by `finished_reason` label (`stop`, `error`, `abort`)                          | Both       |
 | `vllm:time_to_first_token_seconds`           | Histogram of time from request arrival to first output token                                                             | Prometheus |
 | `vllm:request_time_per_output_token_seconds` | Histogram of time per output token during decode                                                                         | Prometheus |
+| `vllm:prefix_cache_hits_total`               | Cumulative prefix cache hits in tokens                                                                                   | Both       |
+| `vllm:prefix_cache_queries_total`            | Cumulative prefix cache queries in tokens                                                                                | Both       |
 
 ## Notes
 
@@ -21,3 +23,4 @@ vLLM Doctor reads the following metrics from the vLLM `/metrics` endpoint or Pro
 - All metrics are per model instance. If multiple models are running, values are summed across instances unless filtered by `model_name` label.
 - Latency histograms (`time_to_first_token_seconds`, `request_time_per_output_token_seconds`) require Prometheus mode — direct scrape mode returns `None` for these fields.
 - Request counts by reason (`error`, `abort`) are derived from `vllm:request_success_total` filtered by the `finished_reason` label.
+- Prefix cache hit rate is computed as `prefix_cache_hits_total / prefix_cache_queries_total`. It is `n/a` when no queries have been made.

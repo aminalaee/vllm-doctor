@@ -1,8 +1,8 @@
 import httpx
 import pytest
 
-from vllm_doctor.collector import collect
 from vllm_doctor.clients import PrometheusClient
+from vllm_doctor.collector import collect
 
 
 @pytest.fixture
@@ -36,6 +36,38 @@ def empty_client() -> PrometheusClient:
     )
 
 
+@pytest.fixture
+def multi_replica_client() -> PrometheusClient:
+    def handler(r: httpx.Request) -> httpx.Response:
+        result = [
+            {"metric": {"instance": "replica-0"}, "value": [1234567890, "3"]},
+            {"metric": {"instance": "replica-1"}, "value": [1234567890, "5"]},
+            {"metric": {"instance": "replica-2"}, "value": [1234567890, "2"]},
+        ]
+        body = {"status": "success", "data": {"resultType": "vector", "result": result}}
+        return httpx.Response(200, json=body)
+
+    return PrometheusClient(
+        base_url="http://localhost:9090",
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+
+
+@pytest.fixture
+def capturing_client() -> tuple[PrometheusClient, list[httpx.Request]]:
+    captured: list[httpx.Request] = []
+
+    def handler(r: httpx.Request) -> httpx.Response:
+        captured.append(r)
+        body = {"status": "success", "data": {"resultType": "vector", "result": []}}
+        return httpx.Response(200, json=body)
+
+    return PrometheusClient(
+        base_url="http://localhost:9090",
+        client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    ), captured
+
+
 class TestCollect:
     async def test_returns_snapshot(self, client: PrometheusClient) -> None:
         snapshot = await collect(client, window="1h")
@@ -55,3 +87,27 @@ class TestCollect:
         assert snapshot.metrics.num_requests_running is None
         assert snapshot.metrics.num_requests_waiting is None
         assert snapshot.metrics.kv_cache_usage_perc is None
+
+    async def test_sums_multiple_replicas(
+        self, multi_replica_client: PrometheusClient
+    ) -> None:
+        snapshot = await collect(multi_replica_client, window="1h")
+        assert snapshot.metrics.num_requests_running == 10.0
+
+    async def test_model_label_sent_in_query(
+        self, capturing_client: tuple[PrometheusClient, list[httpx.Request]]
+    ) -> None:
+        client, captured = capturing_client
+        await collect(client, window="1h", model="meta-llama/Llama-3.1-8B")
+        assert any("meta-llama" in str(r.url) for r in captured)
+
+    async def test_prefix_hit_rate_computed(self, client: PrometheusClient) -> None:
+        # client returns 0.72 for all metrics; hit_rate = 0.72 / 0.72 = 1.0
+        snapshot = await collect(client, window="1h")
+        assert snapshot.metrics.prefix_cache_hit_rate == 1.0
+
+    async def test_prefix_hit_rate_none_when_no_queries(
+        self, empty_client: PrometheusClient
+    ) -> None:
+        snapshot = await collect(empty_client, window="1h")
+        assert snapshot.metrics.prefix_cache_hit_rate is None
