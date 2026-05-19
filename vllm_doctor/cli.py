@@ -15,6 +15,7 @@ from vllm_doctor.rules.error_rate import ErrorRateRule
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 from vllm_doctor.rules.low_throughput import LowThroughputRule
 from vllm_doctor.rules.queue_pressure import QueuePressureRule
+from vllm_doctor.rules.prefix_cache_efficiency import PrefixCacheEfficiencyRule
 from vllm_doctor.rules.tpot_bottleneck import TPOTBottleneckRule
 from vllm_doctor.rules.ttft_bottleneck import TTFTBottleneckRule
 
@@ -27,6 +28,7 @@ _RULES = [
     ErrorRateRule(),
     TTFTBottleneckRule(),
     TPOTBottleneckRule(),
+    PrefixCacheEfficiencyRule(),
 ]
 
 

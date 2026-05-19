@@ -57,7 +57,7 @@ def _parse(text: str, query: str) -> list[MetricSample]:
             timestamp=float(s.timestamp) if s.timestamp is not None else None,
         )
         for family in text_string_to_metric_families(text)
-        if family.name == metric_name
         for s in family.samples
+        if s.name == metric_name
         if all(s.labels.get(k) == v for k, v in labels_filter.items())
     ]
