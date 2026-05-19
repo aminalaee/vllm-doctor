@@ -26,6 +26,7 @@ nav:
   - Introduction: "index.md"
   - Rules:
       - Queue Pressure: "rules/queue-pressure.md"
+      - Queue Latency: "rules/queue-latency.md"
       - KV Cache Pressure: "rules/kv-cache-pressure.md"
       - Low Throughput: "rules/low-throughput.md"
       - Error Rate: "rules/error-rate.md"
