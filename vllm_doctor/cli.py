@@ -2,8 +2,10 @@ import asyncio
 from enum import Enum
 
 import typer
+from rich.console import Console
+from rich.live import Live
 
-from vllm_doctor.clients import resolve_client
+from vllm_doctor.clients import Client, resolve_client
 from vllm_doctor.collector import collect
 from vllm_doctor.diagnosis import run
 from vllm_doctor.models import DiagnosisResult
@@ -33,14 +35,37 @@ class Format(str, Enum):
     json = "json"
 
 
-async def _diagnose(url: str, window: str, fmt: Format, verbose: bool) -> None:
+async def _diagnose(client: Client, window: str) -> DiagnosisResult:
+    snapshot = await collect(client, window=window)
+    return DiagnosisResult(snapshot=snapshot, findings=run(snapshot, _RULES))
+
+
+async def _run(
+    url: str, window: str, fmt: Format, verbose: bool, live: int | None
+) -> None:
+    if live is not None and live <= 0:
+        raise typer.BadParameter("must be a positive integer", param_hint="'--live'")
+
+    console = Console()
     async with await resolve_client(url) as client:
-        snapshot = await collect(client, window=window)
-        result = DiagnosisResult(snapshot=snapshot, findings=run(snapshot, _RULES))
         if fmt == Format.json:
-            typer.echo(json_report.render(result, verbose=verbose))
+            while True:
+                result = await _diagnose(client, window)
+                if live is not None:
+                    console.clear()
+                typer.echo(json_report.render(result, verbose=verbose))
+                if live is None:
+                    return
+                await asyncio.sleep(live)
         else:
-            text_report.render(result, verbose=verbose)
+            with Live("", console=console, auto_refresh=False) as live_display:
+                while True:
+                    result = await _diagnose(client, window)
+                    live_display.update(text_report.build(result, verbose=verbose))
+                    live_display.refresh()
+                    if live is None:
+                        return
+                    await asyncio.sleep(live)
 
 
 @app.command()
@@ -60,8 +85,11 @@ def main(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Show additional diagnostic detail."
     ),
+    live: int | None = typer.Option(
+        None, "--live", "-l", help="Refresh interval in seconds (e.g. --live 10)."
+    ),
 ) -> None:
     try:
-        asyncio.run(_diagnose(url, window, fmt, verbose))
+        asyncio.run(_run(url, window, fmt, verbose, live))
     except KeyboardInterrupt:
         pass

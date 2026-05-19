@@ -59,16 +59,18 @@ Prometheus:
 vllm-doctor --url http://localhost:9090
 ```
 
-JSON output:
+Options:
 
-```shell
-vllm-doctor --url http://localhost:8000/metrics --format json
 ```
+Usage: vllm-doctor [OPTIONS]
 
-Verbose:
-
-```shell
-vllm-doctor --url http://localhost:8000/metrics --verbose
+Options:
+  -u, --url      TEXT         URL to diagnose (vLLM /metrics or Prometheus).  [required]
+  -w, --window   TEXT         Time window (e.g. '1h', '30m', 'now').  [default: now]
+  -f, --format   [text|json]  Output format.  [default: text]
+  -v, --verbose               Show additional diagnostic detail.
+  -l, --live     INTEGER      Refresh interval in seconds (e.g. --live 10).
+      --help                  Show this message and exit.
 ```
 
 ## Example output
