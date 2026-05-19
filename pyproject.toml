@@ -38,6 +38,7 @@ dependencies = [
   "prometheus-client>=0.20",
   "pydantic>=2",
   "rich>=13",
+  "tomli>=2.0; python_version < '3.11'",
   "typer>=0.12",
 ]
 
