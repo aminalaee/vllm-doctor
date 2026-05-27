@@ -14,9 +14,7 @@ def rule() -> LowThroughputRule:
 def low_throughput_snapshot() -> MetricSnapshot:
     return MetricSnapshot(
         window="now",
-        metrics=Metrics(
-            prompt_tokens_per_second=5.0, generation_tokens_per_second=20.0
-        ),
+        metrics=Metrics(prompt_tokens_per_second=5.0, generation_tokens_per_second=20.0),
     )
 
 
@@ -39,9 +37,7 @@ class TestLowThroughputRule:
     def test_no_finding_above_threshold(self, rule: LowThroughputRule) -> None:
         snapshot = MetricSnapshot(
             window="now",
-            metrics=Metrics(
-                prompt_tokens_per_second=20.0, generation_tokens_per_second=100.0
-            ),
+            metrics=Metrics(prompt_tokens_per_second=20.0, generation_tokens_per_second=100.0),
         )
         assert rule.evaluate(snapshot) == []
 
@@ -56,9 +52,7 @@ class TestLowThroughputRule:
         )
         assert rule.evaluate(snapshot) == []
 
-    def test_finding_when_both_low(
-        self, rule: LowThroughputRule, low_throughput_snapshot: MetricSnapshot
-    ) -> None:
+    def test_finding_when_both_low(self, rule: LowThroughputRule, low_throughput_snapshot: MetricSnapshot) -> None:
         findings = rule.evaluate(low_throughput_snapshot)
         assert len(findings) == 1
         assert findings[0].severity == Severity.warning
@@ -73,35 +67,26 @@ class TestLowThroughputRule:
         rule: LowThroughputRule,
         low_throughput_with_low_running_snapshot: MetricSnapshot,
     ) -> None:
-        assert (
-            rule.evaluate(low_throughput_with_low_running_snapshot)[0].confidence
-            == Confidence.medium
-        )
+        assert rule.evaluate(low_throughput_with_low_running_snapshot)[0].confidence == Confidence.medium
 
     def test_low_confidence_when_only_prompt_low(self, rule: LowThroughputRule) -> None:
         snapshot = MetricSnapshot(
             window="now",
-            metrics=Metrics(
-                prompt_tokens_per_second=5.0, generation_tokens_per_second=100.0
-            ),
+            metrics=Metrics(prompt_tokens_per_second=5.0, generation_tokens_per_second=100.0),
         )
         assert rule.evaluate(snapshot)[0].confidence == Confidence.low
 
     def test_finding_when_only_prompt_low(self, rule: LowThroughputRule) -> None:
         snapshot = MetricSnapshot(
             window="now",
-            metrics=Metrics(
-                prompt_tokens_per_second=5.0, generation_tokens_per_second=100.0
-            ),
+            metrics=Metrics(prompt_tokens_per_second=5.0, generation_tokens_per_second=100.0),
         )
         assert len(rule.evaluate(snapshot)) == 1
 
     def test_finding_when_only_gen_low(self, rule: LowThroughputRule) -> None:
         snapshot = MetricSnapshot(
             window="now",
-            metrics=Metrics(
-                prompt_tokens_per_second=20.0, generation_tokens_per_second=20.0
-            ),
+            metrics=Metrics(prompt_tokens_per_second=20.0, generation_tokens_per_second=20.0),
         )
         assert len(rule.evaluate(snapshot)) == 1
 
@@ -111,9 +96,7 @@ class TestLowThroughputRule:
         findings = rule.evaluate(low_throughput_snapshot)
         assert any("5.0" in e for e in findings[0].evidence)
 
-    def test_evidence_contains_gen_tps(
-        self, rule: LowThroughputRule, low_throughput_snapshot: MetricSnapshot
-    ) -> None:
+    def test_evidence_contains_gen_tps(self, rule: LowThroughputRule, low_throughput_snapshot: MetricSnapshot) -> None:
         findings = rule.evaluate(low_throughput_snapshot)
         assert any("20.0" in e for e in findings[0].evidence)
 
@@ -127,9 +110,7 @@ class TestLowThroughputRule:
             rule.evaluate(
                 MetricSnapshot(
                     window="now",
-                    metrics=Metrics(
-                        prompt_tokens_per_second=6.0, generation_tokens_per_second=30.0
-                    ),
+                    metrics=Metrics(prompt_tokens_per_second=6.0, generation_tokens_per_second=30.0),
                 )
             )
             == []

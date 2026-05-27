@@ -2,6 +2,7 @@ from typing import Protocol, runtime_checkable
 
 import httpx
 
+from vllm_doctor.clients.models import MetricSample
 from vllm_doctor.clients.prometheus import (
     PrometheusClient,
     PrometheusConnectionError,
@@ -9,7 +10,6 @@ from vllm_doctor.clients.prometheus import (
     PrometheusQueryError,
 )
 from vllm_doctor.clients.scrape import ScrapeClient
-from vllm_doctor.clients.models import MetricSample
 
 
 @runtime_checkable
@@ -30,9 +30,7 @@ async def resolve_client(
     http = client or httpx.AsyncClient(timeout=timeout)
     try:
         response = await http.get(url)
-        if response.status_code == 200 and "text/plain" in response.headers.get(
-            "content-type", ""
-        ):
+        if response.status_code == 200 and "text/plain" in response.headers.get("content-type", ""):
             return ScrapeClient(url, client=http)
     except httpx.ConnectError:
         pass

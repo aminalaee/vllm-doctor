@@ -54,9 +54,7 @@ def warning_finding() -> Finding:
 
 @pytest.fixture
 def info_finding() -> Finding:
-    return Finding(
-        severity=Severity.info, confidence=Confidence.high, title="info", summary="test"
-    )
+    return Finding(severity=Severity.info, confidence=Confidence.high, title="info", summary="test")
 
 
 class TestRun:
@@ -71,14 +69,10 @@ class TestRun:
     def test_aggregates_findings_from_multiple_rules(
         self, snapshot: MetricSnapshot, warning_finding: Finding, info_finding: Finding
     ) -> None:
-        results = run(
-            snapshot, [FixedRule([warning_finding]), FixedRule([info_finding])]
-        )
+        results = run(snapshot, [FixedRule([warning_finding]), FixedRule([info_finding])])
         assert len(results) == 2
 
-    def test_sorts_by_confidence_within_same_severity(
-        self, snapshot: MetricSnapshot
-    ) -> None:
+    def test_sorts_by_confidence_within_same_severity(self, snapshot: MetricSnapshot) -> None:
         low = Finding(
             severity=Severity.warning,
             confidence=Confidence.low,
@@ -132,9 +126,7 @@ class TestRun:
             Severity.info,
         ]
 
-    def test_ok_rules_sorted_last(
-        self, snapshot: MetricSnapshot, warning_finding: Finding
-    ) -> None:
+    def test_ok_rules_sorted_last(self, snapshot: MetricSnapshot, warning_finding: Finding) -> None:
         results = run(snapshot, [EmptyRule(), FixedRule([warning_finding], "Warn")])
         assert results[0].finding is not None
         assert results[-1].finding is None

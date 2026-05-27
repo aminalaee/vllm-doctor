@@ -40,17 +40,13 @@ class TPOTBottleneckRule(Rule):
         signals = [f"TPOT p95 ({tpot:.2f}s) exceeds threshold ({self.high_tpot_p95}s)"]
         evidence = [f"TPOT p95: {tpot:.3f}s"]
 
-        gen_low = (
-            gen is not None and math.isfinite(gen) and gen < self.low_gen_tokens_per_sec
-        )
+        gen_low = gen is not None and math.isfinite(gen) and gen < self.low_gen_tokens_per_sec
         ttft_normal = ttft is not None and math.isfinite(ttft) and ttft < 2.0
 
         if gen is not None and math.isfinite(gen):
             evidence.append(f"Generation throughput: {gen:.1f} tok/s")
         if gen_low:
-            signals.append(
-                f"Generation throughput ({gen:.1f} tok/s) is low — decode is the bottleneck"
-            )
+            signals.append(f"Generation throughput ({gen:.1f} tok/s) is low — decode is the bottleneck")
         if ttft is not None and math.isfinite(ttft):
             evidence.append(f"TTFT p95: {ttft:.3f}s")
         if ttft_normal:

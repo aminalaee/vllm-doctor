@@ -3,16 +3,14 @@ import re
 import httpx
 from prometheus_client.parser import text_string_to_metric_families
 
-from vllm_doctor.clients.prometheus import PrometheusConnectionError, PrometheusError
 from vllm_doctor.clients.models import MetricSample
+from vllm_doctor.clients.prometheus import PrometheusConnectionError, PrometheusError
 
 
 class ScrapeClient:
     """Reads raw Prometheus text format directly from a /metrics endpoint."""
 
-    def __init__(
-        self, url: str, timeout: float = 10.0, client: httpx.AsyncClient | None = None
-    ) -> None:
+    def __init__(self, url: str, timeout: float = 10.0, client: httpx.AsyncClient | None = None) -> None:
         self.url = url
         self._client = client or httpx.AsyncClient(timeout=timeout)
 

@@ -11,9 +11,7 @@ vllm:num_requests_running{model_name="llama"} 10.0
 class TestResolveClient:
     async def test_returns_scrape_client_for_metrics_endpoint(self) -> None:
         transport = httpx.MockTransport(
-            lambda _: httpx.Response(
-                200, text=SAMPLE_METRICS, headers={"content-type": "text/plain"}
-            )
+            lambda _: httpx.Response(200, text=SAMPLE_METRICS, headers={"content-type": "text/plain"})
         )
         client = await resolve_client(
             "http://localhost:8000/metrics",

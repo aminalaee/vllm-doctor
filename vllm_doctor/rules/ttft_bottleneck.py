@@ -38,20 +38,14 @@ class TTFTBottleneckRule(Rule):
 
         signals = [f"TTFT p95 ({ttft:.2f}s) exceeds threshold ({self.high_ttft_p95}s)"]
         evidence = [f"TTFT p95: {ttft:.3f}s"]
-        tpot_stable = (
-            tpot is not None and math.isfinite(tpot) and tpot < self.high_tpot_p95
-        )
+        tpot_stable = tpot is not None and math.isfinite(tpot) and tpot < self.high_tpot_p95
 
         if tpot is not None and math.isfinite(tpot):
             evidence.append(f"TPOT p95: {tpot:.3f}s")
         if tpot_stable:
-            signals.append(
-                f"TPOT p95 ({tpot:.2f}s) is stable — decode is not the bottleneck"
-            )
+            signals.append(f"TPOT p95 ({tpot:.2f}s) is stable — decode is not the bottleneck")
         if waiting is not None and waiting > 0:
-            signals.append(
-                f"{int(waiting)} requests queued — prefill pressure confirmed"
-            )
+            signals.append(f"{int(waiting)} requests queued — prefill pressure confirmed")
             evidence.append(f"Waiting requests: {int(waiting)}")
 
         signals_count = sum([True, tpot_stable, waiting is not None and waiting > 0])

@@ -146,7 +146,5 @@ def build(result: DiagnosisResult, verbose: bool = False) -> Group:
     return Group(*items)
 
 
-def render(
-    result: DiagnosisResult, console: Console | None = None, verbose: bool = False
-) -> None:
+def render(result: DiagnosisResult, console: Console | None = None, verbose: bool = False) -> None:
     (console or Console()).print(build(result, verbose))

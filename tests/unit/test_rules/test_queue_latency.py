@@ -15,29 +15,21 @@ class TestQueueLatencyRule:
         assert rule.evaluate(MetricSnapshot(window="now")) == []
 
     def test_no_finding_below_threshold(self, rule: QueueLatencyRule) -> None:
-        snapshot = MetricSnapshot(
-            window="now", metrics=Metrics(queue_time_p95_seconds=0.5)
-        )
+        snapshot = MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=0.5))
         assert rule.evaluate(snapshot) == []
 
     def test_no_finding_at_boundary(self, rule: QueueLatencyRule) -> None:
-        snapshot = MetricSnapshot(
-            window="now", metrics=Metrics(queue_time_p95_seconds=0.99)
-        )
+        snapshot = MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=0.99))
         assert rule.evaluate(snapshot) == []
 
     def test_finding_at_threshold(self, rule: QueueLatencyRule) -> None:
-        snapshot = MetricSnapshot(
-            window="now", metrics=Metrics(queue_time_p95_seconds=1.0)
-        )
+        snapshot = MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=1.0))
         findings = rule.evaluate(snapshot)
         assert len(findings) == 1
         assert findings[0].severity == Severity.warning
 
     def test_low_confidence_without_waiting(self, rule: QueueLatencyRule) -> None:
-        snapshot = MetricSnapshot(
-            window="now", metrics=Metrics(queue_time_p95_seconds=2.0)
-        )
+        snapshot = MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=2.0))
         assert rule.evaluate(snapshot)[0].confidence == Confidence.low
 
     def test_high_confidence_with_waiting(self, rule: QueueLatencyRule) -> None:
@@ -55,21 +47,15 @@ class TestQueueLatencyRule:
         assert rule.evaluate(snapshot)[0].confidence == Confidence.low
 
     def test_no_finding_when_nan(self, rule: QueueLatencyRule) -> None:
-        snapshot = MetricSnapshot(
-            window="now", metrics=Metrics(queue_time_p95_seconds=float("nan"))
-        )
+        snapshot = MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=float("nan")))
         assert rule.evaluate(snapshot) == []
 
     def test_evidence_contains_queue_time(self, rule: QueueLatencyRule) -> None:
-        snapshot = MetricSnapshot(
-            window="now", metrics=Metrics(queue_time_p95_seconds=1.5)
-        )
+        snapshot = MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=1.5))
         findings = rule.evaluate(snapshot)
         assert any("1.500" in e for e in findings[0].evidence)
 
-    def test_evidence_contains_waiting_count_when_present(
-        self, rule: QueueLatencyRule
-    ) -> None:
+    def test_evidence_contains_waiting_count_when_present(self, rule: QueueLatencyRule) -> None:
         snapshot = MetricSnapshot(
             window="now",
             metrics=Metrics(queue_time_p95_seconds=2.0, num_requests_waiting=8),
@@ -78,9 +64,7 @@ class TestQueueLatencyRule:
         assert any("8" in e for e in findings[0].evidence)
 
     def test_summary_contains_queue_time(self, rule: QueueLatencyRule) -> None:
-        snapshot = MetricSnapshot(
-            window="now", metrics=Metrics(queue_time_p95_seconds=3.0)
-        )
+        snapshot = MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=3.0))
         assert "3.00" in rule.evaluate(snapshot)[0].summary
 
     async def test_queue_latency_with_fixture(self, rule: QueueLatencyRule) -> None:
@@ -90,21 +74,5 @@ class TestQueueLatencyRule:
 
     def test_custom_threshold(self) -> None:
         rule = QueueLatencyRule(high_queue_time_p95=5.0)
-        assert (
-            rule.evaluate(
-                MetricSnapshot(
-                    window="now", metrics=Metrics(queue_time_p95_seconds=4.9)
-                )
-            )
-            == []
-        )
-        assert (
-            len(
-                rule.evaluate(
-                    MetricSnapshot(
-                        window="now", metrics=Metrics(queue_time_p95_seconds=5.0)
-                    )
-                )
-            )
-            == 1
-        )
+        assert rule.evaluate(MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=4.9))) == []
+        assert len(rule.evaluate(MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=5.0)))) == 1

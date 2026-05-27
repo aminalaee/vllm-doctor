@@ -42,9 +42,7 @@ class QueuePressureRule(Rule):
             return []
 
         signals: list[str] = []
-        evidence = [
-            f"Waiting requests: {snapshot.metrics.num_requests_waiting:.0f} (threshold: {self.high_waiting})"
-        ]
+        evidence = [f"Waiting requests: {snapshot.metrics.num_requests_waiting:.0f} (threshold: {self.high_waiting})"]
 
         running_high = (
             snapshot.metrics.num_requests_running is not None

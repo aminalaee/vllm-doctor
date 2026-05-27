@@ -37,9 +37,7 @@ class TestRenderJson:
         output = json.loads(json_report.render(result))
         assert output["health"] == "ok"
 
-    def test_health_reflects_worst_severity(
-        self, snapshot: MetricSnapshot, queue_finding: Finding
-    ) -> None:
+    def test_health_reflects_worst_severity(self, snapshot: MetricSnapshot, queue_finding: Finding) -> None:
         result = DiagnosisResult(
             snapshot=snapshot,
             checks=[RuleResult(name="Queue Pressure", finding=queue_finding)],
@@ -47,9 +45,7 @@ class TestRenderJson:
         output = json.loads(json_report.render(result))
         assert output["health"] == "warning"
 
-    def test_checks_in_output(
-        self, snapshot: MetricSnapshot, queue_finding: Finding
-    ) -> None:
+    def test_checks_in_output(self, snapshot: MetricSnapshot, queue_finding: Finding) -> None:
         result = DiagnosisResult(
             snapshot=snapshot,
             checks=[
@@ -84,9 +80,7 @@ class TestRenderJson:
         output = json.loads(json_report.render(result))
         assert output["window"] == "1h"
 
-    def test_signals_excluded_from_finding(
-        self, snapshot: MetricSnapshot, queue_finding: Finding
-    ) -> None:
+    def test_signals_excluded_from_finding(self, snapshot: MetricSnapshot, queue_finding: Finding) -> None:
         result = DiagnosisResult(
             snapshot=snapshot,
             checks=[RuleResult(name="Queue Pressure", finding=queue_finding)],

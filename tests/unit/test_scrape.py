@@ -22,9 +22,7 @@ vllm:num_requests_running{model_name="llama",instance="replica-2"} 5.0
 @pytest.fixture
 def scrape_client() -> ScrapeClient:
     transport = httpx.MockTransport(
-        lambda _: httpx.Response(
-            200, text=SAMPLE_METRICS, headers={"content-type": "text/plain"}
-        )
+        lambda _: httpx.Response(200, text=SAMPLE_METRICS, headers={"content-type": "text/plain"})
     )
     return ScrapeClient(
         url="http://localhost:8000/metrics",
@@ -73,9 +71,7 @@ class TestScrapeClient:
         assert len(result) == 1
         assert result[0].value == 3.0
 
-    async def test_query_empty_for_missing_metric(
-        self, scrape_client: ScrapeClient
-    ) -> None:
+    async def test_query_empty_for_missing_metric(self, scrape_client: ScrapeClient) -> None:
         result = await scrape_client.query("vllm:nonexistent")
         assert result == []
 
@@ -99,10 +95,6 @@ class TestScrapeClient:
             result = await c.query("vllm:num_requests_waiting")
             assert len(result) == 1
 
-    async def test_query_percentile_returns_none(
-        self, scrape_client: ScrapeClient
-    ) -> None:
-        result = await scrape_client.query_percentile(
-            "vllm:time_to_first_token_seconds", 0.95
-        )
+    async def test_query_percentile_returns_none(self, scrape_client: ScrapeClient) -> None:
+        result = await scrape_client.query_percentile("vllm:time_to_first_token_seconds", 0.95)
         assert result is None

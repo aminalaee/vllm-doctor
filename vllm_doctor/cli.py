@@ -17,8 +17,8 @@ from vllm_doctor.rules.base import Rule
 from vllm_doctor.rules.error_rate import ErrorRateRule
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 from vllm_doctor.rules.low_throughput import LowThroughputRule
-from vllm_doctor.rules.prefix_cache_efficiency import PrefixCacheEfficiencyRule
 from vllm_doctor.rules.preemption_pressure import PreemptionPressureRule
+from vllm_doctor.rules.prefix_cache_efficiency import PrefixCacheEfficiencyRule
 from vllm_doctor.rules.queue_latency import QueueLatencyRule
 from vllm_doctor.rules.queue_pressure import QueuePressureRule
 from vllm_doctor.rules.tpot_bottleneck import TPOTBottleneckRule
@@ -68,9 +68,7 @@ async def _diagnose(client: Client, rules: list[Rule], window: str) -> Diagnosis
     return DiagnosisResult(snapshot=snapshot, checks=run(snapshot, rules))
 
 
-async def _run(
-    url: str, window: str, fmt: Format, verbose: bool, live: int | None, config: Config
-) -> None:
+async def _run(url: str, window: str, fmt: Format, verbose: bool, live: int | None, config: Config) -> None:
     if live is not None and live <= 0:
         raise typer.BadParameter("must be a positive integer", param_hint="'--live'")
 
@@ -105,18 +103,10 @@ def main(
         "-u",
         help="URL to diagnose (e.g. http://host:8000/metrics or http://host:9090).",
     ),
-    window: str = typer.Option(
-        "now", "--window", "-w", help="Time window (e.g. '1h', '30m', 'now')."
-    ),
-    fmt: Format = typer.Option(
-        Format.text, "--format", "-f", help="Output format (text or json)."
-    ),
-    verbose: bool = typer.Option(
-        False, "--verbose", "-v", help="Show additional diagnostic detail."
-    ),
-    live: int | None = typer.Option(
-        None, "--live", "-l", help="Refresh interval in seconds (e.g. --live 10)."
-    ),
+    window: str = typer.Option("now", "--window", "-w", help="Time window (e.g. '1h', '30m', 'now')."),
+    fmt: Format = typer.Option(Format.text, "--format", "-f", help="Output format (text or json)."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Show additional diagnostic detail."),
+    live: int | None = typer.Option(None, "--live", "-l", help="Refresh interval in seconds (e.g. --live 10)."),
     config_path: Path | None = typer.Option(
         None, "--config", "-c", help="Path to config file (default: vllm-doctor.toml)."
     ),

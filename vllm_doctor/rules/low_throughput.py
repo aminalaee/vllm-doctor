@@ -42,10 +42,7 @@ class LowThroughputRule(Rule):
         self.low_running = low_running
 
     def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        if (
-            snapshot.metrics.prompt_tokens_per_second is None
-            and snapshot.metrics.generation_tokens_per_second is None
-        ):
+        if snapshot.metrics.prompt_tokens_per_second is None and snapshot.metrics.generation_tokens_per_second is None:
             return []
 
         prompt_low = (
@@ -61,19 +58,14 @@ class LowThroughputRule(Rule):
             return []
 
         # Not underutilized if requests are waiting — that's queue pressure, not low throughput
-        if (
-            snapshot.metrics.num_requests_waiting is not None
-            and snapshot.metrics.num_requests_waiting > 0
-        ):
+        if snapshot.metrics.num_requests_waiting is not None and snapshot.metrics.num_requests_waiting > 0:
             return []
 
         signals: list[str] = []
         evidence: list[str] = []
 
         if prompt_low and gen_low:
-            signals.append(
-                "Both prefill and decode throughput below threshold — server underutilized"
-            )
+            signals.append("Both prefill and decode throughput below threshold — server underutilized")
         elif prompt_low:
             signals.append("Prefill throughput below threshold")
         else:
@@ -96,15 +88,9 @@ class LowThroughputRule(Rule):
         )
         if running_low:
             signals.append("Very few active requests — no batching benefit")
-            evidence.append(
-                f"Requests running: {snapshot.metrics.num_requests_running:.0f}"
-            )
+            evidence.append(f"Requests running: {snapshot.metrics.num_requests_running:.0f}")
 
-        confidence = (
-            Confidence.medium
-            if (prompt_low and gen_low) or running_low
-            else Confidence.low
-        )
+        confidence = Confidence.medium if (prompt_low and gen_low) or running_low else Confidence.low
 
         return [
             Finding(

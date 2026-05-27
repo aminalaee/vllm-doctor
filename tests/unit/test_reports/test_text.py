@@ -7,8 +7,8 @@ from vllm_doctor.models import (
     Confidence,
     DiagnosisResult,
     Finding,
-    MetricSnapshot,
     Metrics,
+    MetricSnapshot,
     RuleResult,
     Severity,
 )
@@ -55,9 +55,7 @@ class TestRenderText:
         )
         assert "OK" in buf.getvalue()
 
-    def test_shows_matrix_rule_name(
-        self, snapshot: MetricSnapshot, queue_check: RuleResult
-    ) -> None:
+    def test_shows_matrix_rule_name(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
             DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
@@ -65,9 +63,7 @@ class TestRenderText:
         )
         assert "Queue Pressure" in buf.getvalue()
 
-    def test_shows_severity_in_health(
-        self, snapshot: MetricSnapshot, queue_check: RuleResult
-    ) -> None:
+    def test_shows_severity_in_health(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
             DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
@@ -84,9 +80,7 @@ class TestRenderText:
         assert "My Rule" in buf.getvalue()
         assert "ok" in buf.getvalue()
 
-    def test_shows_finding_title(
-        self, snapshot: MetricSnapshot, queue_check: RuleResult
-    ) -> None:
+    def test_shows_finding_title(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
             DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
@@ -94,9 +88,7 @@ class TestRenderText:
         )
         assert "Queue pressure" in buf.getvalue()
 
-    def test_shows_evidence(
-        self, snapshot: MetricSnapshot, queue_check: RuleResult
-    ) -> None:
+    def test_shows_evidence(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
             DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
@@ -104,9 +96,7 @@ class TestRenderText:
         )
         assert "Waiting requests: 20" in buf.getvalue()
 
-    def test_shows_recommendation(
-        self, snapshot: MetricSnapshot, queue_check: RuleResult
-    ) -> None:
+    def test_shows_recommendation(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
             DiagnosisResult(snapshot=snapshot, checks=[queue_check]),

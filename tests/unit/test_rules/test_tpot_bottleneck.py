@@ -53,27 +53,20 @@ class TestTPOTBottleneckRule:
         assert len(findings) == 1
         assert findings[0].severity == Severity.warning
 
-    def test_low_confidence_tpot_only(
-        self, rule: TPOTBottleneckRule, high_tpot_snapshot: MetricSnapshot
-    ) -> None:
+    def test_low_confidence_tpot_only(self, rule: TPOTBottleneckRule, high_tpot_snapshot: MetricSnapshot) -> None:
         assert rule.evaluate(high_tpot_snapshot)[0].confidence == Confidence.low
 
     def test_medium_confidence_with_low_gen(
         self, rule: TPOTBottleneckRule, high_tpot_low_gen_snapshot: MetricSnapshot
     ) -> None:
-        assert (
-            rule.evaluate(high_tpot_low_gen_snapshot)[0].confidence == Confidence.medium
-        )
+        assert rule.evaluate(high_tpot_low_gen_snapshot)[0].confidence == Confidence.medium
 
     def test_high_confidence_with_all_signals(
         self,
         rule: TPOTBottleneckRule,
         high_tpot_low_gen_normal_ttft_snapshot: MetricSnapshot,
     ) -> None:
-        assert (
-            rule.evaluate(high_tpot_low_gen_normal_ttft_snapshot)[0].confidence
-            == Confidence.high
-        )
+        assert rule.evaluate(high_tpot_low_gen_normal_ttft_snapshot)[0].confidence == Confidence.high
 
     def test_high_gen_does_not_boost_confidence(self, rule: TPOTBottleneckRule) -> None:
         snapshot = MetricSnapshot(
@@ -82,9 +75,7 @@ class TestTPOTBottleneckRule:
         )
         assert rule.evaluate(snapshot)[0].confidence == Confidence.low
 
-    def test_high_ttft_does_not_contribute_ttft_normal_signal(
-        self, rule: TPOTBottleneckRule
-    ) -> None:
+    def test_high_ttft_does_not_contribute_ttft_normal_signal(self, rule: TPOTBottleneckRule) -> None:
         snapshot = MetricSnapshot(
             window="now",
             metrics=Metrics(tpot_p95_seconds=0.5, ttft_p95_seconds=5.0),
@@ -93,9 +84,7 @@ class TestTPOTBottleneckRule:
         assert len(findings) == 1
         assert not any("TTFT p95 is normal" in s for s in findings[0].signals)
 
-    def test_evidence_contains_tpot(
-        self, rule: TPOTBottleneckRule, high_tpot_snapshot: MetricSnapshot
-    ) -> None:
+    def test_evidence_contains_tpot(self, rule: TPOTBottleneckRule, high_tpot_snapshot: MetricSnapshot) -> None:
         findings = rule.evaluate(high_tpot_snapshot)
         assert any("0.500" in e for e in findings[0].evidence)
 
@@ -114,9 +103,7 @@ class TestTPOTBottleneckRule:
         assert any("TTFT" in e for e in findings[0].evidence)
 
     def test_no_finding_when_tpot_is_nan(self, rule: TPOTBottleneckRule) -> None:
-        snapshot = MetricSnapshot(
-            window="now", metrics=Metrics(tpot_p95_seconds=float("nan"))
-        )
+        snapshot = MetricSnapshot(window="now", metrics=Metrics(tpot_p95_seconds=float("nan")))
         assert rule.evaluate(snapshot) == []
 
     def test_nan_ttft_does_not_count_as_normal(self, rule: TPOTBottleneckRule) -> None:
@@ -146,17 +133,5 @@ class TestTPOTBottleneckRule:
 
     def test_custom_threshold(self) -> None:
         rule = TPOTBottleneckRule(high_tpot_p95=0.5)
-        assert (
-            rule.evaluate(
-                MetricSnapshot(window="now", metrics=Metrics(tpot_p95_seconds=0.49))
-            )
-            == []
-        )
-        assert (
-            len(
-                rule.evaluate(
-                    MetricSnapshot(window="now", metrics=Metrics(tpot_p95_seconds=0.5))
-                )
-            )
-            == 1
-        )
+        assert rule.evaluate(MetricSnapshot(window="now", metrics=Metrics(tpot_p95_seconds=0.49))) == []
+        assert len(rule.evaluate(MetricSnapshot(window="now", metrics=Metrics(tpot_p95_seconds=0.5)))) == 1
