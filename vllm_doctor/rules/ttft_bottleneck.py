@@ -16,6 +16,10 @@ _DEFAULT_HIGH_TPOT_P95 = 0.2
 
 
 class TTFTBottleneckRule(Rule):
+    @property
+    def name(self) -> str:
+        return "High TTFT"
+
     def __init__(
         self,
         high_ttft_p95: float = _DEFAULT_HIGH_TTFT_P95,

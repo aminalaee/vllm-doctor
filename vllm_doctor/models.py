@@ -74,13 +74,19 @@ class Finding(BaseModel):
     related_metrics: list[str] = []
 
 
+class RuleResult(BaseModel):
+    name: str
+    finding: Finding | None = None
+
+
 class DiagnosisResult(BaseModel):
     snapshot: MetricSnapshot
-    findings: list[Finding]
+    checks: list[RuleResult] = []
 
     @property
     def health(self) -> Health:
-        if not self.findings:
+        fired = [c.finding for c in self.checks if c.finding is not None]
+        if not fired:
             return Health.ok
-        worst = min(self.findings, key=lambda f: list(Severity).index(f.severity))
+        worst = min(fired, key=lambda f: list(Severity).index(f.severity))
         return Health(worst.severity.value)

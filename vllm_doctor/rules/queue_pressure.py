@@ -20,6 +20,10 @@ DEFAULT_HIGH_RUNNING = 50
 
 
 class QueuePressureRule(Rule):
+    @property
+    def name(self) -> str:
+        return "Queue Pressure"
+
     def __init__(
         self,
         high_waiting: int = DEFAULT_HIGH_WAITING,

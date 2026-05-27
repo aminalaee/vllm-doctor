@@ -25,6 +25,10 @@ _DEFAULT_HIGH_QUEUE_TIME_P95 = 1.0
 
 
 class QueueLatencyRule(Rule):
+    @property
+    def name(self) -> str:
+        return "Queue Latency"
+
     def __init__(
         self, high_queue_time_p95: float = _DEFAULT_HIGH_QUEUE_TIME_P95
     ) -> None:

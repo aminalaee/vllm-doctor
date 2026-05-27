@@ -21,6 +21,10 @@ _HIGH_CONFIDENCE_MAX_RATE = 0.2
 
 
 class PrefixCacheEfficiencyRule(Rule):
+    @property
+    def name(self) -> str:
+        return "Prefix Cache Efficiency"
+
     def __init__(self, min_hit_rate: float = _DEFAULT_MIN_HIT_RATE) -> None:
         self.min_hit_rate = min_hit_rate
 
