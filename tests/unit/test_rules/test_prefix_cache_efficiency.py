@@ -1,5 +1,6 @@
 import pytest
 
+from tests.helpers import snapshot_from_fixture
 from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.prefix_cache_efficiency import PrefixCacheEfficiencyRule
 
@@ -64,6 +65,12 @@ class TestPrefixCacheEfficiencyRule:
         )
         findings = rule.evaluate(snapshot)
         assert any("10%" in e for e in findings[0].evidence)
+
+    async def test_prefix_cache_efficiency_with_fixture(
+        self, rule: PrefixCacheEfficiencyRule
+    ) -> None:
+        snapshot = await snapshot_from_fixture("prefix-cache.txt")
+        assert len(rule.evaluate(snapshot)) == 1
 
     def test_custom_threshold(self) -> None:
         rule = PrefixCacheEfficiencyRule(min_hit_rate=0.8)

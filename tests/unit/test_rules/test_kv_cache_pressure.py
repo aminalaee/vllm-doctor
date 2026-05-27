@@ -1,5 +1,6 @@
 import pytest
 
+from tests.helpers import snapshot_from_fixture
 from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 
@@ -85,6 +86,12 @@ class TestKVCachePressureRule:
     ) -> None:
         findings = rule.evaluate(high_cache_with_waiting_snapshot)
         assert any("5" in e for e in findings[0].evidence)
+
+    async def test_kv_cache_pressure_with_fixture(
+        self, rule: KVCachePressureRule
+    ) -> None:
+        snapshot = await snapshot_from_fixture("kv-pressure.txt")
+        assert len(rule.evaluate(snapshot)) == 1
 
     def test_custom_threshold(self) -> None:
         rule = KVCachePressureRule(high_cache_usage=0.75)

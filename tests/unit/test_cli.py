@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import httpx
 import pytest
 from typer.testing import CliRunner
@@ -5,12 +7,9 @@ from typer.testing import CliRunner
 from vllm_doctor.cli import app
 from vllm_doctor.clients.scrape import ScrapeClient
 
-SCRAPE_METRICS = """\
-# TYPE vllm:num_requests_running gauge
-vllm:num_requests_running{engine="0",model_name="Qwen/Qwen3-0.6B"} 0.0
-# TYPE vllm:num_requests_waiting gauge
-vllm:num_requests_waiting{engine="0",model_name="Qwen/Qwen3-0.6B"} 0.0
-"""
+_HEALTHY_FIXTURE = (
+    Path(__file__).parent.parent / "fixtures" / "metrics" / "healthy.txt"
+).read_text()
 
 
 @pytest.fixture
@@ -22,7 +21,7 @@ def runner() -> CliRunner:
 def scrape_client() -> ScrapeClient:
     transport = httpx.MockTransport(
         lambda _: httpx.Response(
-            200, text=SCRAPE_METRICS, headers={"content-type": "text/plain"}
+            200, text=_HEALTHY_FIXTURE, headers={"content-type": "text/plain"}
         )
     )
     return ScrapeClient(

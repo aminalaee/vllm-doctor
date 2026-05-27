@@ -1,5 +1,6 @@
 import pytest
 
+from tests.helpers import snapshot_from_fixture
 from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.queue_pressure import QueuePressureRule
 
@@ -67,6 +68,10 @@ class TestQueuePressureRule:
             metrics=Metrics(num_requests_waiting=1, num_requests_running=80),
         )
         assert rule.evaluate(snapshot) == []
+
+    async def test_queue_pressure_with_fixture(self) -> None:
+        snapshot = await snapshot_from_fixture("queue-pressure.txt")
+        assert len(QueuePressureRule().evaluate(snapshot)) == 1
 
     def test_custom_thresholds(self) -> None:
         rule = QueuePressureRule(high_waiting=100, high_running=200)
