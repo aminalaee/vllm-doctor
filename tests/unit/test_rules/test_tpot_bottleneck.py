@@ -1,5 +1,6 @@
 import pytest
 
+from tests.helpers import snapshot_from_fixture
 from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.tpot_bottleneck import TPOTBottleneckRule
 
@@ -137,6 +138,11 @@ class TestTPOTBottleneckRule:
         )
         findings = rule.evaluate(snapshot)
         assert not any("nan" in e for e in findings[0].evidence)
+
+    async def test_tpot_bottleneck_with_fixture(self, rule: TPOTBottleneckRule) -> None:
+        snapshot = await snapshot_from_fixture("tpot-bottleneck.txt")
+        # tpot_p95_seconds unavailable from scrape endpoint
+        assert rule.evaluate(snapshot) == []
 
     def test_custom_threshold(self) -> None:
         rule = TPOTBottleneckRule(high_tpot_p95=0.5)

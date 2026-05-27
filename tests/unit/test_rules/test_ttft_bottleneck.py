@@ -1,5 +1,6 @@
 import pytest
 
+from tests.helpers import snapshot_from_fixture
 from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.ttft_bottleneck import TTFTBottleneckRule
 
@@ -116,6 +117,11 @@ class TestTTFTBottleneckRule:
         findings = rule.evaluate(snapshot)
         assert len(findings) == 1
         assert not any("nan" in e for e in findings[0].evidence)
+
+    async def test_ttft_bottleneck_with_fixture(self, rule: TTFTBottleneckRule) -> None:
+        snapshot = await snapshot_from_fixture("ttft-bottleneck.txt")
+        # ttft_p95_seconds unavailable from scrape endpoint
+        assert rule.evaluate(snapshot) == []
 
     def test_custom_threshold(self) -> None:
         rule = TTFTBottleneckRule(high_ttft_p95=5.0)

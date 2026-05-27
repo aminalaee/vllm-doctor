@@ -1,0 +1,4 @@
+# TYPE vllm:request_success_total counter
+vllm:request_success_total{engine="0",finished_reason="stop",model_name="meta-llama/Llama-3.1-8B"} 70.0
+vllm:request_success_total{engine="0",finished_reason="error",model_name="meta-llama/Llama-3.1-8B"} 10.0
+vllm:request_success_total{engine="0",finished_reason="abort",model_name="meta-llama/Llama-3.1-8B"} 20.0
