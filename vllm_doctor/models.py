@@ -32,27 +32,23 @@ class Metrics(BaseModel):
         _Metric,
         Field(title="GPU Cache Usage", json_schema_extra={"fmt": ".0%", "bar": True}),
     ] = None
-    prompt_tokens_per_second: Annotated[
-        _Metric, Field(title="Prompt Tokens/s", json_schema_extra={"fmt": ".1f"})
-    ] = None
+    prompt_tokens_per_second: Annotated[_Metric, Field(title="Prompt Tokens/s", json_schema_extra={"fmt": ".1f"})] = (
+        None
+    )
     generation_tokens_per_second: Annotated[
         _Metric, Field(title="Generation Tokens/s", json_schema_extra={"fmt": ".1f"})
     ] = None
     request_success_total: Annotated[_Metric, Field(title="Requests Success")] = None
     request_error_total: Annotated[_Metric, Field(title="Requests Error")] = None
     request_abort_total: Annotated[_Metric, Field(title="Requests Aborted")] = None
-    ttft_p95_seconds: Annotated[
-        _Metric, Field(title="TTFT p95 (s)", json_schema_extra={"fmt": ".3f"})
-    ] = None
-    tpot_p95_seconds: Annotated[
-        _Metric, Field(title="TPOT p95 (s)", json_schema_extra={"fmt": ".3f"})
-    ] = None
+    ttft_p95_seconds: Annotated[_Metric, Field(title="TTFT p95 (s)", json_schema_extra={"fmt": ".3f"})] = None
+    tpot_p95_seconds: Annotated[_Metric, Field(title="TPOT p95 (s)", json_schema_extra={"fmt": ".3f"})] = None
     prefix_cache_hit_rate: Annotated[
         _Metric, Field(title="Prefix Cache Hit Rate", json_schema_extra={"fmt": ".0%"})
     ] = None
-    queue_time_p95_seconds: Annotated[
-        _Metric, Field(title="Queue Time p95 (s)", json_schema_extra={"fmt": ".3f"})
-    ] = None
+    queue_time_p95_seconds: Annotated[_Metric, Field(title="Queue Time p95 (s)", json_schema_extra={"fmt": ".3f"})] = (
+        None
+    )
     num_preemptions_total: Annotated[_Metric, Field(title="Preemptions Total")] = None
 
 

@@ -36,11 +36,7 @@ class PrefixCacheEfficiencyRule(Rule):
         if hit_rate >= self.min_hit_rate:
             return []
 
-        confidence = (
-            Confidence.high
-            if hit_rate < _HIGH_CONFIDENCE_MAX_RATE
-            else Confidence.medium
-        )
+        confidence = Confidence.high if hit_rate < _HIGH_CONFIDENCE_MAX_RATE else Confidence.medium
 
         return [
             Finding(

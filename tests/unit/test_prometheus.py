@@ -48,16 +48,12 @@ def empty_client() -> PrometheusClient:
 def range_client() -> PrometheusClient:
     return PrometheusClient(
         base_url="http://localhost:9090",
-        client=httpx.AsyncClient(
-            transport=_transport(RANGE_RESULT, result_type="matrix")
-        ),
+        client=httpx.AsyncClient(transport=_transport(RANGE_RESULT, result_type="matrix")),
     )
 
 
 class TestInstantQuery:
-    async def test_returns_metric_samples(
-        self, instant_client: PrometheusClient
-    ) -> None:
+    async def test_returns_metric_samples(self, instant_client: PrometheusClient) -> None:
         result = await instant_client.query("up")
         assert len(result) == 1
         assert isinstance(result[0], MetricSample)
@@ -92,9 +88,7 @@ class TestInstantQuery:
     async def test_raises_on_http_error(self) -> None:
         client = PrometheusClient(
             base_url="http://localhost:9090",
-            client=httpx.AsyncClient(
-                transport=httpx.MockTransport(lambda _: httpx.Response(500))
-            ),
+            client=httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(500))),
         )
         with pytest.raises(PrometheusError):
             await client.query("up")
@@ -143,9 +137,7 @@ class TestRangeQuery:
     async def test_raises_on_http_error(self) -> None:
         client = PrometheusClient(
             base_url="http://localhost:9090",
-            client=httpx.AsyncClient(
-                transport=httpx.MockTransport(lambda _: httpx.Response(500))
-            ),
+            client=httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(500))),
         )
         with pytest.raises(PrometheusError):
             await client.query_range("up", "now-1h", "now", "1m")

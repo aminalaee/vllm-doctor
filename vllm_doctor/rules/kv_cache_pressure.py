@@ -39,20 +39,13 @@ class KVCachePressureRule(Rule):
 
         signals: list[str] = []
         evidence = [
-            f"GPU KV cache usage: {snapshot.metrics.kv_cache_usage_perc:.0%} "
-            f"(threshold: {self.high_cache_usage:.0%})"
+            f"GPU KV cache usage: {snapshot.metrics.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"
         ]
 
-        waiting_high = (
-            snapshot.metrics.num_requests_waiting is not None
-            and snapshot.metrics.num_requests_waiting > 0
-        )
+        waiting_high = snapshot.metrics.num_requests_waiting is not None and snapshot.metrics.num_requests_waiting > 0
         if waiting_high:
             signals.append("Cache saturation blocking new request admission")
-            evidence.append(
-                f"Waiting requests: {snapshot.metrics.num_requests_waiting:.0f} "
-                "(blocked by full cache)"
-            )
+            evidence.append(f"Waiting requests: {snapshot.metrics.num_requests_waiting:.0f} (blocked by full cache)")
 
         confidence = Confidence.high if waiting_high else Confidence.medium
 

@@ -17,9 +17,7 @@ def high_cache_snapshot() -> MetricSnapshot:
 
 @pytest.fixture
 def high_cache_with_waiting_snapshot() -> MetricSnapshot:
-    return MetricSnapshot(
-        window="now", metrics=Metrics(kv_cache_usage_perc=0.95, num_requests_waiting=5)
-    )
+    return MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.95, num_requests_waiting=5))
 
 
 class TestKVCachePressureRule:
@@ -27,25 +25,13 @@ class TestKVCachePressureRule:
         assert rule.evaluate(MetricSnapshot(window="now")) == []
 
     def test_no_finding_below_threshold(self, rule: KVCachePressureRule) -> None:
-        assert (
-            rule.evaluate(
-                MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.80))
-            )
-            == []
-        )
+        assert rule.evaluate(MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.80))) == []
 
     def test_no_finding_at_threshold_boundary(self, rule: KVCachePressureRule) -> None:
-        assert (
-            rule.evaluate(
-                MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.89))
-            )
-            == []
-        )
+        assert rule.evaluate(MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.89))) == []
 
     def test_finding_at_threshold(self, rule: KVCachePressureRule) -> None:
-        findings = rule.evaluate(
-            MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.90))
-        )
+        findings = rule.evaluate(MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.90)))
         assert len(findings) == 1
         assert findings[0].severity == Severity.critical
 
@@ -59,14 +45,9 @@ class TestKVCachePressureRule:
         rule: KVCachePressureRule,
         high_cache_with_waiting_snapshot: MetricSnapshot,
     ) -> None:
-        assert (
-            rule.evaluate(high_cache_with_waiting_snapshot)[0].confidence
-            == Confidence.high
-        )
+        assert rule.evaluate(high_cache_with_waiting_snapshot)[0].confidence == Confidence.high
 
-    def test_waiting_zero_gives_medium_confidence(
-        self, rule: KVCachePressureRule
-    ) -> None:
+    def test_waiting_zero_gives_medium_confidence(self, rule: KVCachePressureRule) -> None:
         snapshot = MetricSnapshot(
             window="now",
             metrics=Metrics(kv_cache_usage_perc=0.95, num_requests_waiting=0),
@@ -87,27 +68,11 @@ class TestKVCachePressureRule:
         findings = rule.evaluate(high_cache_with_waiting_snapshot)
         assert any("5" in e for e in findings[0].evidence)
 
-    async def test_kv_cache_pressure_with_fixture(
-        self, rule: KVCachePressureRule
-    ) -> None:
+    async def test_kv_cache_pressure_with_fixture(self, rule: KVCachePressureRule) -> None:
         snapshot = await snapshot_from_fixture("kv-pressure.txt")
         assert len(rule.evaluate(snapshot)) == 1
 
     def test_custom_threshold(self) -> None:
         rule = KVCachePressureRule(high_cache_usage=0.75)
-        assert (
-            rule.evaluate(
-                MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.74))
-            )
-            == []
-        )
-        assert (
-            len(
-                rule.evaluate(
-                    MetricSnapshot(
-                        window="now", metrics=Metrics(kv_cache_usage_perc=0.75)
-                    )
-                )
-            )
-            == 1
-        )
+        assert rule.evaluate(MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.74))) == []
+        assert len(rule.evaluate(MetricSnapshot(window="now", metrics=Metrics(kv_cache_usage_perc=0.75)))) == 1

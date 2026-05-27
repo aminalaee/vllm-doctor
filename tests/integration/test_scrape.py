@@ -1,15 +1,15 @@
 import httpx
 import pytest
 
-from vllm_doctor.clients import resolve_client, ScrapeClient
+from vllm_doctor.clients import ScrapeClient, resolve_client
 from vllm_doctor.collector import collect
 from vllm_doctor.diagnosis import run
 from vllm_doctor.models import DiagnosisResult, MetricSnapshot
 from vllm_doctor.rules.error_rate import ErrorRateRule
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 from vllm_doctor.rules.low_throughput import LowThroughputRule
-from vllm_doctor.rules.prefix_cache_efficiency import PrefixCacheEfficiencyRule
 from vllm_doctor.rules.preemption_pressure import PreemptionPressureRule
+from vllm_doctor.rules.prefix_cache_efficiency import PrefixCacheEfficiencyRule
 from vllm_doctor.rules.queue_latency import QueueLatencyRule
 from vllm_doctor.rules.queue_pressure import QueuePressureRule
 from vllm_doctor.rules.tpot_bottleneck import TPOTBottleneckRule
@@ -54,22 +54,16 @@ class TestLiveScrape:
         findings = run(snapshot, [QueuePressureRule()])
         assert isinstance(findings, list)
 
-    async def test_ttft_percentile_returns_none_in_scrape_mode(
-        self, client: ScrapeClient
-    ) -> None:
+    async def test_ttft_percentile_returns_none_in_scrape_mode(self, client: ScrapeClient) -> None:
         result = await client.query_percentile("vllm:time_to_first_token_seconds", 0.95)
         assert result is None
 
     async def test_prefix_cache_hit_rate_populated(self, client: ScrapeClient) -> None:
         snapshot = await collect(client, window="now")
         # hit rate is None only when no queries have been made yet
-        assert snapshot.metrics.prefix_cache_hit_rate is None or (
-            0.0 <= snapshot.metrics.prefix_cache_hit_rate <= 1.0
-        )
+        assert snapshot.metrics.prefix_cache_hit_rate is None or (0.0 <= snapshot.metrics.prefix_cache_hit_rate <= 1.0)
 
-    async def test_queue_time_p95_none_in_scrape_mode(
-        self, client: ScrapeClient
-    ) -> None:
+    async def test_queue_time_p95_none_in_scrape_mode(self, client: ScrapeClient) -> None:
         snapshot = await collect(client, window="now")
         assert snapshot.metrics.queue_time_p95_seconds is None
 

@@ -12,34 +12,24 @@ def rule() -> QueuePressureRule:
 
 @pytest.fixture
 def healthy_snapshot() -> MetricSnapshot:
-    return MetricSnapshot(
-        window="1h", metrics=Metrics(num_requests_waiting=1, num_requests_running=10)
-    )
+    return MetricSnapshot(window="1h", metrics=Metrics(num_requests_waiting=1, num_requests_running=10))
 
 
 @pytest.fixture
 def high_waiting_snapshot() -> MetricSnapshot:
-    return MetricSnapshot(
-        window="1h", metrics=Metrics(num_requests_waiting=20, num_requests_running=10)
-    )
+    return MetricSnapshot(window="1h", metrics=Metrics(num_requests_waiting=20, num_requests_running=10))
 
 
 @pytest.fixture
 def saturated_snapshot() -> MetricSnapshot:
-    return MetricSnapshot(
-        window="1h", metrics=Metrics(num_requests_waiting=20, num_requests_running=80)
-    )
+    return MetricSnapshot(window="1h", metrics=Metrics(num_requests_waiting=20, num_requests_running=80))
 
 
 class TestQueuePressureRule:
-    def test_no_finding_when_healthy(
-        self, rule: QueuePressureRule, healthy_snapshot: MetricSnapshot
-    ) -> None:
+    def test_no_finding_when_healthy(self, rule: QueuePressureRule, healthy_snapshot: MetricSnapshot) -> None:
         assert rule.evaluate(healthy_snapshot) == []
 
-    def test_finding_when_waiting_high(
-        self, rule: QueuePressureRule, high_waiting_snapshot: MetricSnapshot
-    ) -> None:
+    def test_finding_when_waiting_high(self, rule: QueuePressureRule, high_waiting_snapshot: MetricSnapshot) -> None:
         findings = rule.evaluate(high_waiting_snapshot)
         assert len(findings) == 1
         assert findings[0].severity == Severity.warning
@@ -55,9 +45,7 @@ class TestQueuePressureRule:
     def test_no_finding_when_metrics_missing(self, rule: QueuePressureRule) -> None:
         assert rule.evaluate(MetricSnapshot(window="1h")) == []
 
-    def test_evidence_contains_values(
-        self, rule: QueuePressureRule, saturated_snapshot: MetricSnapshot
-    ) -> None:
+    def test_evidence_contains_values(self, rule: QueuePressureRule, saturated_snapshot: MetricSnapshot) -> None:
         findings = rule.evaluate(saturated_snapshot)
         assert any("20" in e for e in findings[0].evidence)
         assert any("80" in e for e in findings[0].evidence)

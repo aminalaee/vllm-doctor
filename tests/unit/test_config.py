@@ -33,9 +33,7 @@ class TestLoadConfig:
 
     def test_auto_discovers_local_toml(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / "vllm-doctor.toml").write_text(
-            "[rules.queue_latency]\nhigh_queue_time_p95 = 2.5\n"
-        )
+        (tmp_path / "vllm-doctor.toml").write_text("[rules.queue_latency]\nhigh_queue_time_p95 = 2.5\n")
         config = load_config()
         assert config.rules.queue_latency.high_queue_time_p95 == 2.5
 

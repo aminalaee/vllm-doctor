@@ -11,9 +11,7 @@ _FIXTURES_DIR = Path(__file__).parent / "fixtures" / "metrics"
 
 async def snapshot_from_fixture(name: str) -> MetricSnapshot:
     text = (_FIXTURES_DIR / name).read_text()
-    transport = httpx.MockTransport(
-        lambda _: httpx.Response(200, text=text, headers={"content-type": "text/plain"})
-    )
+    transport = httpx.MockTransport(lambda _: httpx.Response(200, text=text, headers={"content-type": "text/plain"}))
     async with ScrapeClient(
         url="http://testserver/metrics",
         client=httpx.AsyncClient(transport=transport),

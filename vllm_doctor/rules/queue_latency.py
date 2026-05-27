@@ -29,9 +29,7 @@ class QueueLatencyRule(Rule):
     def name(self) -> str:
         return "Queue Latency"
 
-    def __init__(
-        self, high_queue_time_p95: float = _DEFAULT_HIGH_QUEUE_TIME_P95
-    ) -> None:
+    def __init__(self, high_queue_time_p95: float = _DEFAULT_HIGH_QUEUE_TIME_P95) -> None:
         self.high_queue_time_p95 = high_queue_time_p95
 
     def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
@@ -41,9 +39,7 @@ class QueueLatencyRule(Rule):
         if queue_time < self.high_queue_time_p95:
             return []
 
-        evidence = [
-            f"Queue time p95: {queue_time:.3f}s (threshold: {self.high_queue_time_p95}s)"
-        ]
+        evidence = [f"Queue time p95: {queue_time:.3f}s (threshold: {self.high_queue_time_p95}s)"]
         signals: list[str] = []
 
         waiting = snapshot.metrics.num_requests_waiting

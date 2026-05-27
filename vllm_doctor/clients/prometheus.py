@@ -27,17 +27,13 @@ class PrometheusClient:
         self.base_url = base_url.rstrip("/")
         self._client = client or httpx.AsyncClient(timeout=timeout)
 
-    async def query(
-        self, metric_name: str, time: str | None = None
-    ) -> list[MetricSample]:
+    async def query(self, metric_name: str, time: str | None = None) -> list[MetricSample]:
         params: dict[str, str] = {"query": metric_name}
         if time is not None:
             params["time"] = time
 
         try:
-            response = await self._client.get(
-                f"{self.base_url}/api/v1/query", params=params
-            )
+            response = await self._client.get(f"{self.base_url}/api/v1/query", params=params)
             response.raise_for_status()
         except httpx.ConnectError as e:
             raise PrometheusConnectionError(str(e)) from e
@@ -57,15 +53,11 @@ class PrometheusClient:
             for r in data["data"]["result"]
         ]
 
-    async def query_range(
-        self, metric_name: str, start: str, end: str, step: str
-    ) -> list[MetricSample]:
+    async def query_range(self, metric_name: str, start: str, end: str, step: str) -> list[MetricSample]:
         params = {"query": metric_name, "start": start, "end": end, "step": step}
 
         try:
-            response = await self._client.get(
-                f"{self.base_url}/api/v1/query_range", params=params
-            )
+            response = await self._client.get(f"{self.base_url}/api/v1/query_range", params=params)
             response.raise_for_status()
         except httpx.ConnectError as e:
             raise PrometheusConnectionError(str(e)) from e

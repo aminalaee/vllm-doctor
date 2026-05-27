@@ -54,6 +54,12 @@ dev = [
   "zensical~=0.0.42",
 ]
 
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

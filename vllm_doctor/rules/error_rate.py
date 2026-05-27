@@ -70,26 +70,20 @@ class ErrorRateRule(Rule):
                 f"threshold: {self.high_error_rate:.1%})"
             )
         if aborts_high:
-            signals.append(
-                "Elevated client abort rate — clients disconnecting before response"
-            )
+            signals.append("Elevated client abort rate — clients disconnecting before response")
             evidence.append(
                 f"Abort rate: {abort_rate:.1%} ({aborts:.0f} aborts out of {total:.0f} requests, "
                 f"threshold: {self.high_abort_rate:.1%})"
             )
 
-        confidence = (
-            Confidence.high if (errors_high and aborts_high) else Confidence.low
-        )
+        confidence = Confidence.high if (errors_high and aborts_high) else Confidence.low
 
         return [
             Finding(
                 severity=Severity.critical if errors_high else Severity.warning,
                 confidence=confidence,
                 title="Elevated error rate",
-                summary=(
-                    "Server is returning errors or clients are aborting at an elevated rate."
-                ),
+                summary=("Server is returning errors or clients are aborting at an elevated rate."),
                 signals=signals,
                 evidence=evidence,
                 likely_causes=[

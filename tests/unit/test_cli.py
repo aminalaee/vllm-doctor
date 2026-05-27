@@ -7,9 +7,7 @@ from typer.testing import CliRunner
 from vllm_doctor.cli import app
 from vllm_doctor.clients.scrape import ScrapeClient
 
-_HEALTHY_FIXTURE = (
-    Path(__file__).parent.parent / "fixtures" / "metrics" / "healthy.txt"
-).read_text()
+_HEALTHY_FIXTURE = (Path(__file__).parent.parent / "fixtures" / "metrics" / "healthy.txt").read_text()
 
 
 @pytest.fixture
@@ -20,9 +18,7 @@ def runner() -> CliRunner:
 @pytest.fixture
 def scrape_client() -> ScrapeClient:
     transport = httpx.MockTransport(
-        lambda _: httpx.Response(
-            200, text=_HEALTHY_FIXTURE, headers={"content-type": "text/plain"}
-        )
+        lambda _: httpx.Response(200, text=_HEALTHY_FIXTURE, headers={"content-type": "text/plain"})
     )
     return ScrapeClient(
         url="http://localhost:8000/metrics",
@@ -46,15 +42,11 @@ class TestCLI:
         assert "OK" in result.output
 
     def test_live_zero_exits_nonzero(self, runner: CliRunner) -> None:
-        result = runner.invoke(
-            app, ["--url", "http://localhost:8000/metrics", "--live", "0"]
-        )
+        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--live", "0"])
         assert result.exit_code != 0
 
     def test_live_negative_exits_nonzero(self, runner: CliRunner) -> None:
-        result = runner.invoke(
-            app, ["--url", "http://localhost:8000/metrics", "--live", "-1"]
-        )
+        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--live", "-1"])
         assert result.exit_code != 0
 
     def test_missing_url_exits_nonzero(self, runner: CliRunner) -> None:
@@ -75,9 +67,7 @@ class TestCLI:
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
         monkeypatch.setattr("vllm_doctor.cli.asyncio.sleep", fake_sleep)
-        result = runner.invoke(
-            app, ["--url", "http://localhost:8000/metrics", "--live", "10"]
-        )
+        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--live", "10"])
         assert result.exit_code == 0
         assert "OK" in result.output
 
@@ -95,8 +85,6 @@ class TestCLI:
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
         monkeypatch.setattr("vllm_doctor.cli.asyncio.sleep", fake_sleep)
-        result = runner.invoke(
-            app, ["--url", "http://localhost:8000/metrics", "-l", "10"]
-        )
+        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "-l", "10"])
         assert result.exit_code == 0
         assert "OK" in result.output

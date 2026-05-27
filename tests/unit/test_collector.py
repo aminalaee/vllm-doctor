@@ -30,9 +30,7 @@ def empty_client() -> PrometheusClient:
     body = {"status": "success", "data": {"resultType": "vector", "result": []}}
     return PrometheusClient(
         base_url="http://localhost:9090",
-        client=httpx.AsyncClient(
-            transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body))
-        ),
+        client=httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body))),
     )
 
 
@@ -80,17 +78,13 @@ class TestCollect:
         snapshot = await collect(client, window="1h", model="meta-llama/Llama-3.1-8B")
         assert snapshot.model_name == "meta-llama/Llama-3.1-8B"
 
-    async def test_missing_metrics_are_none(
-        self, empty_client: PrometheusClient
-    ) -> None:
+    async def test_missing_metrics_are_none(self, empty_client: PrometheusClient) -> None:
         snapshot = await collect(empty_client, window="1h")
         assert snapshot.metrics.num_requests_running is None
         assert snapshot.metrics.num_requests_waiting is None
         assert snapshot.metrics.kv_cache_usage_perc is None
 
-    async def test_sums_multiple_replicas(
-        self, multi_replica_client: PrometheusClient
-    ) -> None:
+    async def test_sums_multiple_replicas(self, multi_replica_client: PrometheusClient) -> None:
         snapshot = await collect(multi_replica_client, window="1h")
         assert snapshot.metrics.num_requests_running == 10.0
 
@@ -106,8 +100,6 @@ class TestCollect:
         snapshot = await collect(client, window="1h")
         assert snapshot.metrics.prefix_cache_hit_rate == 1.0
 
-    async def test_prefix_hit_rate_none_when_no_queries(
-        self, empty_client: PrometheusClient
-    ) -> None:
+    async def test_prefix_hit_rate_none_when_no_queries(self, empty_client: PrometheusClient) -> None:
         snapshot = await collect(empty_client, window="1h")
         assert snapshot.metrics.prefix_cache_hit_rate is None
