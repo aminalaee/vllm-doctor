@@ -4,6 +4,8 @@
 
 Diagnose vLLM serving issues from `/metrics`.
 
+![vllm-doctor demo](demo.png)
+
 vLLM Doctor reads production metrics and turns them into operational findings: what looks wrong, how confident the diagnosis is, and which vLLM knobs are worth checking first.
 
 ```shell

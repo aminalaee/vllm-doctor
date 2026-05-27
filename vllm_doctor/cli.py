@@ -85,14 +85,16 @@ async def _run(url: str, window: str, fmt: Format, verbose: bool, live: int | No
                     return
                 await asyncio.sleep(live)
         else:
-            with Live("", console=console, auto_refresh=False) as live_display:
-                while True:
-                    result = await _diagnose(client, rules, window)
-                    live_display.update(text_report.build(result, verbose=verbose))
-                    live_display.refresh()
-                    if live is None:
-                        return
-                    await asyncio.sleep(live)
+            if live is None:
+                result = await _diagnose(client, rules, window)
+                console.print(text_report.build(result, verbose=verbose))
+            else:
+                with Live("", console=console, auto_refresh=False) as live_display:
+                    while True:
+                        result = await _diagnose(client, rules, window)
+                        live_display.update(text_report.build(result, verbose=verbose))
+                        live_display.refresh()
+                        await asyncio.sleep(live)
 
 
 @app.command()

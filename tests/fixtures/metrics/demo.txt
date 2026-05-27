@@ -1,0 +1,29 @@
+# HELP vllm:num_requests_running Number of requests currently running on GPU.
+# TYPE vllm:num_requests_running gauge
+vllm:num_requests_running{engine="0",model_name="meta-llama/Llama-3.1-8B"} 48.0
+# HELP vllm:num_requests_waiting Number of requests waiting to be processed.
+# TYPE vllm:num_requests_waiting gauge
+vllm:num_requests_waiting{engine="0",model_name="meta-llama/Llama-3.1-8B"} 25.0
+# HELP vllm:kv_cache_usage_perc GPU KV-cache usage. 1 means 100 percent usage.
+# TYPE vllm:kv_cache_usage_perc gauge
+vllm:kv_cache_usage_perc{engine="0",model_name="meta-llama/Llama-3.1-8B"} 0.95
+# HELP vllm:prompt_tokens_per_second Average prompt throughput in tokens/s.
+# TYPE vllm:prompt_tokens_per_second gauge
+vllm:prompt_tokens_per_second{engine="0",model_name="meta-llama/Llama-3.1-8B"} 3840.0
+# HELP vllm:generation_tokens_per_second Average generation throughput in tokens/s.
+# TYPE vllm:generation_tokens_per_second gauge
+vllm:generation_tokens_per_second{engine="0",model_name="meta-llama/Llama-3.1-8B"} 487.0
+# HELP vllm:request_success_total Total number of requests by finish reason.
+# TYPE vllm:request_success_total counter
+vllm:request_success_total{engine="0",finished_reason="stop",model_name="meta-llama/Llama-3.1-8B"} 820.0
+vllm:request_success_total{engine="0",finished_reason="error",model_name="meta-llama/Llama-3.1-8B"} 8.0
+vllm:request_success_total{engine="0",finished_reason="abort",model_name="meta-llama/Llama-3.1-8B"} 12.0
+# HELP vllm:prefix_cache_hits_total Total number of prefix cache hits.
+# TYPE vllm:prefix_cache_hits_total counter
+vllm:prefix_cache_hits_total{engine="0",model_name="meta-llama/Llama-3.1-8B"} 80.0
+# HELP vllm:prefix_cache_queries_total Total number of prefix cache queries.
+# TYPE vllm:prefix_cache_queries_total counter
+vllm:prefix_cache_queries_total{engine="0",model_name="meta-llama/Llama-3.1-8B"} 1000.0
+# HELP vllm:num_preemptions_total Total number of preemptions.
+# TYPE vllm:num_preemptions_total counter
+vllm:num_preemptions_total{engine="0",model_name="meta-llama/Llama-3.1-8B"} 47.0
