@@ -9,6 +9,7 @@ from vllm_doctor.models import (
     Finding,
     MetricSnapshot,
     Metrics,
+    RuleResult,
     Severity,
 )
 from vllm_doctor.reports.text import render
@@ -32,59 +33,83 @@ def queue_finding() -> Finding:
     )
 
 
+@pytest.fixture
+def queue_check(queue_finding: Finding) -> RuleResult:
+    return RuleResult(name="Queue Pressure", finding=queue_finding)
+
+
 class TestRenderText:
     def test_shows_header(self, snapshot: MetricSnapshot) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[]),
+            DiagnosisResult(snapshot=snapshot, checks=[]),
             console=Console(file=buf, highlight=False),
         )
         assert "vLLM Doctor" in buf.getvalue()
 
-    def test_no_issues_message(self, snapshot: MetricSnapshot) -> None:
+    def test_ok_health_when_no_findings(self, snapshot: MetricSnapshot) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[]),
+            DiagnosisResult(snapshot=snapshot, checks=[]),
             console=Console(file=buf, highlight=False),
         )
-        assert "No issues detected" in buf.getvalue()
+        assert "OK" in buf.getvalue()
 
-    def test_shows_finding_title(
-        self, snapshot: MetricSnapshot, queue_finding: Finding
+    def test_shows_matrix_rule_name(
+        self, snapshot: MetricSnapshot, queue_check: RuleResult
     ) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[queue_finding]),
+            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
-        assert "Queue pressure" in buf.getvalue()
+        assert "Queue Pressure" in buf.getvalue()
 
-    def test_shows_severity(
-        self, snapshot: MetricSnapshot, queue_finding: Finding
+    def test_shows_severity_in_health(
+        self, snapshot: MetricSnapshot, queue_check: RuleResult
     ) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[queue_finding]),
+            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "WARNING" in buf.getvalue()
 
-    def test_shows_evidence(
-        self, snapshot: MetricSnapshot, queue_finding: Finding
+    def test_matrix_ok_row_when_no_finding(self, snapshot: MetricSnapshot) -> None:
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(snapshot=snapshot, checks=[RuleResult(name="My Rule")]),
+            console=Console(file=buf, highlight=False),
+        )
+        assert "My Rule" in buf.getvalue()
+        assert "ok" in buf.getvalue()
+
+    def test_shows_finding_title(
+        self, snapshot: MetricSnapshot, queue_check: RuleResult
     ) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[queue_finding]),
+            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
+            console=Console(file=buf, highlight=False),
+        )
+        assert "Queue pressure" in buf.getvalue()
+
+    def test_shows_evidence(
+        self, snapshot: MetricSnapshot, queue_check: RuleResult
+    ) -> None:
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Waiting requests: 20" in buf.getvalue()
 
     def test_shows_recommendation(
-        self, snapshot: MetricSnapshot, queue_finding: Finding
+        self, snapshot: MetricSnapshot, queue_check: RuleResult
     ) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[queue_finding]),
+            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Add replicas" in buf.getvalue()
@@ -96,7 +121,7 @@ class TestRenderText:
         )
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[]),
+            DiagnosisResult(snapshot=snapshot, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=True,
         )
@@ -110,7 +135,7 @@ class TestRenderText:
         )
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[]),
+            DiagnosisResult(snapshot=snapshot, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=True,
         )
@@ -123,7 +148,7 @@ class TestRenderText:
         )
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[]),
+            DiagnosisResult(snapshot=snapshot, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=True,
         )
@@ -136,7 +161,7 @@ class TestRenderText:
         )
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, findings=[]),
+            DiagnosisResult(snapshot=snapshot, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=False,
         )

@@ -17,6 +17,10 @@ _DEFAULT_LOW_GEN_TOKENS_PER_SEC = 50.0
 
 
 class TPOTBottleneckRule(Rule):
+    @property
+    def name(self) -> str:
+        return "High TPOT"
+
     def __init__(
         self,
         high_tpot_p95: float = _DEFAULT_HIGH_TPOT_P95,

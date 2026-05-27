@@ -76,18 +76,24 @@ Options:
 ```shell
 ─────────── vLLM Doctor  ·  Health: CRITICAL  ·  Window: 5m ────────────
 
-╭─ ✖ KV cache pressure  [high confidence] ─────────────────────────────╮
-│   GPU KV cache usage: 94%  ·  Waiting requests: 7                    │
-│                                                                      │
-│   → Reduce max_num_seqs to limit concurrent sequences                │
-│   → Increase gpu_memory_utilization if GPU memory headroom exists    │
-╰──────────────────────────────────────────────────────────────────────╯
 ╭─ ⚠ Queue pressure  [low confidence] ─────────────────────────────────╮
 │   Waiting requests: 7                                                │
 │                                                                      │
 │   → Add replicas or increase concurrency limits                      │
 │   → Inspect autoscaling thresholds                                   │
 ╰──────────────────────────────────────────────────────────────────────╯
+╭─ ✖ KV cache pressure  [high confidence] ─────────────────────────────╮
+│   GPU KV cache usage: 94%  ·  Waiting requests: 7                    │
+│                                                                      │
+│   → Reduce max_num_seqs to limit concurrent sequences                │
+│   → Increase gpu_memory_utilization if GPU memory headroom exists    │
+╰──────────────────────────────────────────────────────────────────────╯
+
+  Queue Pressure       ⚠ warning     [low]
+  KV Cache Pressure    ✖ critical    [high]
+  Low Throughput       ✓ ok
+  Error Rate           ✓ ok
+  High TTFT            ✓ ok
 
 ─────────────────────────── Observed Metrics ───────────────────────────
 

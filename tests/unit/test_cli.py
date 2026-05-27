@@ -44,7 +44,7 @@ class TestCLI:
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
         result = runner.invoke(app, ["--url", "http://localhost:8000/metrics"])
         assert result.exit_code == 0
-        assert "No issues detected" in result.output
+        assert "OK" in result.output
 
     def test_live_zero_exits_nonzero(self, runner: CliRunner) -> None:
         result = runner.invoke(
@@ -80,7 +80,7 @@ class TestCLI:
             app, ["--url", "http://localhost:8000/metrics", "--live", "10"]
         )
         assert result.exit_code == 0
-        assert "No issues detected" in result.output
+        assert "OK" in result.output
 
     def test_live_short_flag(
         self,
@@ -100,4 +100,4 @@ class TestCLI:
             app, ["--url", "http://localhost:8000/metrics", "-l", "10"]
         )
         assert result.exit_code == 0
-        assert "No issues detected" in result.output
+        assert "OK" in result.output

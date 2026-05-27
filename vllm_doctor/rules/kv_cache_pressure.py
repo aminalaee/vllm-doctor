@@ -22,6 +22,10 @@ DEFAULT_HIGH_CACHE_USAGE = 0.90
 
 
 class KVCachePressureRule(Rule):
+    @property
+    def name(self) -> str:
+        return "KV Cache Pressure"
+
     def __init__(self, high_cache_usage: float = DEFAULT_HIGH_CACHE_USAGE) -> None:
         self.high_cache_usage = high_cache_usage
 

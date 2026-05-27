@@ -91,8 +91,8 @@ class TestLiveScrape:
             TPOTBottleneckRule(),
             PrefixCacheEfficiencyRule(),
         ]
-        result = DiagnosisResult(snapshot=snapshot, findings=run(snapshot, all_rules))
-        assert isinstance(result.findings, list)
+        result = DiagnosisResult(snapshot=snapshot, checks=run(snapshot, all_rules))
+        assert isinstance(result.checks, list)
 
     async def test_raw_metrics_contain_vllm_prefix(self) -> None:
         r = httpx.get(METRICS_URL, timeout=5.0)

@@ -62,6 +62,26 @@ def _finding_panel(finding: Finding) -> Panel:
     return Panel(body, title=title, title_align="left", border_style=color)
 
 
+def _matrix_table(result: DiagnosisResult) -> Table:
+    table = Table(show_header=False, box=None, padding=(0, 2))
+    table.add_column(style="dim", no_wrap=True)
+    table.add_column(no_wrap=True)
+    table.add_column(style="dim", no_wrap=True)
+
+    for check in result.checks:
+        if check.finding is None:
+            table.add_row(check.name, Text("✓ ok", style="green"), "")
+        else:
+            f = check.finding
+            color = _SEVERITY_COLOR[f.severity]
+            icon = _SEVERITY_ICON[f.severity]
+            status = Text(f"{icon} {f.severity.value}", style=f"bold {color}")
+            confidence = Text(f"[{f.confidence.value}]", style="dim")
+            table.add_row(check.name, status, confidence)
+
+    return table
+
+
 def _metrics_table(result: DiagnosisResult) -> Table:
     table = Table(show_header=False, box=None, padding=(0, 2))
     table.add_column(style="dim", no_wrap=True)
@@ -106,12 +126,14 @@ def build(result: DiagnosisResult, verbose: bool = False) -> Group:
         Text(),
     ]
 
-    if not result.findings:
-        items += [Text("  No issues detected.", style="green"), Text()]
-    else:
-        for finding in result.findings:
-            items.append(_finding_panel(finding))
+    fired = [c.finding for c in result.checks if c.finding is not None]
+    for finding in fired:
+        items.append(_finding_panel(finding))
+    if fired:
         items.append(Text())
+
+    if result.checks:
+        items += [_matrix_table(result), Text()]
 
     if verbose:
         items += [

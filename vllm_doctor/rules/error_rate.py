@@ -27,6 +27,10 @@ DEFAULT_HIGH_ABORT_RATE = 0.10
 
 
 class ErrorRateRule(Rule):
+    @property
+    def name(self) -> str:
+        return "Error Rate"
+
     def __init__(
         self,
         high_error_rate: float = DEFAULT_HIGH_ERROR_RATE,

@@ -65,7 +65,7 @@ class Format(str, Enum):
 
 async def _diagnose(client: Client, rules: list[Rule], window: str) -> DiagnosisResult:
     snapshot = await collect(client, window=window)
-    return DiagnosisResult(snapshot=snapshot, findings=run(snapshot, rules))
+    return DiagnosisResult(snapshot=snapshot, checks=run(snapshot, rules))
 
 
 async def _run(

@@ -23,6 +23,10 @@ _DEFAULT_HIGH_CACHE_USAGE = 0.80
 
 
 class PreemptionPressureRule(Rule):
+    @property
+    def name(self) -> str:
+        return "Preemption Pressure"
+
     def __init__(self, high_cache_usage: float = _DEFAULT_HIGH_CACHE_USAGE) -> None:
         self.high_cache_usage = high_cache_usage
 

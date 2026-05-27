@@ -27,6 +27,10 @@ DEFAULT_LOW_RUNNING = 2
 
 
 class LowThroughputRule(Rule):
+    @property
+    def name(self) -> str:
+        return "Low Throughput"
+
     def __init__(
         self,
         low_prompt_tps: float = DEFAULT_LOW_PROMPT_TPS,
