@@ -8,7 +8,7 @@ module-root = ""
 
 [project]
 name = "vllm-doctor"
-version = "0.1.0"
+version = "0.2.0"
 description = "Diagnostic tool for vLLM inference servers"
 readme = "README.md"
 authors = [{ name = "Amin Alaee", email = "mohammadamin.alaee@gmail.com" }]
