@@ -1,16 +1,21 @@
 from collections.abc import Sequence
 
-from vllm_doctor.models import Confidence, MetricSnapshot, RuleResult, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Metrics, RuleResult, Severity
 from vllm_doctor.rules.base import Rule
 
 _SEVERITY_ORDER = {Severity.critical: 0, Severity.warning: 1, Severity.info: 2}
 _CONFIDENCE_ORDER = {Confidence.high: 0, Confidence.medium: 1, Confidence.low: 2}
 
 
-def run(snapshot: MetricSnapshot, rules: Sequence[Rule]) -> list[RuleResult]:
+def run(
+    context: DiagnosisContext,
+    current: Metrics,
+    rules: Sequence[Rule],
+    previous: Metrics | None = None,
+) -> list[RuleResult]:
     results = []
     for rule in rules:
-        findings = rule.evaluate(snapshot)
+        findings = rule.evaluate(context=context, current=current, previous=previous)
         if findings:
             finding = min(
                 findings,

@@ -14,10 +14,10 @@ class DiagnosisReport(BaseModel):
 def render(result: DiagnosisResult, verbose: bool = False) -> str:
     report = DiagnosisReport(
         health=result.health,
-        model_name=result.snapshot.model_name,
-        window=result.snapshot.window,
+        model_name=result.context.model_name,
+        window=result.context.window,
         checks=result.checks,
-        metrics=result.snapshot.metrics,
+        metrics=result.current,
     )
     exclude: dict = {"checks": {"__all__": {"finding": {"signals"}}}}
     if not verbose:

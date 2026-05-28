@@ -5,19 +5,16 @@ from rich.console import Console
 
 from vllm_doctor.models import (
     Confidence,
+    DiagnosisContext,
     DiagnosisResult,
     Finding,
     Metrics,
-    MetricSnapshot,
     RuleResult,
     Severity,
 )
 from vllm_doctor.reports.text import render
 
-
-@pytest.fixture
-def snapshot() -> MetricSnapshot:
-    return MetricSnapshot(window="1h", model_name="meta-llama/Llama-3.1-8B")
+_CTX = DiagnosisContext(window="1h", model_name="meta-llama/Llama-3.1-8B")
 
 
 @pytest.fixture
@@ -39,119 +36,111 @@ def queue_check(queue_finding: Finding) -> RuleResult:
 
 
 class TestRenderText:
-    def test_shows_header(self, snapshot: MetricSnapshot) -> None:
+    def test_shows_header(self) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[]),
+            DiagnosisResult(context=_CTX, current=Metrics(), checks=[]),
             console=Console(file=buf, highlight=False),
         )
         assert "vLLM Doctor" in buf.getvalue()
 
-    def test_ok_health_when_no_findings(self, snapshot: MetricSnapshot) -> None:
+    def test_ok_health_when_no_findings(self) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[]),
+            DiagnosisResult(context=_CTX, current=Metrics(), checks=[]),
             console=Console(file=buf, highlight=False),
         )
         assert "OK" in buf.getvalue()
 
-    def test_shows_matrix_rule_name(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
+    def test_shows_matrix_rule_name(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
+            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Queue Pressure" in buf.getvalue()
 
-    def test_shows_severity_in_health(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
+    def test_shows_severity_in_health(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
+            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "WARNING" in buf.getvalue()
 
-    def test_matrix_ok_row_when_no_finding(self, snapshot: MetricSnapshot) -> None:
+    def test_matrix_ok_row_when_no_finding(self) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[RuleResult(name="My Rule")]),
+            DiagnosisResult(context=_CTX, current=Metrics(), checks=[RuleResult(name="My Rule")]),
             console=Console(file=buf, highlight=False),
         )
         assert "My Rule" in buf.getvalue()
         assert "ok" in buf.getvalue()
 
-    def test_shows_finding_title(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
+    def test_shows_finding_title(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
+            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Queue pressure" in buf.getvalue()
 
-    def test_shows_evidence(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
+    def test_shows_evidence(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
+            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Waiting requests: 20" in buf.getvalue()
 
-    def test_shows_recommendation(self, snapshot: MetricSnapshot, queue_check: RuleResult) -> None:
+    def test_shows_recommendation(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[queue_check]),
+            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Add replicas" in buf.getvalue()
 
-    def test_verbose_shows_metrics(self, snapshot: MetricSnapshot) -> None:
-        snapshot = MetricSnapshot(
-            window="1h",
-            metrics=Metrics(num_requests_running=5, kv_cache_usage_perc=0.5),
-        )
+    def test_verbose_shows_metrics(self) -> None:
+        ctx = DiagnosisContext(window="1h")
+        current = Metrics(num_requests_running=5, kv_cache_usage_perc=0.5)
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[]),
+            DiagnosisResult(context=ctx, current=current, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=True,
         )
         assert "Observed Metrics" in buf.getvalue()
         assert "Requests Running" in buf.getvalue()
 
-    def test_verbose_shows_cache_bar(self, snapshot: MetricSnapshot) -> None:
-        snapshot = MetricSnapshot(
-            window="1h",
-            metrics=Metrics(kv_cache_usage_perc=0.94),
-        )
+    def test_verbose_shows_cache_bar(self) -> None:
+        ctx = DiagnosisContext(window="1h")
+        current = Metrics(kv_cache_usage_perc=0.94)
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[]),
+            DiagnosisResult(context=ctx, current=current, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=True,
         )
         assert "█" in buf.getvalue()
 
     def test_verbose_nan_cache_shows_na(self) -> None:
-        snapshot = MetricSnapshot(
-            window="1h",
-            metrics=Metrics(kv_cache_usage_perc=float("nan")),
-        )
+        ctx = DiagnosisContext(window="1h")
+        current = Metrics(kv_cache_usage_perc=float("nan"))
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[]),
+            DiagnosisResult(context=ctx, current=current, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=True,
         )
         assert "n/a" in buf.getvalue()
 
-    def test_non_verbose_hides_metrics(self, snapshot: MetricSnapshot) -> None:
-        snapshot = MetricSnapshot(
-            window="1h",
-            metrics=Metrics(num_requests_running=5),
-        )
+    def test_non_verbose_hides_metrics(self) -> None:
+        ctx = DiagnosisContext(window="1h")
+        current = Metrics(num_requests_running=5)
         buf = io.StringIO()
         render(
-            DiagnosisResult(snapshot=snapshot, checks=[]),
+            DiagnosisResult(context=ctx, current=current, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=False,
         )

@@ -19,7 +19,7 @@ Confidence:
   both high                            → high
 """
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 DEFAULT_HIGH_ERROR_RATE = 0.05
@@ -39,10 +39,10 @@ class ErrorRateRule(Rule):
         self.high_error_rate = high_error_rate
         self.high_abort_rate = high_abort_rate
 
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        errors = snapshot.metrics.request_error_total
-        aborts = snapshot.metrics.request_abort_total
-        success = snapshot.metrics.request_success_total
+    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+        errors = current.request_error_total
+        aborts = current.request_abort_total
+        success = current.request_success_total
 
         if errors is None and aborts is None:
             return []

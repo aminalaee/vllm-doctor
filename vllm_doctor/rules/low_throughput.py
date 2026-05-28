@@ -18,7 +18,7 @@ Confidence:
   only one metric low                           → low
 """
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 DEFAULT_LOW_PROMPT_TPS = 10.0
@@ -41,24 +41,22 @@ class LowThroughputRule(Rule):
         self.low_gen_tps = low_gen_tps
         self.low_running = low_running
 
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        if snapshot.metrics.prompt_tokens_per_second is None and snapshot.metrics.generation_tokens_per_second is None:
+    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+        if current.prompt_tokens_per_second is None and current.generation_tokens_per_second is None:
             return []
 
         prompt_low = (
-            snapshot.metrics.prompt_tokens_per_second is not None
-            and snapshot.metrics.prompt_tokens_per_second < self.low_prompt_tps
+            current.prompt_tokens_per_second is not None and current.prompt_tokens_per_second < self.low_prompt_tps
         )
         gen_low = (
-            snapshot.metrics.generation_tokens_per_second is not None
-            and snapshot.metrics.generation_tokens_per_second < self.low_gen_tps
+            current.generation_tokens_per_second is not None and current.generation_tokens_per_second < self.low_gen_tps
         )
 
         if not prompt_low and not gen_low:
             return []
 
         # Not underutilized if requests are waiting — that's queue pressure, not low throughput
-        if snapshot.metrics.num_requests_waiting is not None and snapshot.metrics.num_requests_waiting > 0:
+        if current.num_requests_waiting is not None and current.num_requests_waiting > 0:
             return []
 
         signals: list[str] = []
@@ -71,24 +69,19 @@ class LowThroughputRule(Rule):
         else:
             signals.append("Decode throughput below threshold")
 
-        if snapshot.metrics.prompt_tokens_per_second is not None:
+        if current.prompt_tokens_per_second is not None:
             evidence.append(
-                f"Prompt tokens/s: {snapshot.metrics.prompt_tokens_per_second:.1f} "
-                f"(threshold: {self.low_prompt_tps:.1f})"
+                f"Prompt tokens/s: {current.prompt_tokens_per_second:.1f} (threshold: {self.low_prompt_tps:.1f})"
             )
-        if snapshot.metrics.generation_tokens_per_second is not None:
+        if current.generation_tokens_per_second is not None:
             evidence.append(
-                f"Generation tokens/s: {snapshot.metrics.generation_tokens_per_second:.1f} "
-                f"(threshold: {self.low_gen_tps:.1f})"
+                f"Generation tokens/s: {current.generation_tokens_per_second:.1f} (threshold: {self.low_gen_tps:.1f})"
             )
 
-        running_low = (
-            snapshot.metrics.num_requests_running is not None
-            and snapshot.metrics.num_requests_running < self.low_running
-        )
+        running_low = current.num_requests_running is not None and current.num_requests_running < self.low_running
         if running_low:
             signals.append("Very few active requests — no batching benefit")
-            evidence.append(f"Requests running: {snapshot.metrics.num_requests_running:.0f}")
+            evidence.append(f"Requests running: {current.num_requests_running:.0f}")
 
         confidence = Confidence.medium if (prompt_low and gen_low) or running_low else Confidence.low
 

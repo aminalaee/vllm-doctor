@@ -88,7 +88,7 @@ def _metrics_table(result: DiagnosisResult) -> Table:
     table.add_column(justify="right", no_wrap=True)
 
     for name, field in Metrics.model_fields.items():
-        value = getattr(result.snapshot.metrics, name)
+        value = getattr(result.current, name)
         if value is None:
             continue
         label = field.title or name
@@ -119,7 +119,7 @@ def build(result: DiagnosisResult, verbose: bool = False) -> Group:
                 ("  ·  ", "dim"),
                 health,
                 ("  ·  ", "dim"),
-                Text(f"Window: {result.snapshot.window}", style="dim"),
+                Text(f"Window: {result.context.window}", style="dim"),
             ),
             style="dim",
         ),

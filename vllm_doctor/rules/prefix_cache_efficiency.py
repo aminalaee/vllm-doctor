@@ -13,7 +13,7 @@ Confidence:
   otherwise                     → medium
 """
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 _DEFAULT_MIN_HIT_RATE = 0.5
@@ -28,8 +28,8 @@ class PrefixCacheEfficiencyRule(Rule):
     def __init__(self, min_hit_rate: float = _DEFAULT_MIN_HIT_RATE) -> None:
         self.min_hit_rate = min_hit_rate
 
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        hit_rate = snapshot.metrics.prefix_cache_hit_rate
+    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+        hit_rate = current.prefix_cache_hit_rate
         if hit_rate is None:
             return []
 

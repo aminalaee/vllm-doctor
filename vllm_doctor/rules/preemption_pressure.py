@@ -16,7 +16,7 @@ Confidence:
   preemptions + high cache usage → high   (actively under memory pressure)
 """
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 _DEFAULT_HIGH_CACHE_USAGE = 0.80
@@ -30,23 +30,19 @@ class PreemptionPressureRule(Rule):
     def __init__(self, high_cache_usage: float = _DEFAULT_HIGH_CACHE_USAGE) -> None:
         self.high_cache_usage = high_cache_usage
 
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        preemptions = snapshot.metrics.num_preemptions_total
+    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+        preemptions = current.num_preemptions_total
         if preemptions is None or preemptions == 0:
             return []
 
         evidence = [f"Preemptions total: {preemptions:.0f}"]
         signals: list[str] = []
 
-        cache_high = (
-            snapshot.metrics.kv_cache_usage_perc is not None
-            and snapshot.metrics.kv_cache_usage_perc >= self.high_cache_usage
-        )
+        cache_high = current.kv_cache_usage_perc is not None and current.kv_cache_usage_perc >= self.high_cache_usage
         if cache_high:
             signals.append("KV cache under pressure while preemptions are occurring")
             evidence.append(
-                f"GPU KV cache usage: {snapshot.metrics.kv_cache_usage_perc:.0%} "
-                f"(threshold: {self.high_cache_usage:.0%})"
+                f"GPU KV cache usage: {current.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"
             )
 
         confidence = Confidence.high if cache_high else Confidence.medium

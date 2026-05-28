@@ -18,7 +18,7 @@ Confidence:
 
 import math
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 _DEFAULT_HIGH_QUEUE_TIME_P95 = 1.0
@@ -32,8 +32,8 @@ class QueueLatencyRule(Rule):
     def __init__(self, high_queue_time_p95: float = _DEFAULT_HIGH_QUEUE_TIME_P95) -> None:
         self.high_queue_time_p95 = high_queue_time_p95
 
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        queue_time = snapshot.metrics.queue_time_p95_seconds
+    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+        queue_time = current.queue_time_p95_seconds
         if queue_time is None or not math.isfinite(queue_time):
             return []
         if queue_time < self.high_queue_time_p95:
@@ -42,7 +42,7 @@ class QueueLatencyRule(Rule):
         evidence = [f"Queue time p95: {queue_time:.3f}s (threshold: {self.high_queue_time_p95}s)"]
         signals: list[str] = []
 
-        waiting = snapshot.metrics.num_requests_waiting
+        waiting = current.num_requests_waiting
         waiting_confirmed = waiting is not None and waiting > 0
         if waiting_confirmed:
             signals.append(f"{int(waiting)} requests queued — active backlog confirmed")

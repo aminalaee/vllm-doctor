@@ -52,10 +52,9 @@ class Metrics(BaseModel):
     num_preemptions_total: Annotated[_Metric, Field(title="Preemptions Total")] = None
 
 
-class MetricSnapshot(BaseModel):
-    model_name: str | None = None
+class DiagnosisContext(BaseModel):
     window: str
-    metrics: Metrics = Field(default_factory=Metrics)
+    model_name: str | None = None
 
 
 class Finding(BaseModel):
@@ -76,7 +75,8 @@ class RuleResult(BaseModel):
 
 
 class DiagnosisResult(BaseModel):
-    snapshot: MetricSnapshot
+    context: DiagnosisContext
+    current: Metrics
     checks: list[RuleResult] = []
 
     @property

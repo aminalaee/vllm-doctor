@@ -67,26 +67,21 @@ def capturing_client() -> tuple[PrometheusClient, list[httpx.Request]]:
 
 
 class TestCollect:
-    async def test_returns_snapshot(self, client: PrometheusClient) -> None:
-        snapshot = await collect(client, window="1h")
-        assert snapshot.metrics.num_requests_running == 10.0
-        assert snapshot.metrics.num_requests_waiting == 3.0
-        assert snapshot.metrics.kv_cache_usage_perc == 0.72
-        assert snapshot.window == "1h"
-
-    async def test_sets_model_name(self, client: PrometheusClient) -> None:
-        snapshot = await collect(client, window="1h", model="meta-llama/Llama-3.1-8B")
-        assert snapshot.model_name == "meta-llama/Llama-3.1-8B"
+    async def test_returns_metrics(self, client: PrometheusClient) -> None:
+        metrics = await collect(client, window="1h")
+        assert metrics.num_requests_running == 10.0
+        assert metrics.num_requests_waiting == 3.0
+        assert metrics.kv_cache_usage_perc == 0.72
 
     async def test_missing_metrics_are_none(self, empty_client: PrometheusClient) -> None:
-        snapshot = await collect(empty_client, window="1h")
-        assert snapshot.metrics.num_requests_running is None
-        assert snapshot.metrics.num_requests_waiting is None
-        assert snapshot.metrics.kv_cache_usage_perc is None
+        metrics = await collect(empty_client, window="1h")
+        assert metrics.num_requests_running is None
+        assert metrics.num_requests_waiting is None
+        assert metrics.kv_cache_usage_perc is None
 
     async def test_sums_multiple_replicas(self, multi_replica_client: PrometheusClient) -> None:
-        snapshot = await collect(multi_replica_client, window="1h")
-        assert snapshot.metrics.num_requests_running == 10.0
+        metrics = await collect(multi_replica_client, window="1h")
+        assert metrics.num_requests_running == 10.0
 
     async def test_model_label_sent_in_query(
         self, capturing_client: tuple[PrometheusClient, list[httpx.Request]]
@@ -97,12 +92,12 @@ class TestCollect:
 
     async def test_prefix_hit_rate_computed(self, client: PrometheusClient) -> None:
         # client returns 0.72 for all metrics; hit_rate = 0.72 / 0.72 = 1.0
-        snapshot = await collect(client, window="1h")
-        assert snapshot.metrics.prefix_cache_hit_rate == 1.0
+        metrics = await collect(client, window="1h")
+        assert metrics.prefix_cache_hit_rate == 1.0
 
     async def test_prefix_hit_rate_none_when_no_queries(self, empty_client: PrometheusClient) -> None:
-        snapshot = await collect(empty_client, window="1h")
-        assert snapshot.metrics.prefix_cache_hit_rate is None
+        metrics = await collect(empty_client, window="1h")
+        assert metrics.prefix_cache_hit_rate is None
 
     async def test_counter_metrics_use_increase(
         self, capturing_client: tuple[PrometheusClient, list[httpx.Request]]

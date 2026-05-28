@@ -15,7 +15,7 @@ from vllm_doctor.metrics import (
     TIME_PER_OUTPUT_TOKEN_SECONDS,
     TIME_TO_FIRST_TOKEN_SECONDS,
 )
-from vllm_doctor.models import Metrics, MetricSnapshot
+from vllm_doctor.models import Metrics
 
 
 def _metric_expr(metric: str, model: str | None, **labels: str) -> str:
@@ -47,7 +47,7 @@ async def collect(
     client: Client,
     window: str,
     model: str | None = None,
-) -> MetricSnapshot:
+) -> Metrics:
     rate_window = window if window != "now" else "5m"
     (
         running,
@@ -85,22 +85,18 @@ async def collect(
         if prefix_hits is not None and prefix_queries is not None and prefix_queries > 0
         else None
     )
-    return MetricSnapshot(
-        model_name=model,
-        window=window,
-        metrics=Metrics(
-            num_requests_running=running,
-            num_requests_waiting=waiting,
-            kv_cache_usage_perc=gpu_cache,
-            prompt_tokens_per_second=prompt_tps,
-            generation_tokens_per_second=gen_tps,
-            request_success_total=success,
-            request_error_total=errors,
-            request_abort_total=aborts,
-            ttft_p95_seconds=ttft_p95,
-            tpot_p95_seconds=tpot_p95,
-            prefix_cache_hit_rate=prefix_hit_rate,
-            queue_time_p95_seconds=queue_time_p95,
-            num_preemptions_total=preemptions,
-        ),
+    return Metrics(
+        num_requests_running=running,
+        num_requests_waiting=waiting,
+        kv_cache_usage_perc=gpu_cache,
+        prompt_tokens_per_second=prompt_tps,
+        generation_tokens_per_second=gen_tps,
+        request_success_total=success,
+        request_error_total=errors,
+        request_abort_total=aborts,
+        ttft_p95_seconds=ttft_p95,
+        tpot_p95_seconds=tpot_p95,
+        prefix_cache_hit_rate=prefix_hit_rate,
+        queue_time_p95_seconds=queue_time_p95,
+        num_preemptions_total=preemptions,
     )
