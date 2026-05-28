@@ -10,30 +10,36 @@
       
       
       
+        <link rel="canonical" href="https://aminalaee.github.io/vllm-doctor/configuration/">
       
+      
+        <link rel="prev" href="../rules/prefix-cache-efficiency/">
+      
+      
+        <link rel="next" href="../metrics/">
       
       
         
       
       
-      <link rel="icon" href="/vllm-doctor/assets/logo.svg">
+      <link rel="icon" href="../assets/logo.svg">
       <meta name="generator" content="zensical-0.0.42">
     
     
       
-        <title>vLLM Doctor</title>
+        <title>Configuration - vLLM Doctor</title>
       
     
     
       
         
       
-      <link rel="stylesheet" href="/vllm-doctor/assets/stylesheets/modern/main.fba56155.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.fba56155.min.css">
       
         
           
         
-        <link rel="stylesheet" href="/vllm-doctor/assets/stylesheets/modern/palette.dfe2e883.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.dfe2e883.min.css">
       
       
 
@@ -52,7 +58,7 @@
       
     
     
-    <script>__md_scope=new URL("/vllm-doctor",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
 
@@ -76,7 +82,8 @@
     <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
     <div data-md-component="skip">
       
-        <a href="#__skip" class="md-skip">
+        
+        <a href="#configuration" class="md-skip">
           Skip to content
         </a>
       
@@ -92,9 +99,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="/vllm-doctor/" title="vLLM Doctor" class="md-header__button md-logo" aria-label="vLLM Doctor" data-md-component="logo">
+    <a href="./.." title="vLLM Doctor" class="md-header__button md-logo" aria-label="vLLM Doctor" data-md-component="logo">
       
-  <img src="/vllm-doctor/assets/logo.svg" alt="vLLM Doctor">
+  <img src="../assets/logo.svg" alt="vLLM Doctor">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
@@ -111,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              
+              Configuration
             
           </span>
         </div>
@@ -200,9 +207,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="/vllm-doctor/" title="vLLM Doctor" class="md-nav__button md-logo" aria-label="vLLM Doctor" data-md-component="logo">
+    <a href="./.." title="vLLM Doctor" class="md-nav__button md-logo" aria-label="vLLM Doctor" data-md-component="logo">
       
-  <img src="/vllm-doctor/assets/logo.svg" alt="vLLM Doctor">
+  <img src="../assets/logo.svg" alt="vLLM Doctor">
 
     </a>
     vLLM Doctor
@@ -229,7 +236,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/" class="md-nav__link">
+      <a href="./.." class="md-nav__link">
         
   
   
@@ -300,7 +307,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/rules/queue-pressure/" class="md-nav__link">
+      <a href="../rules/queue-pressure/" class="md-nav__link">
         
   
   
@@ -327,7 +334,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/rules/queue-latency/" class="md-nav__link">
+      <a href="../rules/queue-latency/" class="md-nav__link">
         
   
   
@@ -354,7 +361,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/rules/kv-cache-pressure/" class="md-nav__link">
+      <a href="../rules/kv-cache-pressure/" class="md-nav__link">
         
   
   
@@ -381,7 +388,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/rules/preemption-pressure/" class="md-nav__link">
+      <a href="../rules/preemption-pressure/" class="md-nav__link">
         
   
   
@@ -408,7 +415,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/rules/low-throughput/" class="md-nav__link">
+      <a href="../rules/low-throughput/" class="md-nav__link">
         
   
   
@@ -435,7 +442,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/rules/error-rate/" class="md-nav__link">
+      <a href="../rules/error-rate/" class="md-nav__link">
         
   
   
@@ -462,7 +469,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/rules/ttft-bottleneck/" class="md-nav__link">
+      <a href="../rules/ttft-bottleneck/" class="md-nav__link">
         
   
   
@@ -489,7 +496,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/rules/tpot-bottleneck/" class="md-nav__link">
+      <a href="../rules/tpot-bottleneck/" class="md-nav__link">
         
   
   
@@ -516,7 +523,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/rules/prefix-cache-efficiency/" class="md-nav__link">
+      <a href="../rules/prefix-cache-efficiency/" class="md-nav__link">
         
   
   
@@ -547,10 +554,36 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="/vllm-doctor/configuration/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -565,6 +598,71 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#config-file-location" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Config file location
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Example config
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#partial-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Partial config
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Usage
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -576,7 +674,7 @@
   
   
     <li class="md-nav__item">
-      <a href="/vllm-doctor/metrics/" class="md-nav__link">
+      <a href="../metrics/" class="md-nav__link">
         
   
   
@@ -609,6 +707,13 @@
                     
                     
                     
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
                     
                   
                   <div class="md-sidebar__inner">
@@ -619,6 +724,60 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#config-file-location" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Config file location
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Example config
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#partial-config" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Partial config
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Usage
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -631,8 +790,79 @@
               
               <article class="md-content__inner md-typeset">
                 
-  <h1>404 - Not found</h1>
+                  
+  
+  
 
+
+<h1 id="configuration">Configuration</h1>
+<p>vLLM Doctor can be configured via a TOML file. All settings are optional — omitted values use the defaults shown below.</p>
+<h2 id="config-file-location">Config file location</h2>
+<p>vLLM Doctor looks for a config file in this order:</p>
+<ol>
+<li>Path passed via <code>--config</code> flag</li>
+<li><code>./vllm-doctor.toml</code> (current directory)</li>
+<li><code>~/.config/vllm-doctor/config.toml</code></li>
+</ol>
+<p>If none is found, all defaults apply.</p>
+<h2 id="example-config">Example config</h2>
+<div class="highlight"><pre><span></span><code><span class="k">[rules.queue_pressure]</span>
+<span class="n">high_waiting</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="w">      </span><span class="c1"># fire when waiting requests exceed this</span>
+<span class="n">high_running</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">50</span><span class="w">     </span><span class="c1"># corroborate when running requests exceed this</span>
+
+<span class="k">[rules.queue_latency]</span>
+<span class="n">high_queue_time_p95</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">1.0</span><span class="w">   </span><span class="c1"># seconds</span>
+
+<span class="k">[rules.kv_cache_pressure]</span>
+<span class="n">high_cache_usage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.90</span><span class="w">     </span><span class="c1"># fraction (0.0–1.0)</span>
+
+<span class="k">[rules.preemption_pressure]</span>
+<span class="n">high_cache_usage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.80</span><span class="w">     </span><span class="c1"># fraction (0.0–1.0)</span>
+
+<span class="k">[rules.low_throughput]</span>
+<span class="n">low_prompt_tps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">10.0</span><span class="w">       </span><span class="c1"># prompt tokens/s</span>
+<span class="n">low_gen_tps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">50.0</span><span class="w">          </span><span class="c1"># generation tokens/s</span>
+<span class="n">low_running</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="w">             </span><span class="c1"># requests running</span>
+
+<span class="k">[rules.error_rate]</span>
+<span class="n">high_error_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.05</span><span class="w">      </span><span class="c1"># fraction of total requests</span>
+<span class="n">high_abort_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.10</span><span class="w">      </span><span class="c1"># fraction of total requests</span>
+
+<span class="k">[rules.ttft_bottleneck]</span>
+<span class="n">high_ttft_p95</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2.0</span><span class="w">         </span><span class="c1"># seconds</span>
+<span class="n">high_tpot_p95</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.2</span><span class="w">         </span><span class="c1"># seconds (used to confirm decode is not the bottleneck)</span>
+
+<span class="k">[rules.tpot_bottleneck]</span>
+<span class="n">high_tpot_p95</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.2</span><span class="w">                </span><span class="c1"># seconds</span>
+<span class="n">low_gen_tokens_per_sec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">50.0</span><span class="w">      </span><span class="c1"># corroborating signal</span>
+
+<span class="k">[rules.prefix_cache_efficiency]</span>
+<span class="n">min_hit_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.50</span><span class="w">         </span><span class="c1"># fraction (0.0–1.0)</span>
+</code></pre></div>
+<h2 id="partial-config">Partial config</h2>
+<p>Only the sections you care about need to be present. For example, to tighten only the KV cache threshold:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[rules.kv_cache_pressure]</span>
+<span class="n">high_cache_usage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.75</span>
+</code></pre></div>
+<p>All other rules use their defaults.</p>
+<h2 id="usage">Usage</h2>
+<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:9090<span class="w"> </span>--config<span class="w"> </span>./vllm-doctor.toml
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
               </article>
             </div>
           
@@ -696,10 +926,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate":null,"base":"/vllm-doctor","features":[],"search":"/vllm-doctor/assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":[],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="/vllm-doctor/assets/javascripts/bundle.6e5f0216.min.js"></script>
+      <script src="../assets/javascripts/bundle.6e5f0216.min.js"></script>
       
     
   </body>

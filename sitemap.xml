@@ -7,7 +7,13 @@
         <loc>https://aminalaee.github.io/vllm-doctor/rules/queue-pressure/</loc>
       </url>
       <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/queue-latency/</loc>
+      </url>
+      <url>
         <loc>https://aminalaee.github.io/vllm-doctor/rules/kv-cache-pressure/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/preemption-pressure/</loc>
       </url>
       <url>
         <loc>https://aminalaee.github.io/vllm-doctor/rules/low-throughput/</loc>
@@ -20,6 +26,12 @@
       </url>
       <url>
         <loc>https://aminalaee.github.io/vllm-doctor/rules/tpot-bottleneck/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/prefix-cache-efficiency/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/configuration/</loc>
       </url>
       <url>
         <loc>https://aminalaee.github.io/vllm-doctor/metrics/</loc>

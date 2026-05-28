@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://aminalaee.github.io/vllm-doctor/metrics/">
       
       
-        <link rel="prev" href="../rules/tpot-bottleneck/">
+        <link rel="prev" href="../configuration/">
       
       
       
@@ -332,6 +332,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../rules/queue-latency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Queue Latency
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../rules/kv-cache-pressure/" class="md-nav__link">
         
   
@@ -340,6 +367,33 @@
     
   
   KV Cache Pressure
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rules/preemption-pressure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Preemption Pressure
 
     
   </span>
@@ -460,9 +514,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rules/prefix-cache-efficiency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Prefix Cache Efficiency
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -694,6 +801,26 @@
 <td>Histogram of time per output token during decode</td>
 <td>Prometheus</td>
 </tr>
+<tr>
+<td><code>vllm:prefix_cache_hits_total</code></td>
+<td>Cumulative prefix cache hits in tokens</td>
+<td>Both</td>
+</tr>
+<tr>
+<td><code>vllm:prefix_cache_queries_total</code></td>
+<td>Cumulative prefix cache queries in tokens</td>
+<td>Both</td>
+</tr>
+<tr>
+<td><code>vllm:request_queue_time_seconds</code></td>
+<td>Histogram of time spent in the WAITING phase before prefill begins</td>
+<td>Prometheus</td>
+</tr>
+<tr>
+<td><code>vllm:num_preemptions_total</code></td>
+<td>Cumulative number of sequence preemptions due to KV cache exhaustion</td>
+<td>Both</td>
+</tr>
 </tbody>
 </table>
 <h2 id="notes">Notes</h2>
@@ -702,6 +829,7 @@
 <li>All metrics are per model instance. If multiple models are running, values are summed across instances unless filtered by <code>model_name</code> label.</li>
 <li>Latency histograms (<code>time_to_first_token_seconds</code>, <code>request_time_per_output_token_seconds</code>) require Prometheus mode — direct scrape mode returns <code>None</code> for these fields.</li>
 <li>Request counts by reason (<code>error</code>, <code>abort</code>) are derived from <code>vllm:request_success_total</code> filtered by the <code>finished_reason</code> label.</li>
+<li>Prefix cache hit rate is computed as <code>prefix_cache_hits_total / prefix_cache_queries_total</code>. It is <code>n/a</code> when no queries have been made.</li>
 </ul>
 
 

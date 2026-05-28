@@ -326,6 +326,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Options
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#example-output" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -423,6 +434,33 @@
   
   
     <li class="md-nav__item">
+      <a href="./rules/queue-latency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Queue Latency
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="./rules/kv-cache-pressure/" class="md-nav__link">
         
   
@@ -431,6 +469,33 @@
     
   
   KV Cache Pressure
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./rules/preemption-pressure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Preemption Pressure
 
     
   </span>
@@ -551,9 +616,62 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./rules/prefix-cache-efficiency/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Prefix Cache Efficiency
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Configuration
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -658,6 +776,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#options" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Options
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#example-output" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -689,6 +818,7 @@
 <h1 id="introduction">Introduction</h1>
 <p><img src="assets/wordmark.svg" alt="vLLM Doctor" class="vd-wordmark"></p>
 <p>Diagnose vLLM serving issues from <code>/metrics</code>.</p>
+<p><img alt="vllm-doctor demo" src="demo.png" /></p>
 <p>vLLM Doctor reads production metrics and turns them into operational findings: what looks wrong, how confident the diagnosis is, and which vLLM knobs are worth checking first.</p>
 <div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:8000/metrics
 </code></pre></div>
@@ -748,7 +878,7 @@
 </div>
 </div>
 <h2 id="quickstart">Quickstart</h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:4"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><input id="__tabbed_2_4" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Direct scrape</label><label for="__tabbed_2_2">Prometheus</label><label for="__tabbed_2_3">JSON output</label><label for="__tabbed_2_4">Verbose</label></div>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Direct scrape</label><label for="__tabbed_2_2">Prometheus</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
 <div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:8000/metrics
@@ -762,31 +892,41 @@
 <div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:9090
 </code></pre></div>
 </div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:8000/metrics<span class="w"> </span>--format<span class="w"> </span>json
+</div>
+</div>
+<h2 id="options">Options</h2>
+<div class="highlight"><pre><span></span><code>Usage: vllm-doctor [OPTIONS]
+
+Options:
+  -u, --url      TEXT         URL to diagnose (vLLM /metrics or Prometheus).  [required]
+  -w, --window   TEXT         Time window (e.g. &#39;1h&#39;, &#39;30m&#39;, &#39;now&#39;).  [default: now]
+  -f, --format   [text|json]  Output format.  [default: text]
+  -v, --verbose               Show additional diagnostic detail.
+  -l, --live     INTEGER      Refresh interval in seconds (e.g. --live 10).
+  -c, --config   PATH         Path to config file (default: vllm-doctor.toml).
+      --help                  Show this message and exit.
 </code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:8000/metrics<span class="w"> </span>--verbose
-</code></pre></div>
-</div>
-</div>
-</div>
 <h2 id="example-output">Example output</h2>
 <div class="highlight"><pre><span></span><code>───────────<span class="w"> </span>vLLM<span class="w"> </span>Doctor<span class="w">  </span>·<span class="w">  </span>Health:<span class="w"> </span>CRITICAL<span class="w">  </span>·<span class="w">  </span>Window:<span class="w"> </span>5m<span class="w"> </span>────────────
 
-╭─<span class="w"> </span>✖<span class="w"> </span>KV<span class="w"> </span>cache<span class="w"> </span>pressure<span class="w">  </span><span class="o">[</span>high<span class="w"> </span>confidence<span class="o">]</span><span class="w"> </span>─────────────────────────────╮
-│<span class="w">   </span>GPU<span class="w"> </span>KV<span class="w"> </span>cache<span class="w"> </span>usage:<span class="w"> </span><span class="m">94</span>%<span class="w">  </span>·<span class="w">  </span>Waiting<span class="w"> </span>requests:<span class="w"> </span><span class="m">7</span><span class="w">                    </span>│
-│<span class="w">                                                                      </span>│
-│<span class="w">   </span>→<span class="w"> </span>Reduce<span class="w"> </span>max_num_seqs<span class="w"> </span>to<span class="w"> </span>limit<span class="w"> </span>concurrent<span class="w"> </span>sequences<span class="w">                </span>│
-│<span class="w">   </span>→<span class="w"> </span>Increase<span class="w"> </span>gpu_memory_utilization<span class="w"> </span><span class="k">if</span><span class="w"> </span>GPU<span class="w"> </span>memory<span class="w"> </span>headroom<span class="w"> </span>exists<span class="w">    </span>│
-╰──────────────────────────────────────────────────────────────────────╯
 ╭─<span class="w"> </span>⚠<span class="w"> </span>Queue<span class="w"> </span>pressure<span class="w">  </span><span class="o">[</span>low<span class="w"> </span>confidence<span class="o">]</span><span class="w"> </span>─────────────────────────────────╮
 │<span class="w">   </span>Waiting<span class="w"> </span>requests:<span class="w"> </span><span class="m">7</span><span class="w">                                                </span>│
 │<span class="w">                                                                      </span>│
 │<span class="w">   </span>→<span class="w"> </span>Add<span class="w"> </span>replicas<span class="w"> </span>or<span class="w"> </span>increase<span class="w"> </span>concurrency<span class="w"> </span>limits<span class="w">                      </span>│
 │<span class="w">   </span>→<span class="w"> </span>Inspect<span class="w"> </span>autoscaling<span class="w"> </span>thresholds<span class="w">                                   </span>│
 ╰──────────────────────────────────────────────────────────────────────╯
+╭─<span class="w"> </span>✖<span class="w"> </span>KV<span class="w"> </span>cache<span class="w"> </span>pressure<span class="w">  </span><span class="o">[</span>high<span class="w"> </span>confidence<span class="o">]</span><span class="w"> </span>─────────────────────────────╮
+│<span class="w">   </span>GPU<span class="w"> </span>KV<span class="w"> </span>cache<span class="w"> </span>usage:<span class="w"> </span><span class="m">94</span>%<span class="w">  </span>·<span class="w">  </span>Waiting<span class="w"> </span>requests:<span class="w"> </span><span class="m">7</span><span class="w">                    </span>│
+│<span class="w">                                                                      </span>│
+│<span class="w">   </span>→<span class="w"> </span>Reduce<span class="w"> </span>max_num_seqs<span class="w"> </span>to<span class="w"> </span>limit<span class="w"> </span>concurrent<span class="w"> </span>sequences<span class="w">                </span>│
+│<span class="w">   </span>→<span class="w"> </span>Increase<span class="w"> </span>gpu_memory_utilization<span class="w"> </span><span class="k">if</span><span class="w"> </span>GPU<span class="w"> </span>memory<span class="w"> </span>headroom<span class="w"> </span>exists<span class="w">    </span>│
+╰──────────────────────────────────────────────────────────────────────╯
+
+<span class="w">  </span>Queue<span class="w"> </span>Pressure<span class="w">       </span>⚠<span class="w"> </span>warning<span class="w">     </span><span class="o">[</span>low<span class="o">]</span>
+<span class="w">  </span>KV<span class="w"> </span>Cache<span class="w"> </span>Pressure<span class="w">    </span>✖<span class="w"> </span>critical<span class="w">    </span><span class="o">[</span>high<span class="o">]</span>
+<span class="w">  </span>Low<span class="w"> </span>Throughput<span class="w">       </span>✓<span class="w"> </span>ok
+<span class="w">  </span>Error<span class="w"> </span>Rate<span class="w">           </span>✓<span class="w"> </span>ok
+<span class="w">  </span>High<span class="w"> </span>TTFT<span class="w">            </span>✓<span class="w"> </span>ok
 
 ───────────────────────────<span class="w"> </span>Observed<span class="w"> </span>Metrics<span class="w"> </span>───────────────────────────
 
