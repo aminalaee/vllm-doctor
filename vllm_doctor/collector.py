@@ -18,11 +18,22 @@ from vllm_doctor.metrics import (
 from vllm_doctor.models import Metrics, MetricSnapshot
 
 
-async def _query(client: Client, metric: str, model: str | None, **labels: str) -> float | None:
+def _metric_expr(metric: str, model: str | None, **labels: str) -> str:
     parts = [f'model_name="{model}"'] if model else []
     parts += [f'{k}="{v}"' for k, v in labels.items()]
     label = "{" + ",".join(parts) + "}" if parts else ""
-    samples = await client.query(f"{metric}{label}")
+    return f"{metric}{label}"
+
+
+async def _query(client: Client, metric: str, model: str | None, **labels: str) -> float | None:
+    samples = await client.query(_metric_expr(metric, model, **labels))
+    return sum(s.value for s in samples) if samples else None
+
+
+async def _query_increase(client: Client, metric: str, window: str, model: str | None, **labels: str) -> float | None:
+    samples = await client.query_increase(_metric_expr(metric, model, **labels), window)
+    if samples is None:
+        return await _query(client, metric, model, **labels)
     return sum(s.value for s in samples) if samples else None
 
 
@@ -59,15 +70,15 @@ async def collect(
         _query(client, GPU_CACHE_USAGE_PERC, model),
         _query(client, PROMPT_TOKENS_PER_SECOND, model),
         _query(client, GENERATION_TOKENS_PER_SECOND, model),
-        _query(client, REQUEST_SUCCESS_TOTAL, model, finished_reason="stop"),
-        _query(client, REQUEST_SUCCESS_TOTAL, model, finished_reason="error"),
-        _query(client, REQUEST_SUCCESS_TOTAL, model, finished_reason="abort"),
+        _query_increase(client, REQUEST_SUCCESS_TOTAL, rate_window, model, finished_reason="stop"),
+        _query_increase(client, REQUEST_SUCCESS_TOTAL, rate_window, model, finished_reason="error"),
+        _query_increase(client, REQUEST_SUCCESS_TOTAL, rate_window, model, finished_reason="abort"),
         _query_percentile(client, TIME_TO_FIRST_TOKEN_SECONDS, 0.95, model, rate_window),
         _query_percentile(client, TIME_PER_OUTPUT_TOKEN_SECONDS, 0.95, model, rate_window),
-        _query(client, PREFIX_CACHE_HITS_TOTAL, model),
-        _query(client, PREFIX_CACHE_QUERIES_TOTAL, model),
+        _query_increase(client, PREFIX_CACHE_HITS_TOTAL, rate_window, model),
+        _query_increase(client, PREFIX_CACHE_QUERIES_TOTAL, rate_window, model),
         _query_percentile(client, REQUEST_QUEUE_TIME_SECONDS, 0.95, model, rate_window),
-        _query(client, NUM_PREEMPTIONS_TOTAL, model),
+        _query_increase(client, NUM_PREEMPTIONS_TOTAL, rate_window, model),
     )
     prefix_hit_rate = (
         prefix_hits / prefix_queries

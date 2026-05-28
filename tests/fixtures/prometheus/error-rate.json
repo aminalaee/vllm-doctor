@@ -1,0 +1,5 @@
+{
+  "finished_reason=\"stop\"": 70.0,
+  "finished_reason=\"error\"": 10.0,
+  "finished_reason=\"abort\"": 20.0
+}

@@ -7,7 +7,7 @@ from typer.testing import CliRunner
 from vllm_doctor.cli import app
 from vllm_doctor.clients.scrape import ScrapeClient
 
-_HEALTHY_FIXTURE = (Path(__file__).parent.parent / "fixtures" / "metrics" / "healthy.txt").read_text()
+_HEALTHY_FIXTURE = (Path(__file__).parent.parent / "fixtures" / "scrape" / "healthy.txt").read_text()
 
 
 @pytest.fixture

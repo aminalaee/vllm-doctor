@@ -103,3 +103,24 @@ class TestCollect:
     async def test_prefix_hit_rate_none_when_no_queries(self, empty_client: PrometheusClient) -> None:
         snapshot = await collect(empty_client, window="1h")
         assert snapshot.metrics.prefix_cache_hit_rate is None
+
+    async def test_counter_metrics_use_increase(
+        self, capturing_client: tuple[PrometheusClient, list[httpx.Request]]
+    ) -> None:
+        client, captured = capturing_client
+        await collect(client, window="1h")
+        queries = [r.url.params.get("query", "") for r in captured]
+        assert any("increase(" in q and "num_preemptions_total" in q for q in queries)
+        assert any("increase(" in q and "request_success_total" in q for q in queries)
+        assert any("increase(" in q and "prefix_cache_hits_total" in q for q in queries)
+        assert any("increase(" in q and "prefix_cache_queries_total" in q for q in queries)
+
+    async def test_gauge_metrics_do_not_use_increase(
+        self, capturing_client: tuple[PrometheusClient, list[httpx.Request]]
+    ) -> None:
+        client, captured = capturing_client
+        await collect(client, window="1h")
+        queries = [r.url.params.get("query", "") for r in captured]
+        assert any("num_requests_running" in q and "increase(" not in q for q in queries)
+        assert any("num_requests_waiting" in q and "increase(" not in q for q in queries)
+        assert any("kv_cache_usage_perc" in q and "increase(" not in q for q in queries)

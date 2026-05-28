@@ -1,0 +1,5 @@
+{
+  "prompt_tokens_per_second": 5.0,
+  "generation_tokens_per_second": 20.0,
+  "num_requests_running": 3.0
+}

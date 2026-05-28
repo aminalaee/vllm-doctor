@@ -1,6 +1,6 @@
 import pytest
 
-from tests.helpers import snapshot_from_fixture
+from tests.helpers import snapshot_from_prometheus_fixture, snapshot_from_scrape_fixture
 from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.queue_latency import QueueLatencyRule
 
@@ -67,10 +67,14 @@ class TestQueueLatencyRule:
         snapshot = MetricSnapshot(window="now", metrics=Metrics(queue_time_p95_seconds=3.0))
         assert "3.00" in rule.evaluate(snapshot)[0].summary
 
-    async def test_queue_latency_with_fixture(self, rule: QueueLatencyRule) -> None:
-        snapshot = await snapshot_from_fixture("queue-latency.txt")
+    async def test_queue_latency_with_scrape_fixture(self, rule: QueueLatencyRule) -> None:
+        snapshot = await snapshot_from_scrape_fixture("queue-latency.txt")
         # queue_time_p95_seconds unavailable from scrape endpoint
         assert rule.evaluate(snapshot) == []
+
+    async def test_queue_latency_with_prometheus_fixture(self, rule: QueueLatencyRule) -> None:
+        snapshot = await snapshot_from_prometheus_fixture("queue-latency.json")
+        assert len(rule.evaluate(snapshot)) == 1
 
     def test_custom_threshold(self) -> None:
         rule = QueueLatencyRule(high_queue_time_p95=5.0)
