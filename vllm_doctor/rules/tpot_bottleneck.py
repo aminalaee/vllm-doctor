@@ -9,7 +9,7 @@ rather than prefill or queue saturation.
 
 import math
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 _DEFAULT_HIGH_TPOT_P95 = 0.2
@@ -29,13 +29,13 @@ class TPOTBottleneckRule(Rule):
         self.high_tpot_p95 = high_tpot_p95
         self.low_gen_tokens_per_sec = low_gen_tokens_per_sec
 
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        tpot = snapshot.metrics.tpot_p95_seconds
+    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+        tpot = current.tpot_p95_seconds
         if tpot is None or not math.isfinite(tpot) or tpot < self.high_tpot_p95:
             return []
 
-        ttft = snapshot.metrics.ttft_p95_seconds
-        gen = snapshot.metrics.generation_tokens_per_second
+        ttft = current.ttft_p95_seconds
+        gen = current.generation_tokens_per_second
 
         signals = [f"TPOT p95 ({tpot:.2f}s) exceeds threshold ({self.high_tpot_p95}s)"]
         evidence = [f"TPOT p95: {tpot:.3f}s"]

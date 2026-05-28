@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from vllm_doctor.models import Finding, MetricSnapshot
+from vllm_doctor.models import DiagnosisContext, Finding, Metrics
 
 
 class Rule(ABC):
@@ -9,4 +9,9 @@ class Rule(ABC):
     def name(self) -> str: ...
 
     @abstractmethod
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]: ...
+    def evaluate(
+        self,
+        context: DiagnosisContext,
+        current: Metrics,
+        previous: Metrics | None = None,
+    ) -> list[Finding]: ...

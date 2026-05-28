@@ -15,7 +15,7 @@ Confidence:
   both signals       → high   (cache is full and actively blocking requests)
 """
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 DEFAULT_HIGH_CACHE_USAGE = 0.90
@@ -29,23 +29,21 @@ class KVCachePressureRule(Rule):
     def __init__(self, high_cache_usage: float = DEFAULT_HIGH_CACHE_USAGE) -> None:
         self.high_cache_usage = high_cache_usage
 
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        if snapshot.metrics.kv_cache_usage_perc is None:
+    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+        if current.kv_cache_usage_perc is None:
             return []
 
-        cache_high = snapshot.metrics.kv_cache_usage_perc >= self.high_cache_usage
+        cache_high = current.kv_cache_usage_perc >= self.high_cache_usage
         if not cache_high:
             return []
 
         signals: list[str] = []
-        evidence = [
-            f"GPU KV cache usage: {snapshot.metrics.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"
-        ]
+        evidence = [f"GPU KV cache usage: {current.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"]
 
-        waiting_high = snapshot.metrics.num_requests_waiting is not None and snapshot.metrics.num_requests_waiting > 0
+        waiting_high = current.num_requests_waiting is not None and current.num_requests_waiting > 0
         if waiting_high:
             signals.append("Cache saturation blocking new request admission")
-            evidence.append(f"Waiting requests: {snapshot.metrics.num_requests_waiting:.0f} (blocked by full cache)")
+            evidence.append(f"Waiting requests: {current.num_requests_waiting:.0f} (blocked by full cache)")
 
         confidence = Confidence.high if waiting_high else Confidence.medium
 
@@ -55,7 +53,7 @@ class KVCachePressureRule(Rule):
                 confidence=confidence,
                 title="KV cache pressure",
                 summary=(
-                    f"GPU KV cache at {snapshot.metrics.kv_cache_usage_perc:.0%} — "
+                    f"GPU KV cache at {current.kv_cache_usage_perc:.0%} — "
                     "new requests cannot be admitted until sequences complete."
                 ),
                 signals=signals,

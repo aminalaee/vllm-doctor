@@ -12,7 +12,7 @@ Confidence:
   2 signals → high
 """
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 DEFAULT_HIGH_WAITING = 5
@@ -32,27 +32,19 @@ class QueuePressureRule(Rule):
         self.high_waiting = high_waiting
         self.high_running = high_running
 
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        waiting_high = (
-            snapshot.metrics.num_requests_waiting is not None
-            and snapshot.metrics.num_requests_waiting > self.high_waiting
-        )
+    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+        waiting_high = current.num_requests_waiting is not None and current.num_requests_waiting > self.high_waiting
 
         if not waiting_high:
             return []
 
         signals: list[str] = []
-        evidence = [f"Waiting requests: {snapshot.metrics.num_requests_waiting:.0f} (threshold: {self.high_waiting})"]
+        evidence = [f"Waiting requests: {current.num_requests_waiting:.0f} (threshold: {self.high_waiting})"]
 
-        running_high = (
-            snapshot.metrics.num_requests_running is not None
-            and snapshot.metrics.num_requests_running > self.high_running
-        )
+        running_high = current.num_requests_running is not None and current.num_requests_running > self.high_running
         if running_high:
             signals.append("Queue pressure compounding with server saturation")
-            evidence.append(
-                f"Running requests: {snapshot.metrics.num_requests_running:.0f} (threshold: {self.high_running})"
-            )
+            evidence.append(f"Running requests: {current.num_requests_running:.0f} (threshold: {self.high_running})")
 
         confidence = Confidence.high if running_high else Confidence.low
 

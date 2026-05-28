@@ -8,7 +8,7 @@ Confidence rises when TPOT is healthy — ruling out a general decode bottleneck
 
 import math
 
-from vllm_doctor.models import Confidence, Finding, MetricSnapshot, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 _DEFAULT_HIGH_TTFT_P95 = 2.0
@@ -28,13 +28,13 @@ class TTFTBottleneckRule(Rule):
         self.high_ttft_p95 = high_ttft_p95
         self.high_tpot_p95 = high_tpot_p95
 
-    def evaluate(self, snapshot: MetricSnapshot) -> list[Finding]:
-        ttft = snapshot.metrics.ttft_p95_seconds
+    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+        ttft = current.ttft_p95_seconds
         if ttft is None or not math.isfinite(ttft) or ttft < self.high_ttft_p95:
             return []
 
-        tpot = snapshot.metrics.tpot_p95_seconds
-        waiting = snapshot.metrics.num_requests_waiting
+        tpot = current.tpot_p95_seconds
+        waiting = current.num_requests_waiting
 
         signals = [f"TTFT p95 ({ttft:.2f}s) exceeds threshold ({self.high_ttft_p95}s)"]
         evidence = [f"TTFT p95: {ttft:.3f}s"]
