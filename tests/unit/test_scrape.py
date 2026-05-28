@@ -98,3 +98,7 @@ class TestScrapeClient:
     async def test_query_percentile_returns_none(self, scrape_client: ScrapeClient) -> None:
         result = await scrape_client.query_percentile("vllm:time_to_first_token_seconds", 0.95)
         assert result is None
+
+    async def test_query_increase_returns_none(self, scrape_client: ScrapeClient) -> None:
+        result = await scrape_client.query_increase("vllm:num_preemptions_total", "5m")
+        assert result is None

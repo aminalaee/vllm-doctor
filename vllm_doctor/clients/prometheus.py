@@ -78,6 +78,9 @@ class PrometheusClient:
             for point in r["values"]
         ]
 
+    async def query_increase(self, metric_name: str, window: str) -> list[MetricSample]:
+        return await self.query(f"increase({metric_name}[{window}])")
+
     async def query_percentile(
         self, metric: str, quantile: float, model: str | None = None, window: str = "5m"
     ) -> float | None:

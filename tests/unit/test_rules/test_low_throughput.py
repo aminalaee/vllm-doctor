@@ -1,6 +1,6 @@
 import pytest
 
-from tests.helpers import snapshot_from_fixture
+from tests.helpers import snapshot_from_prometheus_fixture, snapshot_from_scrape_fixture
 from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.low_throughput import LowThroughputRule
 
@@ -100,8 +100,12 @@ class TestLowThroughputRule:
         findings = rule.evaluate(low_throughput_snapshot)
         assert any("20.0" in e for e in findings[0].evidence)
 
-    async def test_low_throughput_with_fixture(self, rule: LowThroughputRule) -> None:
-        snapshot = await snapshot_from_fixture("low-throughput.txt")
+    async def test_low_throughput_with_scrape_fixture(self, rule: LowThroughputRule) -> None:
+        snapshot = await snapshot_from_scrape_fixture("low-throughput.txt")
+        assert len(rule.evaluate(snapshot)) == 1
+
+    async def test_low_throughput_with_prometheus_fixture(self, rule: LowThroughputRule) -> None:
+        snapshot = await snapshot_from_prometheus_fixture("low-throughput.json")
         assert len(rule.evaluate(snapshot)) == 1
 
     def test_custom_thresholds(self) -> None:

@@ -143,6 +143,50 @@ class TestRangeQuery:
             await client.query_range("up", "now-1h", "now", "1m")
 
 
+class TestIncreaseQuery:
+    async def test_returns_samples(self, instant_client: PrometheusClient) -> None:
+        result = await instant_client.query_increase("vllm:num_preemptions_total", "5m")
+        assert result is not None
+        assert len(result) == 1
+        assert result[0].value == 1.0
+
+    async def test_wraps_in_increase_expr(self) -> None:
+        captured: list[httpx.Request] = []
+
+        def handler(r: httpx.Request) -> httpx.Response:
+            captured.append(r)
+            body = {"status": "success", "data": {"resultType": "vector", "result": []}}
+            return httpx.Response(200, json=body)
+
+        client = PrometheusClient(
+            base_url="http://localhost:9090",
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+        await client.query_increase("vllm:num_preemptions_total", "5m")
+        query = captured[0].url.params["query"]
+        assert query == "increase(vllm:num_preemptions_total[5m])"
+
+    async def test_wraps_with_labels(self) -> None:
+        captured: list[httpx.Request] = []
+
+        def handler(r: httpx.Request) -> httpx.Response:
+            captured.append(r)
+            body = {"status": "success", "data": {"resultType": "vector", "result": []}}
+            return httpx.Response(200, json=body)
+
+        client = PrometheusClient(
+            base_url="http://localhost:9090",
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+        await client.query_increase('vllm:request_success_total{finished_reason="error"}', "1h")
+        query = captured[0].url.params["query"]
+        assert query == 'increase(vllm:request_success_total{finished_reason="error"}[1h])'
+
+    async def test_empty_result(self, empty_client: PrometheusClient) -> None:
+        result = await empty_client.query_increase("vllm:num_preemptions_total", "5m")
+        assert result == []
+
+
 class TestContextManager:
     async def test_context_manager(self, empty_client: PrometheusClient) -> None:
         async with empty_client as client:

@@ -1,6 +1,6 @@
 import pytest
 
-from tests.helpers import snapshot_from_fixture
+from tests.helpers import snapshot_from_prometheus_fixture, snapshot_from_scrape_fixture
 from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.error_rate import ErrorRateRule
 
@@ -63,8 +63,12 @@ class TestErrorRateRule:
         assert rule.evaluate(_snapshot(90, 10, 0)) == []
         assert len(rule.evaluate(_snapshot(70, 30, 0))) == 1
 
-    async def test_error_rate_with_fixture(self, rule: ErrorRateRule) -> None:
-        snapshot = await snapshot_from_fixture("error-rate.txt")
+    async def test_error_rate_with_scrape_fixture(self, rule: ErrorRateRule) -> None:
+        snapshot = await snapshot_from_scrape_fixture("error-rate.txt")
+        assert len(rule.evaluate(snapshot)) == 1
+
+    async def test_error_rate_with_prometheus_fixture(self, rule: ErrorRateRule) -> None:
+        snapshot = await snapshot_from_prometheus_fixture("error-rate.json")
         assert len(rule.evaluate(snapshot)) == 1
 
     def test_only_error_metric_present(self, rule: ErrorRateRule) -> None:

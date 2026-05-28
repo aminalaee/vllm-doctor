@@ -1,6 +1,6 @@
 import pytest
 
-from tests.helpers import snapshot_from_fixture
+from tests.helpers import snapshot_from_prometheus_fixture, snapshot_from_scrape_fixture
 from vllm_doctor.models import Confidence, Metrics, MetricSnapshot, Severity
 from vllm_doctor.rules.preemption_pressure import PreemptionPressureRule
 
@@ -57,8 +57,12 @@ class TestPreemptionPressureRule:
         snapshot = MetricSnapshot(window="now", metrics=Metrics(num_preemptions_total=7))
         assert "7" in rule.evaluate(snapshot)[0].summary
 
-    async def test_preemption_pressure_with_fixture(self, rule: PreemptionPressureRule) -> None:
-        snapshot = await snapshot_from_fixture("preemption-pressure.txt")
+    async def test_preemption_pressure_with_scrape_fixture(self, rule: PreemptionPressureRule) -> None:
+        snapshot = await snapshot_from_scrape_fixture("preemption-pressure.txt")
+        assert len(rule.evaluate(snapshot)) == 1
+
+    async def test_preemption_pressure_with_prometheus_fixture(self, rule: PreemptionPressureRule) -> None:
+        snapshot = await snapshot_from_prometheus_fixture("preemption-pressure.json")
         assert len(rule.evaluate(snapshot)) == 1
 
     def test_custom_cache_threshold(self) -> None:
