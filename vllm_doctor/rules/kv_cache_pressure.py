@@ -17,6 +17,7 @@ Confidence:
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+from vllm_doctor.rules.trend import rising
 
 DEFAULT_HIGH_CACHE_USAGE = 0.90
 
@@ -52,6 +53,10 @@ class KVCachePressureRule(Rule):
         if waiting_high:
             signals.append("Cache saturation blocking new request admission")
             evidence.append(f"Waiting requests: {current.num_requests_waiting:.0f} (blocked by full cache)")
+
+        if previous is not None and rising(current.kv_cache_usage_perc, previous.kv_cache_usage_perc):
+            prev_c, curr_c = previous.kv_cache_usage_perc, current.kv_cache_usage_perc
+            signals.append(f"KV cache usage rising ({prev_c:.0%} → {curr_c:.0%})")
 
         return FindingData(
             confidence=Confidence.high if waiting_high else Confidence.medium,

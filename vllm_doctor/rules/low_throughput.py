@@ -20,6 +20,7 @@ Confidence:
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+from vllm_doctor.rules.trend import falling
 
 DEFAULT_LOW_PROMPT_TPS = 10.0
 DEFAULT_LOW_GEN_TPS = 50.0
@@ -98,6 +99,14 @@ class LowThroughputRule(Rule):
         if running_low:
             signals.append("Very few active requests — no batching benefit")
             evidence.append(f"Requests running: {current.num_requests_running:.0f}")
+
+        if previous is not None:
+            if gen_low and falling(current.generation_tokens_per_second, previous.generation_tokens_per_second):
+                prev_g, curr_g = previous.generation_tokens_per_second, current.generation_tokens_per_second
+                signals.append(f"Generation throughput declining ({prev_g:.1f} → {curr_g:.1f} tok/s)")
+            elif prompt_low and falling(current.prompt_tokens_per_second, previous.prompt_tokens_per_second):
+                prev_p, curr_p = previous.prompt_tokens_per_second, current.prompt_tokens_per_second
+                signals.append(f"Prompt throughput declining ({prev_p:.1f} → {curr_p:.1f} tok/s)")
 
         return FindingData(
             confidence=Confidence.medium if (prompt_low and gen_low) or running_low else Confidence.low,
