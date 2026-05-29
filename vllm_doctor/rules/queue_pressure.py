@@ -12,7 +12,7 @@ Confidence:
   2 signals → high
 """
 
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
+from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 DEFAULT_HIGH_WAITING = 5
@@ -20,9 +20,21 @@ DEFAULT_HIGH_RUNNING = 50
 
 
 class QueuePressureRule(Rule):
-    @property
-    def name(self) -> str:
-        return "Queue Pressure"
+    name = "Queue Pressure"
+    title = "Queue pressure"
+    severity = Severity.warning
+    likely_causes = [
+        "Insufficient replica capacity for current traffic",
+        "Autoscaling has not reacted yet",
+        "Long-context requests consuming disproportionate compute",
+    ]
+    recommendations = [
+        "Add replicas or increase concurrency limits",
+        "Inspect autoscaling thresholds",
+        "Separate long-context traffic to a dedicated replica",
+        "Reduce incoming request rate",
+    ]
+    related_metrics = ["vllm:num_requests_waiting", "vllm:num_requests_running"]
 
     def __init__(
         self,
@@ -32,11 +44,9 @@ class QueuePressureRule(Rule):
         self.high_waiting = high_waiting
         self.high_running = high_running
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
-        waiting_high = current.num_requests_waiting is not None and current.num_requests_waiting > self.high_waiting
-
-        if not waiting_high:
-            return []
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+        if current.num_requests_waiting is None or current.num_requests_waiting <= self.high_waiting:
+            return None
 
         signals: list[str] = []
         evidence = [f"Waiting requests: {current.num_requests_waiting:.0f} (threshold: {self.high_waiting})"]
@@ -46,30 +56,9 @@ class QueuePressureRule(Rule):
             signals.append("Queue pressure compounding with server saturation")
             evidence.append(f"Running requests: {current.num_requests_running:.0f} (threshold: {self.high_running})")
 
-        confidence = Confidence.high if running_high else Confidence.low
-
-        return [
-            Finding(
-                severity=Severity.warning,
-                confidence=confidence,
-                title="Queue pressure",
-                summary="Requests are queuing faster than the server can process them.",
-                signals=signals,
-                evidence=evidence,
-                likely_causes=[
-                    "Insufficient replica capacity for current traffic",
-                    "Autoscaling has not reacted yet",
-                    "Long-context requests consuming disproportionate compute",
-                ],
-                recommendations=[
-                    "Add replicas or increase concurrency limits",
-                    "Inspect autoscaling thresholds",
-                    "Separate long-context traffic to a dedicated replica",
-                    "Reduce incoming request rate",
-                ],
-                related_metrics=[
-                    "vllm:num_requests_waiting",
-                    "vllm:num_requests_running",
-                ],
-            )
-        ]
+        return FindingData(
+            confidence=Confidence.high if running_high else Confidence.low,
+            summary="Requests are queuing faster than the server can process them.",
+            signals=signals,
+            evidence=evidence,
+        )

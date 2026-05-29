@@ -57,6 +57,14 @@ class DiagnosisContext(BaseModel):
     model_name: str | None = None
 
 
+class FindingData(BaseModel):
+    confidence: Confidence
+    summary: str
+    signals: list[str] = []
+    evidence: list[str] = []
+    severity: Severity | None = None
+
+
 class Finding(BaseModel):
     severity: Severity
     confidence: Confidence

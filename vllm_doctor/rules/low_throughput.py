@@ -18,7 +18,7 @@ Confidence:
   only one metric low                           → low
 """
 
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
+from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 DEFAULT_LOW_PROMPT_TPS = 10.0
@@ -27,9 +27,25 @@ DEFAULT_LOW_RUNNING = 2
 
 
 class LowThroughputRule(Rule):
-    @property
-    def name(self) -> str:
-        return "Low Throughput"
+    name = "Low Throughput"
+    title = "Low throughput"
+    severity = Severity.warning
+    likely_causes = [
+        "Low incoming request rate — server is idle",
+        "Poor batching due to few concurrent requests",
+        "Suboptimal max_num_seqs or max_num_batched_tokens for current load",
+    ]
+    recommendations = [
+        "Increase concurrent requests to improve batching efficiency",
+        "Review max_num_seqs and max_num_batched_tokens settings",
+        "Compare against benchmark baseline to confirm underperformance",
+        "Consider consolidating replicas if load is consistently low",
+    ]
+    related_metrics = [
+        "vllm:prompt_tokens_per_second",
+        "vllm:generation_tokens_per_second",
+        "vllm:num_requests_running",
+    ]
 
     def __init__(
         self,
@@ -41,9 +57,9 @@ class LowThroughputRule(Rule):
         self.low_gen_tps = low_gen_tps
         self.low_running = low_running
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         if current.prompt_tokens_per_second is None and current.generation_tokens_per_second is None:
-            return []
+            return None
 
         prompt_low = (
             current.prompt_tokens_per_second is not None and current.prompt_tokens_per_second < self.low_prompt_tps
@@ -53,11 +69,11 @@ class LowThroughputRule(Rule):
         )
 
         if not prompt_low and not gen_low:
-            return []
+            return None
 
-        # Not underutilized if requests are waiting — that's queue pressure, not low throughput
+        # Suppress when requests are waiting — that's queue pressure, not underutilization
         if current.num_requests_waiting is not None and current.num_requests_waiting > 0:
-            return []
+            return None
 
         signals: list[str] = []
         evidence: list[str] = []
@@ -83,31 +99,9 @@ class LowThroughputRule(Rule):
             signals.append("Very few active requests — no batching benefit")
             evidence.append(f"Requests running: {current.num_requests_running:.0f}")
 
-        confidence = Confidence.medium if (prompt_low and gen_low) or running_low else Confidence.low
-
-        return [
-            Finding(
-                severity=Severity.warning,
-                confidence=confidence,
-                title="Low throughput",
-                summary="Server is processing requests below expected throughput with no queue pressure.",
-                signals=signals,
-                evidence=evidence,
-                likely_causes=[
-                    "Low incoming request rate — server is idle",
-                    "Poor batching due to few concurrent requests",
-                    "Suboptimal max_num_seqs or max_num_batched_tokens for current load",
-                ],
-                recommendations=[
-                    "Increase concurrent requests to improve batching efficiency",
-                    "Review max_num_seqs and max_num_batched_tokens settings",
-                    "Compare against benchmark baseline to confirm underperformance",
-                    "Consider consolidating replicas if load is consistently low",
-                ],
-                related_metrics=[
-                    "vllm:prompt_tokens_per_second",
-                    "vllm:generation_tokens_per_second",
-                    "vllm:num_requests_running",
-                ],
-            )
-        ]
+        return FindingData(
+            confidence=Confidence.medium if (prompt_low and gen_low) or running_low else Confidence.low,
+            summary="Server is processing requests below expected throughput with no queue pressure.",
+            signals=signals,
+            evidence=evidence,
+        )

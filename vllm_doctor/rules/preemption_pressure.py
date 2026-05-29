@@ -16,24 +16,36 @@ Confidence:
   preemptions + high cache usage → high   (actively under memory pressure)
 """
 
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
+from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 _DEFAULT_HIGH_CACHE_USAGE = 0.80
 
 
 class PreemptionPressureRule(Rule):
-    @property
-    def name(self) -> str:
-        return "Preemption Pressure"
+    name = "Preemption Pressure"
+    title = "Preemption pressure"
+    severity = Severity.warning
+    likely_causes = [
+        "KV cache too small for the concurrent request mix",
+        "Long-context requests exhausting cache before shorter ones complete",
+        "max_num_seqs set too high relative to available GPU memory",
+    ]
+    recommendations = [
+        "Reduce max_num_seqs to limit concurrent sequences in GPU memory",
+        "Reduce max_num_batched_tokens to lower per-step memory pressure",
+        "Increase gpu_memory_utilization if GPU headroom exists",
+        "Route long-context requests to a dedicated replica",
+    ]
+    related_metrics = ["vllm:num_preemptions_total", "vllm:kv_cache_usage_perc"]
 
     def __init__(self, high_cache_usage: float = _DEFAULT_HIGH_CACHE_USAGE) -> None:
         self.high_cache_usage = high_cache_usage
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         preemptions = current.num_preemptions_total
         if preemptions is None or preemptions == 0:
-            return []
+            return None
 
         evidence = [f"Preemptions total: {preemptions:.0f}"]
         signals: list[str] = []
@@ -45,33 +57,12 @@ class PreemptionPressureRule(Rule):
                 f"GPU KV cache usage: {current.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"
             )
 
-        confidence = Confidence.high if cache_high else Confidence.medium
-
-        return [
-            Finding(
-                severity=Severity.warning,
-                confidence=confidence,
-                title="Preemption pressure",
-                summary=(
-                    f"vLLM has preempted {preemptions:.0f} sequences — "
-                    "KV cache exhaustion is forcing sequences to be re-computed."
-                ),
-                signals=signals,
-                evidence=evidence,
-                likely_causes=[
-                    "KV cache too small for the concurrent request mix",
-                    "Long-context requests exhausting cache before shorter ones complete",
-                    "max_num_seqs set too high relative to available GPU memory",
-                ],
-                recommendations=[
-                    "Reduce max_num_seqs to limit concurrent sequences in GPU memory",
-                    "Reduce max_num_batched_tokens to lower per-step memory pressure",
-                    "Increase gpu_memory_utilization if GPU headroom exists",
-                    "Route long-context requests to a dedicated replica",
-                ],
-                related_metrics=[
-                    "vllm:num_preemptions_total",
-                    "vllm:kv_cache_usage_perc",
-                ],
-            )
-        ]
+        return FindingData(
+            confidence=Confidence.high if cache_high else Confidence.medium,
+            summary=(
+                f"vLLM has preempted {preemptions:.0f} sequences — "
+                "KV cache exhaustion is forcing sequences to be re-computed."
+            ),
+            signals=signals,
+            evidence=evidence,
+        )

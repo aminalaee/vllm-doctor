@@ -1,30 +1,32 @@
 import pytest
 
 from vllm_doctor.diagnosis import run
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
+from vllm_doctor.models import Confidence, DiagnosisContext, Finding, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 
 class FixedRule(Rule):
+    title = "Fixed"
+    severity = Severity.warning
+
     def __init__(self, findings: list[Finding], rule_name: str = "Fixed") -> None:
         self._findings = findings
-        self._name = rule_name
+        self.name = rule_name
 
-    @property
-    def name(self) -> str:
-        return self._name
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+        return None
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+    def run(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
         return self._findings
 
 
 class EmptyRule(Rule):
-    @property
-    def name(self) -> str:
-        return "Empty"
+    name = "Empty"
+    title = "Empty"
+    severity = Severity.info
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
-        return []
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+        return None
 
 
 @pytest.fixture
@@ -104,15 +106,13 @@ class TestRun:
         received: list[Metrics | None] = []
 
         class CapturingRule(Rule):
-            @property
-            def name(self) -> str:
-                return "Capturing"
+            name = "Capturing"
+            title = "Capturing"
+            severity = Severity.info
 
-            def evaluate(
-                self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None
-            ) -> list[Finding]:
+            def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
                 received.append(previous)
-                return []
+                return None
 
         prev = Metrics(num_requests_running=5.0)
         run(context=ctx, current=Metrics(), rules=[CapturingRule()], previous=prev)

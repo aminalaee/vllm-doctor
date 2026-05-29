@@ -15,27 +15,35 @@ Confidence:
   both signals       → high   (cache is full and actively blocking requests)
 """
 
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
+from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 DEFAULT_HIGH_CACHE_USAGE = 0.90
 
 
 class KVCachePressureRule(Rule):
-    @property
-    def name(self) -> str:
-        return "KV Cache Pressure"
+    name = "KV Cache Pressure"
+    title = "KV cache pressure"
+    severity = Severity.critical
+    likely_causes = [
+        "Long-context requests holding large KV cache allocations",
+        "max_num_seqs or max_num_batched_tokens set too high for available GPU memory",
+        "Sudden spike in concurrent requests",
+    ]
+    recommendations = [
+        "Reduce max_num_seqs to limit concurrent sequences",
+        "Reduce max_num_batched_tokens to cap memory per step",
+        "Increase gpu_memory_utilization if GPU memory headroom exists",
+        "Route long-context requests to a dedicated replica",
+    ]
+    related_metrics = ["vllm:kv_cache_usage_perc", "vllm:num_requests_waiting"]
 
     def __init__(self, high_cache_usage: float = DEFAULT_HIGH_CACHE_USAGE) -> None:
         self.high_cache_usage = high_cache_usage
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
-        if current.kv_cache_usage_perc is None:
-            return []
-
-        cache_high = current.kv_cache_usage_perc >= self.high_cache_usage
-        if not cache_high:
-            return []
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+        if current.kv_cache_usage_perc is None or current.kv_cache_usage_perc < self.high_cache_usage:
+            return None
 
         signals: list[str] = []
         evidence = [f"GPU KV cache usage: {current.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"]
@@ -45,33 +53,12 @@ class KVCachePressureRule(Rule):
             signals.append("Cache saturation blocking new request admission")
             evidence.append(f"Waiting requests: {current.num_requests_waiting:.0f} (blocked by full cache)")
 
-        confidence = Confidence.high if waiting_high else Confidence.medium
-
-        return [
-            Finding(
-                severity=Severity.critical,
-                confidence=confidence,
-                title="KV cache pressure",
-                summary=(
-                    f"GPU KV cache at {current.kv_cache_usage_perc:.0%} — "
-                    "new requests cannot be admitted until sequences complete."
-                ),
-                signals=signals,
-                evidence=evidence,
-                likely_causes=[
-                    "Long-context requests holding large KV cache allocations",
-                    "max_num_seqs or max_num_batched_tokens set too high for available GPU memory",
-                    "Sudden spike in concurrent requests",
-                ],
-                recommendations=[
-                    "Reduce max_num_seqs to limit concurrent sequences",
-                    "Reduce max_num_batched_tokens to cap memory per step",
-                    "Increase gpu_memory_utilization if GPU memory headroom exists",
-                    "Route long-context requests to a dedicated replica",
-                ],
-                related_metrics=[
-                    "vllm:kv_cache_usage_perc",
-                    "vllm:num_requests_waiting",
-                ],
-            )
-        ]
+        return FindingData(
+            confidence=Confidence.high if waiting_high else Confidence.medium,
+            summary=(
+                f"GPU KV cache at {current.kv_cache_usage_perc:.0%} — "
+                "new requests cannot be admitted until sequences complete."
+            ),
+            signals=signals,
+            evidence=evidence,
+        )

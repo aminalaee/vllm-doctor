@@ -8,7 +8,7 @@ Confidence rises when TPOT is healthy — ruling out a general decode bottleneck
 
 import math
 
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
+from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 _DEFAULT_HIGH_TTFT_P95 = 2.0
@@ -16,9 +16,22 @@ _DEFAULT_HIGH_TPOT_P95 = 0.2
 
 
 class TTFTBottleneckRule(Rule):
-    @property
-    def name(self) -> str:
-        return "High TTFT"
+    name = "High TTFT"
+    title = "High time to first token (TTFT)"
+    severity = Severity.warning
+    likely_causes = [
+        "Long input prompts increasing prefill time",
+        "Queue pressure delaying prefill start",
+        "Chunked prefill not enabled or misconfigured",
+        "Insufficient capacity for current prompt load",
+    ]
+    recommendations = [
+        "Enable or tune chunked prefill (--enable-chunked-prefill)",
+        "Reduce max prompt length or filter long requests",
+        "Inspect queue depth — consider adding replicas",
+        "Separate long-context traffic to dedicated instances",
+    ]
+    related_metrics = ["ttft_p95_seconds", "num_requests_waiting", "tpot_p95_seconds"]
 
     def __init__(
         self,
@@ -28,10 +41,10 @@ class TTFTBottleneckRule(Rule):
         self.high_ttft_p95 = high_ttft_p95
         self.high_tpot_p95 = high_tpot_p95
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         ttft = current.ttft_p95_seconds
         if ttft is None or not math.isfinite(ttft) or ttft < self.high_ttft_p95:
-            return []
+            return None
 
         tpot = current.tpot_p95_seconds
         waiting = current.num_requests_waiting
@@ -56,33 +69,12 @@ class TTFTBottleneckRule(Rule):
         else:
             confidence = Confidence.low
 
-        return [
-            Finding(
-                severity=Severity.warning,
-                confidence=confidence,
-                title="High time to first token (TTFT)",
-                summary=(
-                    "Requests are waiting too long before receiving the first token. "
-                    "This typically indicates prefill or queue pressure."
-                ),
-                signals=signals,
-                evidence=evidence,
-                likely_causes=[
-                    "Long input prompts increasing prefill time",
-                    "Queue pressure delaying prefill start",
-                    "Chunked prefill not enabled or misconfigured",
-                    "Insufficient capacity for current prompt load",
-                ],
-                recommendations=[
-                    "Enable or tune chunked prefill (--enable-chunked-prefill)",
-                    "Reduce max prompt length or filter long requests",
-                    "Inspect queue depth — consider adding replicas",
-                    "Separate long-context traffic to dedicated instances",
-                ],
-                related_metrics=[
-                    "ttft_p95_seconds",
-                    "num_requests_waiting",
-                    "tpot_p95_seconds",
-                ],
-            )
-        ]
+        return FindingData(
+            confidence=confidence,
+            summary=(
+                "Requests are waiting too long before receiving the first token. "
+                "This typically indicates prefill or queue pressure."
+            ),
+            signals=signals,
+            evidence=evidence,
+        )

@@ -19,7 +19,7 @@ Confidence:
   both high                            → high
 """
 
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
+from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 DEFAULT_HIGH_ERROR_RATE = 0.05
@@ -27,9 +27,22 @@ DEFAULT_HIGH_ABORT_RATE = 0.10
 
 
 class ErrorRateRule(Rule):
-    @property
-    def name(self) -> str:
-        return "Error Rate"
+    name = "Error Rate"
+    title = "Elevated error rate"
+    severity = Severity.warning  # overridden to critical when errors_high
+    likely_causes = [
+        "Server-side OOM or internal errors under high load",
+        "Requests exceeding timeout limits causing client aborts",
+        "High latency causing clients to disconnect before completion",
+        "Resource exhaustion correlating with KV cache pressure",
+    ]
+    recommendations = [
+        "Inspect vLLM server logs for error details",
+        "Correlate with KV cache pressure and queue pressure findings",
+        "Check client timeout settings relative to observed TTFT and TPOT",
+        "Reduce load or add replicas if errors correlate with traffic spikes",
+    ]
+    related_metrics = ["vllm:request_success_total"]
 
     def __init__(
         self,
@@ -39,17 +52,17 @@ class ErrorRateRule(Rule):
         self.high_error_rate = high_error_rate
         self.high_abort_rate = high_abort_rate
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         errors = current.request_error_total
         aborts = current.request_abort_total
         success = current.request_success_total
 
         if errors is None and aborts is None:
-            return []
+            return None
 
         total = (success or 0.0) + (errors or 0.0) + (aborts or 0.0)
         if total == 0:
-            return []
+            return None
 
         error_rate = (errors or 0.0) / total
         abort_rate = (aborts or 0.0) / total
@@ -58,7 +71,7 @@ class ErrorRateRule(Rule):
         aborts_high = abort_rate >= self.high_abort_rate
 
         if not errors_high and not aborts_high:
-            return []
+            return None
 
         signals: list[str] = []
         evidence: list[str] = []
@@ -76,30 +89,10 @@ class ErrorRateRule(Rule):
                 f"threshold: {self.high_abort_rate:.1%})"
             )
 
-        confidence = Confidence.high if (errors_high and aborts_high) else Confidence.low
-
-        return [
-            Finding(
-                severity=Severity.critical if errors_high else Severity.warning,
-                confidence=confidence,
-                title="Elevated error rate",
-                summary=("Server is returning errors or clients are aborting at an elevated rate."),
-                signals=signals,
-                evidence=evidence,
-                likely_causes=[
-                    "Server-side OOM or internal errors under high load",
-                    "Requests exceeding timeout limits causing client aborts",
-                    "High latency causing clients to disconnect before completion",
-                    "Resource exhaustion correlating with KV cache pressure",
-                ],
-                recommendations=[
-                    "Inspect vLLM server logs for error details",
-                    "Correlate with KV cache pressure and queue pressure findings",
-                    "Check client timeout settings relative to observed TTFT and TPOT",
-                    "Reduce load or add replicas if errors correlate with traffic spikes",
-                ],
-                related_metrics=[
-                    "vllm:request_success_total",
-                ],
-            )
-        ]
+        return FindingData(
+            confidence=Confidence.high if (errors_high and aborts_high) else Confidence.low,
+            severity=Severity.critical if errors_high else Severity.warning,
+            summary="Server is returning errors or clients are aborting at an elevated rate.",
+            signals=signals,
+            evidence=evidence,
+        )

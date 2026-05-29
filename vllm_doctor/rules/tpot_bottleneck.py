@@ -9,7 +9,7 @@ rather than prefill or queue saturation.
 
 import math
 
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
+from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 _DEFAULT_HIGH_TPOT_P95 = 0.2
@@ -17,9 +17,22 @@ _DEFAULT_LOW_GEN_TOKENS_PER_SEC = 50.0
 
 
 class TPOTBottleneckRule(Rule):
-    @property
-    def name(self) -> str:
-        return "High TPOT"
+    name = "High TPOT"
+    title = "High time per output token (TPOT)"
+    severity = Severity.warning
+    likely_causes = [
+        "GPU memory bandwidth saturated during decode",
+        "Too many concurrent sequences reducing per-request throughput",
+        "Large model size relative to available GPU memory",
+        "Insufficient tensor parallelism for current load",
+    ]
+    recommendations = [
+        "Reduce max concurrent requests (--max-num-seqs)",
+        "Increase tensor parallelism to distribute decode across GPUs",
+        "Enable speculative decoding to amortize decode cost",
+        "Profile GPU memory bandwidth utilization",
+    ]
+    related_metrics = ["tpot_p95_seconds", "generation_tokens_per_second", "ttft_p95_seconds"]
 
     def __init__(
         self,
@@ -29,10 +42,10 @@ class TPOTBottleneckRule(Rule):
         self.high_tpot_p95 = high_tpot_p95
         self.low_gen_tokens_per_sec = low_gen_tokens_per_sec
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         tpot = current.tpot_p95_seconds
         if tpot is None or not math.isfinite(tpot) or tpot < self.high_tpot_p95:
-            return []
+            return None
 
         ttft = current.ttft_p95_seconds
         gen = current.generation_tokens_per_second
@@ -60,33 +73,12 @@ class TPOTBottleneckRule(Rule):
         else:
             confidence = Confidence.low
 
-        return [
-            Finding(
-                severity=Severity.warning,
-                confidence=confidence,
-                title="High time per output token (TPOT)",
-                summary=(
-                    "Each output token is taking too long to generate. "
-                    "This typically indicates GPU decode saturation or memory bandwidth pressure."
-                ),
-                signals=signals,
-                evidence=evidence,
-                likely_causes=[
-                    "GPU memory bandwidth saturated during decode",
-                    "Too many concurrent sequences reducing per-request throughput",
-                    "Large model size relative to available GPU memory",
-                    "Insufficient tensor parallelism for current load",
-                ],
-                recommendations=[
-                    "Reduce max concurrent requests (--max-num-seqs)",
-                    "Increase tensor parallelism to distribute decode across GPUs",
-                    "Enable speculative decoding to amortize decode cost",
-                    "Profile GPU memory bandwidth utilization",
-                ],
-                related_metrics=[
-                    "tpot_p95_seconds",
-                    "generation_tokens_per_second",
-                    "ttft_p95_seconds",
-                ],
-            )
-        ]
+        return FindingData(
+            confidence=confidence,
+            summary=(
+                "Each output token is taking too long to generate. "
+                "This typically indicates GPU decode saturation or memory bandwidth pressure."
+            ),
+            signals=signals,
+            evidence=evidence,
+        )
