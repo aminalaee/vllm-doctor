@@ -2,8 +2,8 @@ import httpx
 import pytest
 
 from vllm_doctor.clients import (
-    PrometheusConnectionError,
-    PrometheusError,
+    ClientConnectionError,
+    ClientError,
     ScrapeClient,
 )
 from vllm_doctor.clients.scrape import _parse
@@ -76,7 +76,7 @@ class TestScrapeClient:
         assert result == []
 
     async def test_raises_on_http_error(self, error_client: ScrapeClient) -> None:
-        with pytest.raises(PrometheusError):
+        with pytest.raises(ClientError):
             await error_client.query("vllm:num_requests_waiting")
 
     async def test_raises_on_connection_error(self) -> None:
@@ -87,7 +87,7 @@ class TestScrapeClient:
             url="http://localhost:8000/metrics",
             client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
         )
-        with pytest.raises(PrometheusConnectionError):
+        with pytest.raises(ClientConnectionError):
             await client.query("vllm:num_requests_waiting")
 
     async def test_context_manager(self, scrape_client: ScrapeClient) -> None:

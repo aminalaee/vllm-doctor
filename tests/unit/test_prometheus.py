@@ -2,10 +2,10 @@ import httpx
 import pytest
 
 from vllm_doctor.clients import (
+    ClientConnectionError,
+    ClientError,
+    ClientQueryError,
     PrometheusClient,
-    PrometheusConnectionError,
-    PrometheusError,
-    PrometheusQueryError,
 )
 from vllm_doctor.clients.models import MetricSample
 
@@ -82,7 +82,7 @@ class TestInstantQuery:
             base_url="http://localhost:9090",
             client=httpx.AsyncClient(transport=_error_transport("bad query")),
         )
-        with pytest.raises(PrometheusQueryError, match="bad query"):
+        with pytest.raises(ClientQueryError, match="bad query"):
             await client.query("invalid{")
 
     async def test_raises_on_http_error(self) -> None:
@@ -90,7 +90,7 @@ class TestInstantQuery:
             base_url="http://localhost:9090",
             client=httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(500))),
         )
-        with pytest.raises(PrometheusError):
+        with pytest.raises(ClientError):
             await client.query("up")
 
     async def test_raises_on_connection_error(self) -> None:
@@ -101,7 +101,7 @@ class TestInstantQuery:
             base_url="http://localhost:9090",
             client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
         )
-        with pytest.raises(PrometheusConnectionError):
+        with pytest.raises(ClientConnectionError):
             await client.query("up")
 
 
@@ -120,7 +120,7 @@ class TestRangeQuery:
             base_url="http://localhost:9090",
             client=httpx.AsyncClient(transport=_error_transport("bad range query")),
         )
-        with pytest.raises(PrometheusQueryError, match="bad range query"):
+        with pytest.raises(ClientQueryError, match="bad range query"):
             await client.query_range("invalid{", "now-1h", "now", "1m")
 
     async def test_raises_on_connection_error(self) -> None:
@@ -131,7 +131,7 @@ class TestRangeQuery:
             base_url="http://localhost:9090",
             client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
         )
-        with pytest.raises(PrometheusConnectionError):
+        with pytest.raises(ClientConnectionError):
             await client.query_range("up", "now-1h", "now", "1m")
 
     async def test_raises_on_http_error(self) -> None:
@@ -139,7 +139,7 @@ class TestRangeQuery:
             base_url="http://localhost:9090",
             client=httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(500))),
         )
-        with pytest.raises(PrometheusError):
+        with pytest.raises(ClientError):
             await client.query_range("up", "now-1h", "now", "1m")
 
 

@@ -2,13 +2,9 @@ from typing import Protocol, runtime_checkable
 
 import httpx
 
+from vllm_doctor.clients.exceptions import ClientConnectionError, ClientError, ClientQueryError
 from vllm_doctor.clients.models import MetricSample
-from vllm_doctor.clients.prometheus import (
-    PrometheusClient,
-    PrometheusConnectionError,
-    PrometheusError,
-    PrometheusQueryError,
-)
+from vllm_doctor.clients.prometheus import PrometheusClient
 from vllm_doctor.clients.scrape import ScrapeClient
 
 
@@ -41,9 +37,9 @@ async def resolve_client(
 __all__ = [
     "Client",
     "PrometheusClient",
-    "PrometheusConnectionError",
-    "PrometheusError",
-    "PrometheusQueryError",
+    "ClientConnectionError",
+    "ClientError",
+    "ClientQueryError",
     "ScrapeClient",
     "resolve_client",
 ]

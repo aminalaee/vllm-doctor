@@ -1,36 +1,40 @@
 from collections.abc import Sequence
 
-from vllm_doctor.models import Confidence, DiagnosisContext, Metrics, RuleResult, Severity
+from vllm_doctor.models import Confidence, Finding, FindingData, Metrics, RuleResult, Severity
 from vllm_doctor.rules.base import Rule
 
-_SEVERITY_ORDER = {Severity.critical: 0, Severity.warning: 1, Severity.info: 2}
-_CONFIDENCE_ORDER = {Confidence.high: 0, Confidence.medium: 1, Confidence.low: 2}
+_SEVERITY = list(Severity)
+_CONFIDENCE = list(Confidence)
+
+
+def _sort_key(result: RuleResult) -> tuple[int, int]:
+    if result.finding is None:
+        return len(_SEVERITY), len(_CONFIDENCE)
+    return _SEVERITY.index(result.finding.severity), _CONFIDENCE.index(result.finding.confidence)
+
+
+def _assemble(rule: Rule, data: FindingData) -> Finding:
+    return Finding(
+        severity=data.severity if data.severity is not None else rule.severity,
+        confidence=data.confidence,
+        title=rule.title,
+        summary=data.summary,
+        signals=data.signals,
+        evidence=data.evidence,
+        likely_causes=rule.likely_causes,
+        recommendations=rule.recommendations,
+        related_metrics=rule.related_metrics,
+    )
 
 
 def run(
-    context: DiagnosisContext,
     current: Metrics,
     rules: Sequence[Rule],
     previous: Metrics | None = None,
 ) -> list[RuleResult]:
     results = []
     for rule in rules:
-        findings = rule.run(context=context, current=current, previous=previous)
-        if findings:
-            finding = min(
-                findings,
-                key=lambda f: (
-                    _SEVERITY_ORDER[f.severity],
-                    _CONFIDENCE_ORDER[f.confidence],
-                ),
-            )
-        else:
-            finding = None
+        data = rule.run(current, previous)
+        finding = _assemble(rule, data) if data is not None else None
         results.append(RuleResult(name=rule.name, finding=finding))
-    return sorted(
-        results,
-        key=lambda r: (
-            _SEVERITY_ORDER.get(r.finding.severity, 99) if r.finding else 99,
-            _CONFIDENCE_ORDER.get(r.finding.confidence, 99) if r.finding else 99,
-        ),
-    )
+    return sorted(results, key=_sort_key)

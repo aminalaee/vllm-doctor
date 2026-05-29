@@ -20,7 +20,7 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.trend import falling
+from vllm_doctor.rules.utils.trend import falling
 
 _DEFAULT_MIN_HIT_RATE = 0.5
 _HIGH_CONFIDENCE_MAX_RATE = 0.2
@@ -49,7 +49,7 @@ class PrefixCacheEfficiencyRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "PrefixCacheEfficiencyRule":
         return cls(min_hit_rate=config.prefix_cache_efficiency.min_hit_rate)
 
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
         hit_rate = current.prefix_cache_hit_rate
         if hit_rate is None or hit_rate >= self.min_hit_rate:
             return None

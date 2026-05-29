@@ -2,19 +2,11 @@ import math
 
 import httpx
 
-from vllm_doctor.clients.models import MetricSample
+from vllm_doctor.clients._http import _get
+from vllm_doctor.clients.exceptions import ClientConnectionError, ClientError, ClientQueryError
+from vllm_doctor.clients.models import MetricSample, label_selector
 
-
-class PrometheusError(Exception):
-    pass
-
-
-class PrometheusConnectionError(PrometheusError):
-    pass
-
-
-class PrometheusQueryError(PrometheusError):
-    pass
+__all__ = ["PrometheusClient", "ClientConnectionError", "ClientError", "ClientQueryError"]
 
 
 class PrometheusClient:
@@ -32,17 +24,10 @@ class PrometheusClient:
         if time is not None:
             params["time"] = time
 
-        try:
-            response = await self._client.get(f"{self.base_url}/api/v1/query", params=params)
-            response.raise_for_status()
-        except httpx.ConnectError as e:
-            raise PrometheusConnectionError(str(e)) from e
-        except httpx.HTTPStatusError as e:
-            raise PrometheusError(str(e)) from e
-
+        response = await _get(self._client, f"{self.base_url}/api/v1/query", params=params)
         data = response.json()
         if data.get("status") != "success":
-            raise PrometheusQueryError(data.get("error", "unknown error"))
+            raise ClientQueryError(data.get("error", "unknown error"))
 
         return [
             MetricSample(
@@ -56,17 +41,10 @@ class PrometheusClient:
     async def query_range(self, metric_name: str, start: str, end: str, step: str) -> list[MetricSample]:
         params = {"query": metric_name, "start": start, "end": end, "step": step}
 
-        try:
-            response = await self._client.get(f"{self.base_url}/api/v1/query_range", params=params)
-            response.raise_for_status()
-        except httpx.ConnectError as e:
-            raise PrometheusConnectionError(str(e)) from e
-        except httpx.HTTPStatusError as e:
-            raise PrometheusError(str(e)) from e
-
+        response = await _get(self._client, f"{self.base_url}/api/v1/query_range", params=params)
         data = response.json()
         if data.get("status") != "success":
-            raise PrometheusQueryError(data.get("error", "unknown error"))
+            raise ClientQueryError(data.get("error", "unknown error"))
 
         return [
             MetricSample(
@@ -84,8 +62,8 @@ class PrometheusClient:
     async def query_percentile(
         self, metric: str, quantile: float, model: str | None = None, window: str = "5m"
     ) -> float | None:
-        label = f'{{model_name="{model}"}}' if model else ""
-        expr = f"histogram_quantile({quantile}, sum by (le) (rate({metric}_bucket{label}[{window}])))"
+        sel = label_selector(model)
+        expr = f"histogram_quantile({quantile}, sum by (le) (rate({metric}_bucket{sel}[{window}])))"
         samples = await self.query(expr)
         if not samples or not math.isfinite(samples[0].value):
             return None

@@ -25,7 +25,7 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.trend import falling
+from vllm_doctor.rules.utils.trend import falling
 
 DEFAULT_LOW_PROMPT_TPS = 10.0
 DEFAULT_LOW_GEN_TPS = 50.0
@@ -71,7 +71,7 @@ class LowThroughputRule(Rule):
             low_running=config.low_throughput.low_running,
         )
 
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
         if current.prompt_tokens_per_second is None and current.generation_tokens_per_second is None:
             return None
 

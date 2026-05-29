@@ -1,10 +1,8 @@
 import pytest
 
 from tests.helpers import snapshot_from_prometheus_fixture, snapshot_from_scrape_fixture
-from vllm_doctor.models import Confidence, DiagnosisContext, Metrics, Severity
+from vllm_doctor.models import Confidence, Metrics, Severity
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
-
-_CTX = DiagnosisContext(window="now")
 
 
 @pytest.fixture
@@ -24,48 +22,48 @@ def high_cache_with_waiting() -> Metrics:
 
 class TestKVCachePressureRule:
     def test_no_finding_when_metric_missing(self, rule: KVCachePressureRule) -> None:
-        assert rule.run(_CTX, Metrics()) == []
+        assert rule.run(Metrics()) is None
 
     def test_no_finding_below_threshold(self, rule: KVCachePressureRule) -> None:
-        assert rule.run(_CTX, Metrics(kv_cache_usage_perc=0.80)) == []
+        assert rule.run(Metrics(kv_cache_usage_perc=0.80)) is None
 
     def test_no_finding_at_threshold_boundary(self, rule: KVCachePressureRule) -> None:
-        assert rule.run(_CTX, Metrics(kv_cache_usage_perc=0.89)) == []
+        assert rule.run(Metrics(kv_cache_usage_perc=0.89)) is None
 
     def test_finding_at_threshold(self, rule: KVCachePressureRule) -> None:
-        findings = rule.run(_CTX, Metrics(kv_cache_usage_perc=0.90))
-        assert len(findings) == 1
-        assert findings[0].severity == Severity.critical
+        result = rule.run(Metrics(kv_cache_usage_perc=0.90))
+        assert result is not None
+        assert rule.severity == Severity.critical
 
     def test_medium_confidence_without_waiting(self, rule: KVCachePressureRule, high_cache: Metrics) -> None:
-        assert rule.run(_CTX, high_cache)[0].confidence == Confidence.medium
+        assert rule.run(high_cache).confidence == Confidence.medium
 
     def test_high_confidence_with_waiting(self, rule: KVCachePressureRule, high_cache_with_waiting: Metrics) -> None:
-        assert rule.run(_CTX, high_cache_with_waiting)[0].confidence == Confidence.high
+        assert rule.run(high_cache_with_waiting).confidence == Confidence.high
 
     def test_waiting_zero_gives_medium_confidence(self, rule: KVCachePressureRule) -> None:
         current = Metrics(kv_cache_usage_perc=0.95, num_requests_waiting=0)
-        assert rule.run(_CTX, current)[0].confidence == Confidence.medium
+        assert rule.run(current).confidence == Confidence.medium
 
     def test_evidence_contains_cache_usage(self, rule: KVCachePressureRule, high_cache: Metrics) -> None:
-        findings = rule.run(_CTX, high_cache)
-        assert any("95%" in e for e in findings[0].evidence)
+        result = rule.run(high_cache)
+        assert any("95%" in e for e in result.evidence)
 
     def test_evidence_contains_waiting_when_present(
         self, rule: KVCachePressureRule, high_cache_with_waiting: Metrics
     ) -> None:
-        findings = rule.run(_CTX, high_cache_with_waiting)
-        assert any("5" in e for e in findings[0].evidence)
+        result = rule.run(high_cache_with_waiting)
+        assert any("5" in e for e in result.evidence)
 
     async def test_kv_cache_pressure_with_scrape_fixture(self, rule: KVCachePressureRule) -> None:
         current = await snapshot_from_scrape_fixture("kv-pressure.txt")
-        assert len(rule.run(_CTX, current)) == 1
+        assert rule.run(current) is not None
 
     async def test_kv_cache_pressure_with_prometheus_fixture(self, rule: KVCachePressureRule) -> None:
         current = await snapshot_from_prometheus_fixture("kv-pressure.json")
-        assert len(rule.run(_CTX, current)) == 1
+        assert rule.run(current) is not None
 
     def test_custom_threshold(self) -> None:
         rule = KVCachePressureRule(high_cache_usage=0.75)
-        assert rule.run(_CTX, Metrics(kv_cache_usage_perc=0.74)) == []
-        assert len(rule.run(_CTX, Metrics(kv_cache_usage_perc=0.75))) == 1
+        assert rule.run(Metrics(kv_cache_usage_perc=0.74)) is None
+        assert rule.run(Metrics(kv_cache_usage_perc=0.75)) is not None

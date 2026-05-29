@@ -14,7 +14,7 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.trend import rising
+from vllm_doctor.rules.utils.trend import rising
 
 _DEFAULT_HIGH_TTFT_P95 = 2.0
 _DEFAULT_HIGH_TPOT_P95 = 0.2
@@ -53,7 +53,7 @@ class TTFTBottleneckRule(Rule):
             high_tpot_p95=config.ttft_bottleneck.high_tpot_p95,
         )
 
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
         ttft = current.ttft_p95_seconds
         if ttft is None or not math.isfinite(ttft) or ttft < self.high_ttft_p95:
             return None

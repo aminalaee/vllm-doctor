@@ -19,7 +19,7 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.trend import rising
+from vllm_doctor.rules.utils.trend import rising
 
 DEFAULT_HIGH_WAITING = 5
 DEFAULT_HIGH_RUNNING = 50
@@ -54,7 +54,7 @@ class QueuePressureRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "QueuePressureRule":
         return cls(high_waiting=config.queue_pressure.high_waiting, high_running=config.queue_pressure.high_running)
 
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
         if current.num_requests_waiting is None or current.num_requests_waiting <= self.high_waiting:
             return None
 

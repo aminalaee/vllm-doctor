@@ -1,108 +1,110 @@
-import pytest
-
 from vllm_doctor.diagnosis import run
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, FindingData, Metrics, Severity
+from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 
-class FixedRule(Rule):
-    title = "Fixed"
-    severity = Severity.warning
-
-    def __init__(self, findings: list[Finding], rule_name: str = "Fixed") -> None:
-        self._findings = findings
-        self.name = rule_name
-
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
-        return None
-
-    def run(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
-        return self._findings
-
-
-class EmptyRule(Rule):
+class _EmptyRule(Rule):
     name = "Empty"
     title = "Empty"
     severity = Severity.info
 
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
         return None
 
 
-@pytest.fixture
-def ctx() -> DiagnosisContext:
-    return DiagnosisContext(window="1h")
+class _CriticalRule(Rule):
+    name = "Critical"
+    title = "Critical"
+    severity = Severity.critical
+
+    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+        return FindingData(confidence=Confidence.high, summary="test")
 
 
-@pytest.fixture
-def critical_finding() -> Finding:
-    return Finding(severity=Severity.critical, confidence=Confidence.high, title="critical", summary="test")
+class _WarningRule(Rule):
+    name = "Warning"
+    title = "Warning"
+    severity = Severity.warning
+
+    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+        return FindingData(confidence=Confidence.high, summary="test")
 
 
-@pytest.fixture
-def warning_finding() -> Finding:
-    return Finding(severity=Severity.warning, confidence=Confidence.high, title="warning", summary="test")
+class _InfoRule(Rule):
+    name = "Info"
+    title = "Info"
+    severity = Severity.info
+
+    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+        return FindingData(confidence=Confidence.high, summary="test")
 
 
-@pytest.fixture
-def info_finding() -> Finding:
-    return Finding(severity=Severity.info, confidence=Confidence.high, title="info", summary="test")
+class _LowConfRule(Rule):
+    name = "Low"
+    title = "Low"
+    severity = Severity.warning
+
+    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+        return FindingData(confidence=Confidence.low, summary="test")
+
+
+class _MediumConfRule(Rule):
+    name = "Medium"
+    title = "Medium"
+    severity = Severity.warning
+
+    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+        return FindingData(confidence=Confidence.medium, summary="test")
+
+
+class _HighConfRule(Rule):
+    name = "High"
+    title = "High"
+    severity = Severity.warning
+
+    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+        return FindingData(confidence=Confidence.high, summary="test")
 
 
 class TestRun:
-    def test_returns_empty_when_no_rules(self, ctx: DiagnosisContext) -> None:
-        assert run(context=ctx, current=Metrics(), rules=[]) == []
+    def test_returns_empty_when_no_rules(self) -> None:
+        assert run(current=Metrics(), rules=[]) == []
 
-    def test_ok_results_when_no_findings(self, ctx: DiagnosisContext) -> None:
-        results = run(context=ctx, current=Metrics(), rules=[EmptyRule(), EmptyRule()])
+    def test_ok_results_when_no_findings(self) -> None:
+        results = run(current=Metrics(), rules=[_EmptyRule(), _EmptyRule()])
         assert len(results) == 2
         assert all(r.finding is None for r in results)
 
-    def test_aggregates_findings_from_multiple_rules(
-        self, ctx: DiagnosisContext, warning_finding: Finding, info_finding: Finding
-    ) -> None:
-        results = run(context=ctx, current=Metrics(), rules=[FixedRule([warning_finding]), FixedRule([info_finding])])
+    def test_aggregates_findings_from_multiple_rules(self) -> None:
+        results = run(current=Metrics(), rules=[_WarningRule(), _InfoRule()])
         assert len(results) == 2
 
-    def test_sorts_by_confidence_within_same_severity(self, ctx: DiagnosisContext) -> None:
-        low = Finding(severity=Severity.warning, confidence=Confidence.low, title="low", summary="test")
-        medium = Finding(severity=Severity.warning, confidence=Confidence.medium, title="medium", summary="test")
-        high = Finding(severity=Severity.warning, confidence=Confidence.high, title="high", summary="test")
+    def test_sorts_by_confidence_within_same_severity(self) -> None:
         results = run(
-            context=ctx,
             current=Metrics(),
-            rules=[FixedRule([low], "Low"), FixedRule([medium], "Medium"), FixedRule([high], "High")],
+            rules=[_LowConfRule(), _MediumConfRule(), _HighConfRule()],
         )
-        assert [r.finding.confidence for r in results] == [Confidence.high, Confidence.medium, Confidence.low]
+        confidences = [r.finding.confidence for r in results if r.finding]
+        assert confidences == [Confidence.high, Confidence.medium, Confidence.low]
 
-    def test_sorts_by_severity(
-        self,
-        ctx: DiagnosisContext,
-        critical_finding: Finding,
-        warning_finding: Finding,
-        info_finding: Finding,
-    ) -> None:
+    def test_sorts_by_severity(self) -> None:
         results = run(
-            context=ctx,
             current=Metrics(),
-            rules=[
-                FixedRule([info_finding], "Info"),
-                FixedRule([warning_finding], "Warning"),
-                FixedRule([critical_finding], "Critical"),
-            ],
+            rules=[_InfoRule(), _WarningRule(), _CriticalRule()],
         )
-        assert [r.finding.severity for r in results] == [Severity.critical, Severity.warning, Severity.info]
+        severities = [r.finding.severity for r in results if r.finding]
+        assert severities == [Severity.critical, Severity.warning, Severity.info]
 
-    def test_ok_rules_sorted_last(self, ctx: DiagnosisContext, warning_finding: Finding) -> None:
-        results = run(context=ctx, current=Metrics(), rules=[EmptyRule(), FixedRule([warning_finding], "Warn")])
+    def test_ok_rules_sorted_last(self) -> None:
+        results = run(current=Metrics(), rules=[_EmptyRule(), _WarningRule()])
         assert results[0].finding is not None
         assert results[-1].finding is None
 
-    def test_result_preserves_rule_name(self, ctx: DiagnosisContext) -> None:
-        results = run(context=ctx, current=Metrics(), rules=[EmptyRule()])
+    def test_result_preserves_rule_name(self) -> None:
+        results = run(current=Metrics(), rules=[_EmptyRule()])
         assert results[0].name == "Empty"
 
-    def test_passes_previous_to_rules(self, ctx: DiagnosisContext) -> None:
+    def test_passes_previous_to_rules(self) -> None:
         received: list[Metrics | None] = []
 
         class CapturingRule(Rule):
@@ -110,10 +112,10 @@ class TestRun:
             title = "Capturing"
             severity = Severity.info
 
-            def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+            def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
                 received.append(previous)
                 return None
 
         prev = Metrics(num_requests_running=5.0)
-        run(context=ctx, current=Metrics(), rules=[CapturingRule()], previous=prev)
+        run(current=Metrics(), rules=[CapturingRule()], previous=prev)
         assert received[0] is prev

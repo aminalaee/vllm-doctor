@@ -1,6 +1,9 @@
 import asyncio
+from dataclasses import dataclass, field
+from enum import Enum
 
 from vllm_doctor.clients import Client
+from vllm_doctor.clients.models import label_selector
 from vllm_doctor.metrics import (
     GENERATION_TOKENS_PER_SECOND,
     GPU_CACHE_USAGE_PERC,
@@ -18,29 +21,55 @@ from vllm_doctor.metrics import (
 from vllm_doctor.models import Metrics
 
 
+class QueryKind(Enum):
+    gauge = "gauge"
+    increase = "increase"
+    percentile = "percentile"
+
+
+@dataclass
+class MetricQuery:
+    output: str
+    kind: QueryKind
+    metric: str
+    quantile: float = 0.0
+    labels: dict[str, str] = field(default_factory=dict)
+
+
+_QUERIES: list[MetricQuery] = [
+    MetricQuery("num_requests_running", QueryKind.gauge, NUM_REQUESTS_RUNNING),
+    MetricQuery("num_requests_waiting", QueryKind.gauge, NUM_REQUESTS_WAITING),
+    MetricQuery("kv_cache_usage_perc", QueryKind.gauge, GPU_CACHE_USAGE_PERC),
+    MetricQuery("prompt_tokens_per_second", QueryKind.gauge, PROMPT_TOKENS_PER_SECOND),
+    MetricQuery("generation_tokens_per_second", QueryKind.gauge, GENERATION_TOKENS_PER_SECOND),
+    MetricQuery("request_success_total", QueryKind.increase, REQUEST_SUCCESS_TOTAL, labels={"finished_reason": "stop"}),
+    MetricQuery("request_error_total", QueryKind.increase, REQUEST_SUCCESS_TOTAL, labels={"finished_reason": "error"}),
+    MetricQuery("request_abort_total", QueryKind.increase, REQUEST_SUCCESS_TOTAL, labels={"finished_reason": "abort"}),
+    MetricQuery("ttft_p95_seconds", QueryKind.percentile, TIME_TO_FIRST_TOKEN_SECONDS, quantile=0.95),
+    MetricQuery("tpot_p95_seconds", QueryKind.percentile, TIME_PER_OUTPUT_TOKEN_SECONDS, quantile=0.95),
+    MetricQuery("_prefix_hits", QueryKind.increase, PREFIX_CACHE_HITS_TOTAL),
+    MetricQuery("_prefix_queries", QueryKind.increase, PREFIX_CACHE_QUERIES_TOTAL),
+    MetricQuery("queue_time_p95_seconds", QueryKind.percentile, REQUEST_QUEUE_TIME_SECONDS, quantile=0.95),
+    MetricQuery("num_preemptions_total", QueryKind.increase, NUM_PREEMPTIONS_TOTAL),
+]
+
+
 def _metric_expr(metric: str, model: str | None, **labels: str) -> str:
-    parts = [f'model_name="{model}"'] if model else []
-    parts += [f'{k}="{v}"' for k, v in labels.items()]
-    label = "{" + ",".join(parts) + "}" if parts else ""
-    return f"{metric}{label}"
+    return f"{metric}{label_selector(model, **labels)}"
 
 
-async def _query(client: Client, metric: str, model: str | None, **labels: str) -> float | None:
-    samples = await client.query(_metric_expr(metric, model, **labels))
-    return sum(s.value for s in samples) if samples else None
-
-
-async def _query_increase(client: Client, metric: str, window: str, model: str | None, **labels: str) -> float | None:
-    samples = await client.query_increase(_metric_expr(metric, model, **labels), window)
-    if samples is None:
-        return await _query(client, metric, model, **labels)
-    return sum(s.value for s in samples) if samples else None
-
-
-async def _query_percentile(
-    client: Client, metric: str, quantile: float, model: str | None, window: str
-) -> float | None:
-    return await client.query_percentile(metric, quantile, model, window)
+async def _run_query(client: Client, q: MetricQuery, rate_window: str, model: str | None) -> float | None:
+    expr = _metric_expr(q.metric, model, **q.labels)
+    if q.kind == QueryKind.gauge:
+        samples = await client.query(expr)
+        return sum(s.value for s in samples) if samples else None
+    if q.kind == QueryKind.increase:
+        samples = await client.query_increase(expr, rate_window)
+        if samples is None:
+            samples = await client.query(expr)
+        return sum(s.value for s in samples) if samples else None
+    # percentile
+    return await client.query_percentile(q.metric, q.quantile, model, rate_window)
 
 
 async def collect(
@@ -49,54 +78,14 @@ async def collect(
     model: str | None = None,
 ) -> Metrics:
     rate_window = window if window != "now" else "5m"
-    (
-        running,
-        waiting,
-        gpu_cache,
-        prompt_tps,
-        gen_tps,
-        success,
-        errors,
-        aborts,
-        ttft_p95,
-        tpot_p95,
-        prefix_hits,
-        prefix_queries,
-        queue_time_p95,
-        preemptions,
-    ) = await asyncio.gather(
-        _query(client, NUM_REQUESTS_RUNNING, model),
-        _query(client, NUM_REQUESTS_WAITING, model),
-        _query(client, GPU_CACHE_USAGE_PERC, model),
-        _query(client, PROMPT_TOKENS_PER_SECOND, model),
-        _query(client, GENERATION_TOKENS_PER_SECOND, model),
-        _query_increase(client, REQUEST_SUCCESS_TOTAL, rate_window, model, finished_reason="stop"),
-        _query_increase(client, REQUEST_SUCCESS_TOTAL, rate_window, model, finished_reason="error"),
-        _query_increase(client, REQUEST_SUCCESS_TOTAL, rate_window, model, finished_reason="abort"),
-        _query_percentile(client, TIME_TO_FIRST_TOKEN_SECONDS, 0.95, model, rate_window),
-        _query_percentile(client, TIME_PER_OUTPUT_TOKEN_SECONDS, 0.95, model, rate_window),
-        _query_increase(client, PREFIX_CACHE_HITS_TOTAL, rate_window, model),
-        _query_increase(client, PREFIX_CACHE_QUERIES_TOTAL, rate_window, model),
-        _query_percentile(client, REQUEST_QUEUE_TIME_SECONDS, 0.95, model, rate_window),
-        _query_increase(client, NUM_PREEMPTIONS_TOTAL, rate_window, model),
+
+    values = await asyncio.gather(*[_run_query(client, q, rate_window, model) for q in _QUERIES])
+    results: dict[str, float | None] = {q.output: v for q, v in zip(_QUERIES, values)}
+
+    hits = results.pop("_prefix_hits")
+    queries = results.pop("_prefix_queries")
+    results["prefix_cache_hit_rate"] = (
+        hits / queries if hits is not None and queries is not None and queries > 0 else None
     )
-    prefix_hit_rate = (
-        prefix_hits / prefix_queries
-        if prefix_hits is not None and prefix_queries is not None and prefix_queries > 0
-        else None
-    )
-    return Metrics(
-        num_requests_running=running,
-        num_requests_waiting=waiting,
-        kv_cache_usage_perc=gpu_cache,
-        prompt_tokens_per_second=prompt_tps,
-        generation_tokens_per_second=gen_tps,
-        request_success_total=success,
-        request_error_total=errors,
-        request_abort_total=aborts,
-        ttft_p95_seconds=ttft_p95,
-        tpot_p95_seconds=tpot_p95,
-        prefix_cache_hit_rate=prefix_hit_rate,
-        queue_time_p95_seconds=queue_time_p95,
-        num_preemptions_total=preemptions,
-    )
+
+    return Metrics(**results)
