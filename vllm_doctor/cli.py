@@ -14,48 +14,9 @@ from vllm_doctor.models import DiagnosisContext, DiagnosisResult, Metrics
 from vllm_doctor.reports import json as json_report
 from vllm_doctor.reports import text as text_report
 from vllm_doctor.rules.base import Rule
-from vllm_doctor.rules.error_rate import ErrorRateRule
-from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
-from vllm_doctor.rules.low_throughput import LowThroughputRule
-from vllm_doctor.rules.preemption_pressure import PreemptionPressureRule
-from vllm_doctor.rules.prefix_cache_efficiency import PrefixCacheEfficiencyRule
-from vllm_doctor.rules.queue_latency import QueueLatencyRule
-from vllm_doctor.rules.queue_pressure import QueuePressureRule
-from vllm_doctor.rules.tpot_bottleneck import TPOTBottleneckRule
-from vllm_doctor.rules.ttft_bottleneck import TTFTBottleneckRule
+from vllm_doctor.rules.registry import build_rules
 
 app = typer.Typer(help="Diagnostic tool for vLLM inference servers")
-
-
-def _build_rules(config: Config) -> list[Rule]:
-    c = config.rules
-    return [
-        QueuePressureRule(
-            high_waiting=c.queue_pressure.high_waiting,
-            high_running=c.queue_pressure.high_running,
-        ),
-        QueueLatencyRule(high_queue_time_p95=c.queue_latency.high_queue_time_p95),
-        KVCachePressureRule(high_cache_usage=c.kv_cache_pressure.high_cache_usage),
-        PreemptionPressureRule(high_cache_usage=c.preemption_pressure.high_cache_usage),
-        LowThroughputRule(
-            low_prompt_tps=c.low_throughput.low_prompt_tps,
-            low_gen_tps=c.low_throughput.low_gen_tps,
-            low_running=c.low_throughput.low_running,
-        ),
-        ErrorRateRule(
-            high_error_rate=c.error_rate.high_error_rate,
-            high_abort_rate=c.error_rate.high_abort_rate,
-        ),
-        TTFTBottleneckRule(
-            high_ttft_p95=c.ttft_bottleneck.high_ttft_p95,
-            high_tpot_p95=c.ttft_bottleneck.high_tpot_p95,
-        ),
-        TPOTBottleneckRule(
-            high_tpot_p95=c.tpot_bottleneck.high_tpot_p95,
-            low_gen_tokens_per_sec=c.tpot_bottleneck.low_gen_tokens_per_sec,
-        ),
-        PrefixCacheEfficiencyRule(min_hit_rate=c.prefix_cache_efficiency.min_hit_rate),
-    ]
 
 
 class Format(str, Enum):
@@ -80,7 +41,7 @@ async def _run(url: str, window: str, fmt: Format, verbose: bool, live: int | No
     if live is not None and live <= 0:
         raise typer.BadParameter("must be a positive integer", param_hint="'--live'")
 
-    rules = _build_rules(config)
+    rules = build_rules(config.rules)
     console = Console()
     async with await resolve_client(url) as client:
         if fmt == Format.json:

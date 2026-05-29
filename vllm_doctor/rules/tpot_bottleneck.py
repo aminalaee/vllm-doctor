@@ -8,9 +8,13 @@ rather than prefill or queue saturation.
 """
 
 import math
+from typing import TYPE_CHECKING
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+
+if TYPE_CHECKING:
+    from vllm_doctor.config import RulesConfig
 from vllm_doctor.rules.trend import rising
 
 _DEFAULT_HIGH_TPOT_P95 = 0.2
@@ -42,6 +46,13 @@ class TPOTBottleneckRule(Rule):
     ) -> None:
         self.high_tpot_p95 = high_tpot_p95
         self.low_gen_tokens_per_sec = low_gen_tokens_per_sec
+
+    @classmethod
+    def from_config(cls, config: "RulesConfig") -> "TPOTBottleneckRule":
+        return cls(
+            high_tpot_p95=config.tpot_bottleneck.high_tpot_p95,
+            low_gen_tokens_per_sec=config.tpot_bottleneck.low_gen_tokens_per_sec,
+        )
 
     def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         tpot = current.tpot_p95_seconds

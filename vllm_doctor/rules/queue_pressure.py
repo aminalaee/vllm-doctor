@@ -12,8 +12,13 @@ Confidence:
   2 signals → high
 """
 
+from typing import TYPE_CHECKING
+
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+
+if TYPE_CHECKING:
+    from vllm_doctor.config import RulesConfig
 from vllm_doctor.rules.trend import rising
 
 DEFAULT_HIGH_WAITING = 5
@@ -44,6 +49,10 @@ class QueuePressureRule(Rule):
     ) -> None:
         self.high_waiting = high_waiting
         self.high_running = high_running
+
+    @classmethod
+    def from_config(cls, config: "RulesConfig") -> "QueuePressureRule":
+        return cls(high_waiting=config.queue_pressure.high_waiting, high_running=config.queue_pressure.high_running)
 
     def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         if current.num_requests_waiting is None or current.num_requests_waiting <= self.high_waiting:
