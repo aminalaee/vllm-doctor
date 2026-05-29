@@ -3,8 +3,8 @@ import re
 import httpx
 from prometheus_client.parser import text_string_to_metric_families
 
+from vllm_doctor.clients._http import _get
 from vllm_doctor.clients.models import MetricSample
-from vllm_doctor.clients.prometheus import PrometheusConnectionError, PrometheusError
 
 
 class ScrapeClient:
@@ -15,14 +15,7 @@ class ScrapeClient:
         self._client = client or httpx.AsyncClient(timeout=timeout)
 
     async def query(self, metric_name: str) -> list[MetricSample]:
-        try:
-            response = await self._client.get(self.url)
-            response.raise_for_status()
-        except httpx.ConnectError as e:
-            raise PrometheusConnectionError(str(e)) from e
-        except httpx.HTTPStatusError as e:
-            raise PrometheusError(str(e)) from e
-
+        response = await _get(self._client, self.url)
         return _parse(response.text, metric_name)
 
     async def query_increase(self, metric_name: str, window: str) -> None:

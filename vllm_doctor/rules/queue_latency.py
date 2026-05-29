@@ -24,7 +24,7 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.trend import rising
+from vllm_doctor.rules.utils.trend import rising
 
 _DEFAULT_HIGH_QUEUE_TIME_P95 = 1.0
 
@@ -54,7 +54,7 @@ class QueueLatencyRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "QueueLatencyRule":
         return cls(high_queue_time_p95=config.queue_latency.high_queue_time_p95)
 
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
         queue_time = current.queue_time_p95_seconds
         if queue_time is None or not math.isfinite(queue_time) or queue_time < self.high_queue_time_p95:
             return None

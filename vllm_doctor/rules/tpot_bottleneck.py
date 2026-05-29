@@ -15,7 +15,7 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.trend import rising
+from vllm_doctor.rules.utils.trend import rising
 
 _DEFAULT_HIGH_TPOT_P95 = 0.2
 _DEFAULT_LOW_GEN_TOKENS_PER_SEC = 50.0
@@ -54,7 +54,7 @@ class TPOTBottleneckRule(Rule):
             low_gen_tokens_per_sec=config.tpot_bottleneck.low_gen_tokens_per_sec,
         )
 
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
         tpot = current.tpot_p95_seconds
         if tpot is None or not math.isfinite(tpot) or tpot < self.high_tpot_p95:
             return None

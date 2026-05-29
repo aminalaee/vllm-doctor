@@ -22,7 +22,7 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.trend import rising
+from vllm_doctor.rules.utils.trend import rising
 
 DEFAULT_HIGH_CACHE_USAGE = 0.90
 
@@ -51,7 +51,7 @@ class KVCachePressureRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "KVCachePressureRule":
         return cls(high_cache_usage=config.kv_cache_pressure.high_cache_usage)
 
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
         if current.kv_cache_usage_perc is None or current.kv_cache_usage_perc < self.high_cache_usage:
             return None
 

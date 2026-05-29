@@ -51,7 +51,7 @@ class PreemptionPressureRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "PreemptionPressureRule":
         return cls(high_cache_usage=config.preemption_pressure.high_cache_usage)
 
-    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
+    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
         preemptions = current.num_preemptions_total
         if preemptions is None or preemptions == 0:
             return None

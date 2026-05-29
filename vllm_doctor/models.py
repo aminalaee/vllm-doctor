@@ -20,9 +20,9 @@ class Health(str, Enum):
 
 
 class Confidence(str, Enum):
-    low = "low"
-    medium = "medium"
     high = "high"
+    medium = "medium"
+    low = "low"
 
 
 class Metrics(BaseModel):

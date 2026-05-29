@@ -50,9 +50,8 @@ class TestLiveScrape:
         assert current.num_requests_waiting >= 0
 
     async def test_diagnosis_runs_without_error(self, client: ScrapeClient) -> None:
-        ctx = DiagnosisContext(window="now")
         current = await collect(client, window="now")
-        findings = run(context=ctx, current=current, rules=[QueuePressureRule()])
+        findings = run(current=current, rules=[QueuePressureRule()])
         assert isinstance(findings, list)
 
     async def test_ttft_percentile_returns_none_in_scrape_mode(self, client: ScrapeClient) -> None:
@@ -74,7 +73,6 @@ class TestLiveScrape:
         assert current.num_preemptions_total >= 0
 
     async def test_diagnosis_runs_with_all_rules(self, client: ScrapeClient) -> None:
-        ctx = DiagnosisContext(window="now")
         current = await collect(client, window="now")
         all_rules = [
             QueuePressureRule(),
@@ -88,7 +86,9 @@ class TestLiveScrape:
             PrefixCacheEfficiencyRule(),
         ]
         result = DiagnosisResult(
-            context=ctx, current=current, checks=run(context=ctx, current=current, rules=all_rules)
+            context=DiagnosisContext(window="now"),
+            current=current,
+            checks=run(current=current, rules=all_rules),
         )
         assert isinstance(result.checks, list)
 
