@@ -11,6 +11,7 @@ import math
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+from vllm_doctor.rules.trend import rising
 
 _DEFAULT_HIGH_TPOT_P95 = 0.2
 _DEFAULT_LOW_GEN_TOKENS_PER_SEC = 50.0
@@ -64,6 +65,9 @@ class TPOTBottleneckRule(Rule):
             evidence.append(f"TTFT p95: {ttft:.3f}s")
         if ttft_normal:
             signals.append("TTFT p95 is normal — bottleneck is in decode, not prefill")
+
+        if previous is not None and rising(tpot, previous.tpot_p95_seconds):
+            signals.append(f"TPOT p95 rising ({previous.tpot_p95_seconds:.3f}s → {tpot:.3f}s)")
 
         signals_count = sum([True, gen_low, ttft_normal])
         if signals_count >= 3:

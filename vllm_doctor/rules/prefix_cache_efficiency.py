@@ -15,6 +15,7 @@ Confidence:
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+from vllm_doctor.rules.trend import falling
 
 _DEFAULT_MIN_HIT_RATE = 0.5
 _HIGH_CONFIDENCE_MAX_RATE = 0.2
@@ -44,8 +45,13 @@ class PrefixCacheEfficiencyRule(Rule):
         if hit_rate is None or hit_rate >= self.min_hit_rate:
             return None
 
+        signals: list[str] = []
+        if previous is not None and falling(hit_rate, previous.prefix_cache_hit_rate):
+            signals.append(f"Prefix cache hit rate declining ({previous.prefix_cache_hit_rate:.0%} → {hit_rate:.0%})")
+
         return FindingData(
             confidence=Confidence.high if hit_rate < _HIGH_CONFIDENCE_MAX_RATE else Confidence.medium,
+            signals=signals,
             summary=(
                 f"Prefix cache hit rate is {hit_rate:.0%} — repeated prompt prefixes "
                 "are not being reused, causing redundant prefill computation."

@@ -14,6 +14,7 @@ Confidence:
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+from vllm_doctor.rules.trend import rising
 
 DEFAULT_HIGH_WAITING = 5
 DEFAULT_HIGH_RUNNING = 50
@@ -55,6 +56,10 @@ class QueuePressureRule(Rule):
         if running_high:
             signals.append("Queue pressure compounding with server saturation")
             evidence.append(f"Running requests: {current.num_requests_running:.0f} (threshold: {self.high_running})")
+
+        if previous is not None and rising(current.num_requests_waiting, previous.num_requests_waiting):
+            prev_w, curr_w = previous.num_requests_waiting, current.num_requests_waiting
+            signals.append(f"Queue depth growing ({prev_w:.0f} → {curr_w:.0f} waiting)")
 
         return FindingData(
             confidence=Confidence.high if running_high else Confidence.low,

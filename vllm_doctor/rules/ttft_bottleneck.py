@@ -10,6 +10,7 @@ import math
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+from vllm_doctor.rules.trend import rising
 
 _DEFAULT_HIGH_TTFT_P95 = 2.0
 _DEFAULT_HIGH_TPOT_P95 = 0.2
@@ -60,6 +61,9 @@ class TTFTBottleneckRule(Rule):
         if waiting is not None and waiting > 0:
             signals.append(f"{int(waiting)} requests queued — prefill pressure confirmed")
             evidence.append(f"Waiting requests: {int(waiting)}")
+
+        if previous is not None and rising(ttft, previous.ttft_p95_seconds):
+            signals.append(f"TTFT p95 rising ({previous.ttft_p95_seconds:.2f}s → {ttft:.2f}s)")
 
         signals_count = sum([True, tpot_stable, waiting is not None and waiting > 0])
         if signals_count >= 3:

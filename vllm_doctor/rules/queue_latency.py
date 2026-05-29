@@ -20,6 +20,7 @@ import math
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+from vllm_doctor.rules.trend import rising
 
 _DEFAULT_HIGH_QUEUE_TIME_P95 = 1.0
 
@@ -58,6 +59,9 @@ class QueueLatencyRule(Rule):
         if waiting_confirmed:
             signals.append(f"{int(waiting)} requests queued — active backlog confirmed")
             evidence.append(f"Waiting requests: {int(waiting)}")
+
+        if previous is not None and rising(queue_time, previous.queue_time_p95_seconds):
+            signals.append(f"Queue time worsening ({previous.queue_time_p95_seconds:.2f}s → {queue_time:.2f}s p95)")
 
         return FindingData(
             confidence=Confidence.high if waiting_confirmed else Confidence.low,
