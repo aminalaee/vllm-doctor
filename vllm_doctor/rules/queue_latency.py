@@ -18,26 +18,37 @@ Confidence:
 
 import math
 
-from vllm_doctor.models import Confidence, DiagnosisContext, Finding, Metrics, Severity
+from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
 
 _DEFAULT_HIGH_QUEUE_TIME_P95 = 1.0
 
 
 class QueueLatencyRule(Rule):
-    @property
-    def name(self) -> str:
-        return "Queue Latency"
+    name = "Queue Latency"
+    title = "High queue latency"
+    severity = Severity.warning
+    likely_causes = [
+        "Insufficient replica capacity for current request rate",
+        "Long-context requests blocking admission of new sequences",
+        "Autoscaling has not reacted to traffic increase",
+        "KV cache exhaustion limiting sequence admission",
+    ]
+    recommendations = [
+        "Add replicas or increase concurrency limits",
+        "Inspect autoscaling thresholds and reaction time",
+        "Correlate with KV cache pressure — reduce max_num_seqs if cache is full",
+        "Separate long-context traffic to a dedicated replica",
+    ]
+    related_metrics = ["vllm:request_queue_time_seconds", "vllm:num_requests_waiting"]
 
     def __init__(self, high_queue_time_p95: float = _DEFAULT_HIGH_QUEUE_TIME_P95) -> None:
         self.high_queue_time_p95 = high_queue_time_p95
 
-    def evaluate(self, context: DiagnosisContext, current: Metrics, previous: Metrics | None = None) -> list[Finding]:
+    def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         queue_time = current.queue_time_p95_seconds
-        if queue_time is None or not math.isfinite(queue_time):
-            return []
-        if queue_time < self.high_queue_time_p95:
-            return []
+        if queue_time is None or not math.isfinite(queue_time) or queue_time < self.high_queue_time_p95:
+            return None
 
         evidence = [f"Queue time p95: {queue_time:.3f}s (threshold: {self.high_queue_time_p95}s)"]
         signals: list[str] = []
@@ -48,34 +59,12 @@ class QueueLatencyRule(Rule):
             signals.append(f"{int(waiting)} requests queued — active backlog confirmed")
             evidence.append(f"Waiting requests: {int(waiting)}")
 
-        confidence = Confidence.high if waiting_confirmed else Confidence.low
-
-        return [
-            Finding(
-                severity=Severity.warning,
-                confidence=confidence,
-                title="High queue latency",
-                summary=(
-                    f"Requests are waiting {queue_time:.2f}s (p95) in the queue before "
-                    "prefill begins — the server cannot admit requests fast enough."
-                ),
-                signals=signals,
-                evidence=evidence,
-                likely_causes=[
-                    "Insufficient replica capacity for current request rate",
-                    "Long-context requests blocking admission of new sequences",
-                    "Autoscaling has not reacted to traffic increase",
-                    "KV cache exhaustion limiting sequence admission",
-                ],
-                recommendations=[
-                    "Add replicas or increase concurrency limits",
-                    "Inspect autoscaling thresholds and reaction time",
-                    "Correlate with KV cache pressure — reduce max_num_seqs if cache is full",
-                    "Separate long-context traffic to a dedicated replica",
-                ],
-                related_metrics=[
-                    "vllm:request_queue_time_seconds",
-                    "vllm:num_requests_waiting",
-                ],
-            )
-        ]
+        return FindingData(
+            confidence=Confidence.high if waiting_confirmed else Confidence.low,
+            summary=(
+                f"Requests are waiting {queue_time:.2f}s (p95) in the queue before "
+                "prefill begins — the server cannot admit requests fast enough."
+            ),
+            signals=signals,
+            evidence=evidence,
+        )

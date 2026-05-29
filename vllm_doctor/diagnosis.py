@@ -15,7 +15,7 @@ def run(
 ) -> list[RuleResult]:
     results = []
     for rule in rules:
-        findings = rule.evaluate(context=context, current=current, previous=previous)
+        findings = rule.run(context=context, current=current, previous=previous)
         if findings:
             finding = min(
                 findings,
