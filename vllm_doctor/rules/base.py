@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from vllm_doctor.models import DiagnosisContext, Finding, FindingData, Metrics, Severity
+
+if TYPE_CHECKING:
+    from vllm_doctor.config import RulesConfig
 
 
 class Rule(ABC):
@@ -11,6 +14,10 @@ class Rule(ABC):
     likely_causes: ClassVar[list[str]] = []
     recommendations: ClassVar[list[str]] = []
     related_metrics: ClassVar[list[str]] = []
+
+    @classmethod
+    def from_config(cls, config: "RulesConfig") -> "Rule":
+        raise NotImplementedError(f"{cls.__name__}.from_config is not implemented")
 
     @abstractmethod
     def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None: ...

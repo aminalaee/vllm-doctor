@@ -17,9 +17,13 @@ Confidence:
 """
 
 import math
+from typing import TYPE_CHECKING
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+
+if TYPE_CHECKING:
+    from vllm_doctor.config import RulesConfig
 from vllm_doctor.rules.trend import rising
 
 _DEFAULT_HIGH_QUEUE_TIME_P95 = 1.0
@@ -45,6 +49,10 @@ class QueueLatencyRule(Rule):
 
     def __init__(self, high_queue_time_p95: float = _DEFAULT_HIGH_QUEUE_TIME_P95) -> None:
         self.high_queue_time_p95 = high_queue_time_p95
+
+    @classmethod
+    def from_config(cls, config: "RulesConfig") -> "QueueLatencyRule":
+        return cls(high_queue_time_p95=config.queue_latency.high_queue_time_p95)
 
     def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         queue_time = current.queue_time_p95_seconds

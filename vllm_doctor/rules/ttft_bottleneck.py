@@ -7,9 +7,13 @@ Confidence rises when TPOT is healthy — ruling out a general decode bottleneck
 """
 
 import math
+from typing import TYPE_CHECKING
 
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+
+if TYPE_CHECKING:
+    from vllm_doctor.config import RulesConfig
 from vllm_doctor.rules.trend import rising
 
 _DEFAULT_HIGH_TTFT_P95 = 2.0
@@ -41,6 +45,13 @@ class TTFTBottleneckRule(Rule):
     ) -> None:
         self.high_ttft_p95 = high_ttft_p95
         self.high_tpot_p95 = high_tpot_p95
+
+    @classmethod
+    def from_config(cls, config: "RulesConfig") -> "TTFTBottleneckRule":
+        return cls(
+            high_ttft_p95=config.ttft_bottleneck.high_ttft_p95,
+            high_tpot_p95=config.ttft_bottleneck.high_tpot_p95,
+        )
 
     def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         ttft = current.ttft_p95_seconds

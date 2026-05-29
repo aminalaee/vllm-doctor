@@ -18,8 +18,13 @@ Confidence:
   only one metric low                           → low
 """
 
+from typing import TYPE_CHECKING
+
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+
+if TYPE_CHECKING:
+    from vllm_doctor.config import RulesConfig
 from vllm_doctor.rules.trend import falling
 
 DEFAULT_LOW_PROMPT_TPS = 10.0
@@ -57,6 +62,14 @@ class LowThroughputRule(Rule):
         self.low_prompt_tps = low_prompt_tps
         self.low_gen_tps = low_gen_tps
         self.low_running = low_running
+
+    @classmethod
+    def from_config(cls, config: "RulesConfig") -> "LowThroughputRule":
+        return cls(
+            low_prompt_tps=config.low_throughput.low_prompt_tps,
+            low_gen_tps=config.low_throughput.low_gen_tps,
+            low_running=config.low_throughput.low_running,
+        )
 
     def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         if current.prompt_tokens_per_second is None and current.generation_tokens_per_second is None:

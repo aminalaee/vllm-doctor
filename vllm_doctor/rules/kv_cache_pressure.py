@@ -15,8 +15,13 @@ Confidence:
   both signals       → high   (cache is full and actively blocking requests)
 """
 
+from typing import TYPE_CHECKING
+
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+
+if TYPE_CHECKING:
+    from vllm_doctor.config import RulesConfig
 from vllm_doctor.rules.trend import rising
 
 DEFAULT_HIGH_CACHE_USAGE = 0.90
@@ -41,6 +46,10 @@ class KVCachePressureRule(Rule):
 
     def __init__(self, high_cache_usage: float = DEFAULT_HIGH_CACHE_USAGE) -> None:
         self.high_cache_usage = high_cache_usage
+
+    @classmethod
+    def from_config(cls, config: "RulesConfig") -> "KVCachePressureRule":
+        return cls(high_cache_usage=config.kv_cache_pressure.high_cache_usage)
 
     def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         if current.kv_cache_usage_perc is None or current.kv_cache_usage_perc < self.high_cache_usage:

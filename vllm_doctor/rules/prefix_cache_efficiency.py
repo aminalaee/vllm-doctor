@@ -13,8 +13,13 @@ Confidence:
   otherwise                     → medium
 """
 
+from typing import TYPE_CHECKING
+
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+
+if TYPE_CHECKING:
+    from vllm_doctor.config import RulesConfig
 from vllm_doctor.rules.trend import falling
 
 _DEFAULT_MIN_HIT_RATE = 0.5
@@ -39,6 +44,10 @@ class PrefixCacheEfficiencyRule(Rule):
 
     def __init__(self, min_hit_rate: float = _DEFAULT_MIN_HIT_RATE) -> None:
         self.min_hit_rate = min_hit_rate
+
+    @classmethod
+    def from_config(cls, config: "RulesConfig") -> "PrefixCacheEfficiencyRule":
+        return cls(min_hit_rate=config.prefix_cache_efficiency.min_hit_rate)
 
     def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         hit_rate = current.prefix_cache_hit_rate

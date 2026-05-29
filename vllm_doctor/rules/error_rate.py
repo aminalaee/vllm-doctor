@@ -19,8 +19,13 @@ Confidence:
   both high                            → high
 """
 
+from typing import TYPE_CHECKING
+
 from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
 from vllm_doctor.rules.base import Rule
+
+if TYPE_CHECKING:
+    from vllm_doctor.config import RulesConfig
 
 DEFAULT_HIGH_ERROR_RATE = 0.05
 DEFAULT_HIGH_ABORT_RATE = 0.10
@@ -51,6 +56,10 @@ class ErrorRateRule(Rule):
     ) -> None:
         self.high_error_rate = high_error_rate
         self.high_abort_rate = high_abort_rate
+
+    @classmethod
+    def from_config(cls, config: "RulesConfig") -> "ErrorRateRule":
+        return cls(high_error_rate=config.error_rate.high_error_rate, high_abort_rate=config.error_rate.high_abort_rate)
 
     def _run(self, current: Metrics, previous: Metrics | None) -> FindingData | None:
         errors = current.request_error_total
