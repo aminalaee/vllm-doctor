@@ -6,7 +6,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
-from vllm_doctor.models import DiagnosisResult, Finding, Health, Metrics, Severity
+from vllm_doctor.models import ClientMode, DiagnosisResult, Finding, Health, Metrics, Severity
 
 _SEVERITY_COLOR = {
     Severity.critical: "red",
@@ -134,6 +134,15 @@ def build(result: DiagnosisResult, verbose: bool = False) -> Group:
 
     if result.checks:
         items += [_matrix_table(result), Text()]
+
+    if result.context.client_mode == ClientMode.scrape:
+        items.append(
+            Text(
+                "⚠ TTFT, TPOT and Queue Latency rules require Prometheus — connect to Prometheus for full analysis.",
+                style="dim yellow",
+            )
+        )
+        items.append(Text())
 
     if verbose:
         items += [

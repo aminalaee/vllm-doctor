@@ -6,6 +6,11 @@ from pydantic import BaseModel, Field
 _Metric: TypeAlias = float | None
 
 
+class ClientMode(str, Enum):
+    prometheus = "prometheus"
+    scrape = "scrape"
+
+
 class Severity(str, Enum):
     critical = "critical"
     warning = "warning"
@@ -55,6 +60,7 @@ class Metrics(BaseModel):
 class DiagnosisContext(BaseModel):
     window: str
     model_name: str | None = None
+    client_mode: ClientMode = ClientMode.prometheus
 
 
 class FindingData(BaseModel):
