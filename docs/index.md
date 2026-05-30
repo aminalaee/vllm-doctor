@@ -2,22 +2,22 @@
 
 <img src="assets/wordmark.svg" alt="vLLM Doctor" class="vd-wordmark">
 
-Diagnose vLLM serving issues from `/metrics`.
+Diagnose vLLM server bottlenecks from live metrics.
 
 ![vllm-doctor demo](demo.png)
 
-vLLM Doctor reads production metrics and turns them into operational findings: what looks wrong, how confident the diagnosis is, and which vLLM knobs are worth checking first.
+vLLM Doctor reads vLLM server metrics and turns them into diagnostic findings: what looks unhealthy, why it may be happening, and which vLLM settings are worth checking first.
 
 ```shell
 vllm-doctor --url http://localhost:8000/metrics
 ```
 
 !!! note "Built for incident context"
-    vLLM Doctor is not a dashboard replacement. It is a fast diagnostic snapshot for a single server or Prometheus target.
+    vLLM Doctor is not a dashboard replacement or benchmark runner. It is a fast server-side diagnostic snapshot for a single vLLM server or Prometheus target.
 
 ## Why not just a dashboard?
 
-Dashboards show metrics. vLLM Doctor explains inference-system behavior.
+Dashboards show metrics. vLLM Doctor explains server-side inference behavior.
 
 |                          | Dashboards | vLLM Doctor |
 | ------------------------ | ---------- | ----------- |
@@ -26,6 +26,12 @@ Dashboards show metrics. vLLM Doctor explains inference-system behavior.
 | Recommends vLLM configs  | ✗          | ✓           |
 | Requires setup           | ✓          | ✗           |
 | Works on a single server | ✗          | ✓           |
+
+## How does this relate to GuideLLM?
+
+GuideLLM is a good fit for generating workloads and measuring endpoint behavior. vLLM Doctor is a good fit for explaining server-side symptoms from vLLM metrics.
+
+Used together, GuideLLM can create or replay load while vLLM Doctor helps explain bottlenecks such as queue pressure, KV cache pressure, high TTFT, or high TPOT.
 
 ## Installation
 
@@ -102,7 +108,7 @@ Options:
   Requests Running                             12
   Requests Waiting                              7
   GPU Cache Usage        ███████████████████░ 94%
-  Generation Tokens/s                        42.0
+  Decode Tokens/s                            42.0
   TTFT p95 (s)                              3.200
   TPOT p95 (s)                              0.050
 ```

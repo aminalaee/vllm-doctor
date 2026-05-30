@@ -36,6 +36,7 @@ nav:
       - Prefix Cache Efficiency: "rules/prefix-cache-efficiency.md"
   - Configuration: "configuration.md"
   - Metrics: "metrics.md"
+  - Glossary: "glossary.md"
 
 markdown_extensions:
   - markdown.extensions.codehilite:
