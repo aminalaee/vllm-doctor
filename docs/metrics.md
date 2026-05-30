@@ -19,6 +19,21 @@ vLLM Doctor reads the following metrics from the vLLM `/metrics` endpoint or Pro
 | `vllm:request_queue_time_seconds`            | Histogram of time spent in the WAITING phase before prefill begins                                                       | Prometheus |
 | `vllm:num_preemptions_total`                 | Cumulative number of sequence preemptions due to KV cache exhaustion                                                     | Both       |
 
+## Client vs server terminology
+
+GuideLLM and other benchmark tools often describe endpoint behavior with client-observed terms such as ITL, E2E latency, request latency, and workload throughput.
+
+vLLM Doctor uses server-side vLLM metrics. The closest mappings are:
+
+| Client or benchmark term | vLLM Doctor term       | Server metric                                   |
+| ------------------------ | ---------------------- | ----------------------------------------------- |
+| TTFT                     | TTFT p95               | `vllm:time_to_first_token_seconds`              |
+| ITL                      | TPOT p95               | `vllm:request_time_per_output_token_seconds`    |
+| E2E latency              | Not diagnosed directly | Explained through queue, TTFT, TPOT, and errors |
+| Prompt throughput        | Prefill throughput     | `vllm:prompt_tokens_per_second`                 |
+| Output throughput        | Decode throughput      | `vllm:generation_tokens_per_second`             |
+| Admission delay          | Queue latency          | `vllm:request_queue_time_seconds`               |
+
 ## Notes
 
 - Metric names use colons (e.g. `vllm:num_requests_running`), not underscores. vLLM Doctor preserves the original names — no normalization.

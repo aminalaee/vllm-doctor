@@ -8,24 +8,26 @@ TTFT measures how long a client waits before receiving the first token. High TTF
 
 Unlike TPOT, which reflects decode throughput, high TTFT with stable TPOT strongly suggests the bottleneck is in prefill or queue pressure — not decode.
 
+In benchmark reports, TTFT is usually client-observed. vLLM Doctor reads the server-side vLLM TTFT histogram, then uses queue depth and TPOT to explain whether the delay looks like admission pressure, prefill pressure, or a broader serving bottleneck.
+
 !!! note "Prometheus mode only"
     TTFT percentiles require `histogram_quantile()` over a time window. This rule does not fire in direct scrape mode.
 
 ## Signals
 
-| Signal                | Condition                                             |
-| --------------------- | ----------------------------------------------------- |
-| High TTFT             | `ttft_p95_seconds >= 2.0` (default)                  |
-| TPOT stable           | `tpot_p95_seconds < 0.2` — decode is not the bottleneck |
-| Requests queued       | `num_requests_waiting > 0` — prefill pressure confirmed |
+| Signal          | Condition                                               |
+| --------------- | ------------------------------------------------------- |
+| High TTFT       | `ttft_p95_seconds >= 2.0` (default)                     |
+| TPOT stable     | `tpot_p95_seconds < 0.2` — decode is not the bottleneck |
+| Requests queued | `num_requests_waiting > 0` — prefill pressure confirmed |
 
 ## Confidence
 
-| Signals matched                        | Confidence |
-| -------------------------------------- | ---------- |
-| High TTFT only                         | Low        |
-| High TTFT + stable TPOT                | Medium     |
-| High TTFT + stable TPOT + queue depth  | High       |
+| Signals matched                       | Confidence |
+| ------------------------------------- | ---------- |
+| High TTFT only                        | Low        |
+| High TTFT + stable TPOT               | Medium     |
+| High TTFT + stable TPOT + queue depth | High       |
 
 ## Likely causes
 
@@ -44,12 +46,12 @@ Unlike TPOT, which reflects decode throughput, high TTFT with stable TPOT strong
 ## Metrics used
 
 - `vllm:time_to_first_token_seconds` (histogram)
-- `vllm:time_per_output_token_seconds` (histogram)
+- `vllm:request_time_per_output_token_seconds` (histogram)
 - `vllm:num_requests_waiting`
 
 ## Configuration
 
-| Setting             | Default |
-| ------------------- | ------- |
-| TTFT p95 threshold  | `2.0s`  |
-| TPOT p95 threshold  | `0.2s`  |
+| Setting            | Default |
+| ------------------ | ------- |
+| TTFT p95 threshold | `2.0s`  |
+| TPOT p95 threshold | `0.2s`  |

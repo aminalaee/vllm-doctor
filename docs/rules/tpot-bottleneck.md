@@ -8,6 +8,8 @@ TPOT measures how long each output token takes to generate during the decode pha
 
 Unlike TTFT, which reflects prefill or queue pressure, high TPOT with normal TTFT isolates the bottleneck to the decode phase.
 
+In client-side benchmark tools, the neighboring concept is often called ITL, or inter-token latency. vLLM Doctor uses TPOT because it diagnoses the server-side vLLM histogram for time per output token.
+
 !!! note "Prometheus mode only"
     TPOT percentiles require `histogram_quantile()` over a time window. This rule does not fire in direct scrape mode.
 

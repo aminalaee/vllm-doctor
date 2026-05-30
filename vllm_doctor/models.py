@@ -37,11 +37,11 @@ class Metrics(BaseModel):
         _Metric,
         Field(title="GPU Cache Usage", json_schema_extra={"fmt": ".0%", "bar": True}),
     ] = None
-    prompt_tokens_per_second: Annotated[_Metric, Field(title="Prompt Tokens/s", json_schema_extra={"fmt": ".1f"})] = (
+    prompt_tokens_per_second: Annotated[_Metric, Field(title="Prefill Tokens/s", json_schema_extra={"fmt": ".1f"})] = (
         None
     )
     generation_tokens_per_second: Annotated[
-        _Metric, Field(title="Generation Tokens/s", json_schema_extra={"fmt": ".1f"})
+        _Metric, Field(title="Decode Tokens/s", json_schema_extra={"fmt": ".1f"})
     ] = None
     request_success_total: Annotated[_Metric, Field(title="Requests Success")] = None
     request_error_total: Annotated[_Metric, Field(title="Requests Error")] = None
