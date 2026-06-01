@@ -58,7 +58,7 @@ class Metrics(BaseModel):
 
 
 class DiagnosisContext(BaseModel):
-    window: str
+    since: str
     model_name: str | None = None
     client_mode: ClientMode = ClientMode.prometheus
 

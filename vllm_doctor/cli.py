@@ -26,52 +26,51 @@ class Format(str, Enum):
     json = "json"
 
 
+_WATCH_INTERVAL_SECONDS = 5
+
+
 async def _diagnose(
     client: Client,
     rules: list[Rule],
-    window: str,
+    since: str,
     model: str | None = None,
 ) -> DiagnosisResult:
     client_mode = ClientMode.scrape if isinstance(client, ScrapeClient) else ClientMode.prometheus
-    context = DiagnosisContext(window=window, model_name=model, client_mode=client_mode)
-    metrics = await collect(client, window=window, model=model)
+    context = DiagnosisContext(since=since, model_name=model, client_mode=client_mode)
+    metrics = await collect(client, since=since, model=model)
     checks = run(metrics=metrics, rules=rules)
     return DiagnosisResult(context=context, metrics=metrics, checks=checks)
 
 
-async def _live_loop(
+async def _watch_loop(
     client: Client,
     rules: list[Rule],
-    window: str,
-    interval: int,
+    since: str,
     render: Callable[[DiagnosisResult], None],
 ) -> None:
     while True:
-        result = await _diagnose(client, rules, window)
+        result = await _diagnose(client, rules, since)
         render(result)
-        await asyncio.sleep(interval)
+        await asyncio.sleep(_WATCH_INTERVAL_SECONDS)
 
 
-async def _run(url: str, window: str, fmt: Format, verbose: bool, live: int | None, config: Config) -> None:
-    if live is not None and live <= 0:
-        raise typer.BadParameter("must be a positive integer", param_hint="'--live'")
-
+async def _run(url: str, since: str, output: Format, verbose: bool, watch: bool, config: Config) -> None:
     rules = build_rules(config.rules)
     console = Console()
 
     async with await resolve_client(url) as client:
-        if live is None:
-            result = await _diagnose(client, rules, window)
-            if fmt == Format.json:
+        if not watch:
+            result = await _diagnose(client, rules, since)
+            if output == Format.json:
                 typer.echo(json_report.render(result, verbose=verbose))
             else:
                 console.print(text_report.build(result, verbose=verbose))
-        elif fmt == Format.json:
+        elif output == Format.json:
 
             def render_json(r: DiagnosisResult) -> None:
                 typer.echo(json_report.render(r, verbose=verbose, compact=True))
 
-            await _live_loop(client, rules, window, live, render_json)
+            await _watch_loop(client, rules, since, render_json)
         else:
             with Live("", console=console, auto_refresh=False) as live_display:
 
@@ -79,7 +78,7 @@ async def _run(url: str, window: str, fmt: Format, verbose: bool, live: int | No
                     live_display.update(text_report.build(r, verbose=verbose))
                     live_display.refresh()
 
-                await _live_loop(client, rules, window, live, render_text)
+                await _watch_loop(client, rules, since, render_text)
 
 
 @app.command()
@@ -90,16 +89,21 @@ def main(
         "-u",
         help="URL to diagnose (e.g. http://host:8000/metrics or http://host:9090).",
     ),
-    window: str = typer.Option("now", "--window", "-w", help="Time window (e.g. '1h', '30m', 'now')."),
-    fmt: Format = typer.Option(Format.text, "--format", "-f", help="Output format (text or json)."),
+    since: str = typer.Option("now", "--since", "-s", help="Time window (e.g. '1h', '30m', 'now')."),
+    watch: bool = typer.Option(
+        False,
+        "--watch",
+        "-w",
+        help="Refresh continuously every 5s (pipe through `watch -n N` for a different interval).",
+    ),
+    output: Format = typer.Option(Format.text, "--output", "-o", help="Output format (text or json)."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show additional diagnostic detail."),
-    live: int | None = typer.Option(None, "--live", "-l", help="Refresh interval in seconds (e.g. --live 10)."),
     config_path: Path | None = typer.Option(
         None, "--config", "-c", help="Path to config file (default: vllm-doctor.toml)."
     ),
 ) -> None:
     try:
         config = load_config(config_path)
-        asyncio.run(_run(url, window, fmt, verbose, live, config))
+        asyncio.run(_run(url, since, output, verbose, watch, config))
     except KeyboardInterrupt:
         pass

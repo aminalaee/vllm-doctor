@@ -74,10 +74,10 @@ Usage: vllm-doctor [OPTIONS]
 
 Options:
   -u, --url      TEXT         URL to diagnose (vLLM /metrics or Prometheus).  [required]
-  -w, --window   TEXT         Time window (e.g. '1h', '30m', 'now').  [default: now]
-  -f, --format   [text|json]  Output format.  [default: text]
+  -s, --since    TEXT         Time window (e.g. '1h', '30m', 'now').  [default: now]
+  -w, --watch                 Refresh continuously every 5s (pipe through `watch -n N` for a different interval).
+  -o, --output   [text|json]  Output format.  [default: text]
   -v, --verbose               Show additional diagnostic detail.
-  -l, --live     INTEGER      Refresh interval in seconds (e.g. --live 10).
   -c, --config   PATH         Path to config file (default: vllm-doctor.toml).
       --help                  Show this message and exit.
 ```
@@ -85,7 +85,7 @@ Options:
 ## Example output
 
 ```shell
-─────────── vLLM Doctor  ·  Health: CRITICAL  ·  Window: 5m ────────────
+─────────── vLLM Doctor  ·  Health: CRITICAL  ·  Since: 5m ────────────
 
 ╭─ ⚠ Queue pressure  [low confidence] ─────────────────────────────────╮
 │   Waiting requests: 7                                                │

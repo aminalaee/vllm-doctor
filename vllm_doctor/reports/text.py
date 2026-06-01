@@ -119,7 +119,7 @@ def build(result: DiagnosisResult, verbose: bool = False) -> Group:
                 ("  ·  ", "dim"),
                 health,
                 ("  ·  ", "dim"),
-                Text(f"Window: {result.context.window}", style="dim"),
+                Text(f"Since: {result.context.since}", style="dim"),
             ),
             style="dim",
         ),

@@ -10,7 +10,7 @@ _SCHEMA_VERSION = "1"
 
 class Target(BaseModel):
     model_name: str | None
-    window: str
+    since: str
     client_mode: ClientMode
 
 
@@ -35,7 +35,7 @@ def render(result: DiagnosisResult, verbose: bool = False, compact: bool = False
             generated_at=datetime.now(timezone.utc).isoformat(),
             target=Target(
                 model_name=result.context.model_name,
-                window=result.context.window,
+                since=result.context.since,
                 client_mode=result.context.client_mode,
             ),
         ),

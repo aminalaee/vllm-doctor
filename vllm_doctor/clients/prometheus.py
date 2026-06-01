@@ -56,14 +56,14 @@ class PrometheusClient:
             for point in r["values"]
         ]
 
-    async def query_increase(self, metric_name: str, window: str) -> list[MetricSample]:
-        return await self.query(f"increase({metric_name}[{window}])")
+    async def query_increase(self, metric_name: str, since: str) -> list[MetricSample]:
+        return await self.query(f"increase({metric_name}[{since}])")
 
     async def query_percentile(
-        self, metric: str, quantile: float, model: str | None = None, window: str = "5m"
+        self, metric: str, quantile: float, model: str | None = None, since: str = "5m"
     ) -> float | None:
         sel = label_selector(model)
-        expr = f"histogram_quantile({quantile}, sum by (le) (rate({metric}_bucket{sel}[{window}])))"
+        expr = f"histogram_quantile({quantile}, sum by (le) (rate({metric}_bucket{sel}[{since}])))"
         samples = await self.query(expr)
         if not samples or not math.isfinite(samples[0].value):
             return None

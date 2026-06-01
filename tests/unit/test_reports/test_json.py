@@ -15,7 +15,7 @@ from vllm_doctor.models import (
 )
 from vllm_doctor.reports import json as json_report
 
-_CTX = DiagnosisContext(window="1h", model_name="meta-llama/Llama-3.1-8B")
+_CTX = DiagnosisContext(since="1h", model_name="meta-llama/Llama-3.1-8B")
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ class TestRenderJson:
                 "generated_at": "2026-06-01T13:44:39+00:00",
                 "target": {
                     "model_name": "meta-llama/Llama-3.1-8B",
-                    "window": "1h",
+                    "since": "1h",
                     "client_mode": "prometheus",
                 },
             },
@@ -77,7 +77,7 @@ class TestRenderJson:
     @freeze_time("2026-06-01 13:44:39 UTC")
     def test_scrape_notice_shape(self) -> None:
         result = DiagnosisResult(
-            context=DiagnosisContext(window="now", client_mode=ClientMode.scrape),
+            context=DiagnosisContext(since="now", client_mode=ClientMode.scrape),
             metrics=Metrics(),
             checks=[],
         )
@@ -88,7 +88,7 @@ class TestRenderJson:
                 "generated_at": "2026-06-01T13:44:39+00:00",
                 "target": {
                     "model_name": None,
-                    "window": "now",
+                    "since": "now",
                     "client_mode": "scrape",
                 },
             },

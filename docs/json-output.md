@@ -1,6 +1,6 @@
 # JSON Output
 
-`--format json` is the stable machine-readable output for automation.
+`--output json` is the stable machine-readable output for automation.
 
 Text output is optimized for terminal use and is not treated as a stable report format.
 
@@ -19,7 +19,7 @@ New optional fields may be added in minor releases. Removing fields, renaming fi
     "generated_at": "2026-06-01T10:30:00+00:00",
     "target": {
       "model_name": "meta-llama/Llama-3.1-8B",
-      "window": "5m",
+      "since": "5m",
       "client_mode": "prometheus"
     }
   },
@@ -48,7 +48,7 @@ New optional fields may be added in minor releases. Removing fields, renaming fi
     `metrics` is included only when `--verbose` is used.
 
 !!! note
-    `--format json` (one-shot) produces pretty-printed JSON for readability. `--format json --live` produces compact JSON (one object per line) for streaming and automation.
+    `--output json` (one-shot) produces pretty-printed JSON for readability. `--output json --watch` produces compact JSON (one object per line) for streaming and automation.
 
 ## Top-level fields
 
@@ -67,7 +67,7 @@ New optional fields may be added in minor releases. Removing fields, renaming fi
 | -------------------- | ------------------------------------------------ |
 | `generated_at`       | ISO 8601 timestamp for when the report was built |
 | `target.model_name`  | Model name filter, or `null`                     |
-| `target.window`      | Query window used for Prometheus rates           |
+| `target.since`       | Query window used for Prometheus rates           |
 | `target.client_mode` | `prometheus` or `scrape`                         |
 
 ## Checks
