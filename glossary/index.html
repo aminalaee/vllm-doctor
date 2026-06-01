@@ -10,36 +10,34 @@
       
       
       
-        <link rel="canonical" href="https://aminalaee.github.io/vllm-doctor/rules/ttft-bottleneck/">
+        <link rel="canonical" href="https://aminalaee.github.io/vllm-doctor/glossary/">
       
       
-        <link rel="prev" href="../error-rate/">
+        <link rel="prev" href="../metrics/">
       
-      
-        <link rel="next" href="../tpot-bottleneck/">
       
       
         
       
       
-      <link rel="icon" href="../../assets/logo.svg">
+      <link rel="icon" href="../assets/logo.svg">
       <meta name="generator" content="zensical-0.0.42">
     
     
       
-        <title>High TTFT (Time to First Token) - vLLM Doctor</title>
+        <title>Glossary - vLLM Doctor</title>
       
     
     
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.fba56155.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.fba56155.min.css">
       
         
           
         
-        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.dfe2e883.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.dfe2e883.min.css">
       
       
 
@@ -58,7 +56,7 @@
       
     
     
-    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    <script>__md_scope=new URL("..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
 
@@ -83,7 +81,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#high-ttft-time-to-first-token" class="md-skip">
+        <a href="#glossary" class="md-skip">
           Skip to content
         </a>
       
@@ -99,9 +97,9 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="vLLM Doctor" class="md-header__button md-logo" aria-label="vLLM Doctor" data-md-component="logo">
+    <a href="./.." title="vLLM Doctor" class="md-header__button md-logo" aria-label="vLLM Doctor" data-md-component="logo">
       
-  <img src="../../assets/logo.svg" alt="vLLM Doctor">
+  <img src="../assets/logo.svg" alt="vLLM Doctor">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
@@ -118,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              High TTFT (Time to First Token)
+              Glossary
             
           </span>
         </div>
@@ -207,9 +205,9 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="vLLM Doctor" class="md-nav__button md-logo" aria-label="vLLM Doctor" data-md-component="logo">
+    <a href="./.." title="vLLM Doctor" class="md-nav__button md-logo" aria-label="vLLM Doctor" data-md-component="logo">
       
-  <img src="../../assets/logo.svg" alt="vLLM Doctor">
+  <img src="../assets/logo.svg" alt="vLLM Doctor">
 
     </a>
     vLLM Doctor
@@ -236,7 +234,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+      <a href="./.." class="md-nav__link">
         
   
   
@@ -259,20 +257,18 @@
       
   
   
-    
   
   
-  
     
     
     
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
           <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
@@ -292,7 +288,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -309,7 +305,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../queue-pressure/" class="md-nav__link">
+      <a href="../rules/queue-pressure/" class="md-nav__link">
         
   
   
@@ -336,7 +332,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../queue-latency/" class="md-nav__link">
+      <a href="../rules/queue-latency/" class="md-nav__link">
         
   
   
@@ -363,7 +359,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kv-cache-pressure/" class="md-nav__link">
+      <a href="../rules/kv-cache-pressure/" class="md-nav__link">
         
   
   
@@ -390,7 +386,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../preemption-pressure/" class="md-nav__link">
+      <a href="../rules/preemption-pressure/" class="md-nav__link">
         
   
   
@@ -417,7 +413,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../low-throughput/" class="md-nav__link">
+      <a href="../rules/low-throughput/" class="md-nav__link">
         
   
   
@@ -444,7 +440,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../error-rate/" class="md-nav__link">
+      <a href="../rules/error-rate/" class="md-nav__link">
         
   
   
@@ -468,36 +464,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  High TTFT
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../rules/ttft-bottleneck/" class="md-nav__link">
         
   
   
@@ -512,104 +482,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#background" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Background
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#signals" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Signals
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#confidence" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Confidence
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#likely-causes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Likely causes
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#recommendations" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Recommendations
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#metrics-used" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Metrics used
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Configuration
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -622,7 +494,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../tpot-bottleneck/" class="md-nav__link">
+      <a href="../rules/tpot-bottleneck/" class="md-nav__link">
         
   
   
@@ -649,7 +521,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../prefix-cache-efficiency/" class="md-nav__link">
+      <a href="../rules/prefix-cache-efficiency/" class="md-nav__link">
         
   
   
@@ -683,7 +555,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configuration/" class="md-nav__link">
+      <a href="../configuration/" class="md-nav__link">
         
   
   
@@ -709,7 +581,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../metrics/" class="md-nav__link">
+      <a href="../metrics/" class="md-nav__link">
         
   
   
@@ -732,10 +604,36 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../glossary/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Glossary
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -750,6 +648,126 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#ttft" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        TTFT
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tpot" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        TPOT
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#itl" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        ITL
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#e2e-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        E2E Latency
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prefill" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Prefill
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decode" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Decode
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#queue-latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Queue Latency
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kv-cache-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        KV Cache Pressure
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prefix-cache-hit-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Prefix Cache Hit Rate
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -795,10 +813,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#background" class="md-nav__link">
+  <a href="#ttft" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Background
+        TTFT
       </span>
     </span>
   </a>
@@ -806,10 +824,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#signals" class="md-nav__link">
+  <a href="#tpot" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Signals
+        TPOT
       </span>
     </span>
   </a>
@@ -817,10 +835,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#confidence" class="md-nav__link">
+  <a href="#itl" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Confidence
+        ITL
       </span>
     </span>
   </a>
@@ -828,10 +846,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#likely-causes" class="md-nav__link">
+  <a href="#e2e-latency" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Likely causes
+        E2E Latency
       </span>
     </span>
   </a>
@@ -839,10 +857,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#recommendations" class="md-nav__link">
+  <a href="#prefill" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Recommendations
+        Prefill
       </span>
     </span>
   </a>
@@ -850,10 +868,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#metrics-used" class="md-nav__link">
+  <a href="#decode" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Metrics used
+        Decode
       </span>
     </span>
   </a>
@@ -861,10 +879,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#configuration" class="md-nav__link">
+  <a href="#queue-latency" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Configuration
+        Queue Latency
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kv-cache-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        KV Cache Pressure
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prefix-cache-hit-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Prefix Cache Hit Rate
       </span>
     </span>
   </a>
@@ -889,101 +929,35 @@
   
 
 
-<h1 id="high-ttft-time-to-first-token">High TTFT (Time to First Token)</h1>
-<p>Detects when the p95 time to first token exceeds the configured threshold.</p>
-<h2 id="background">Background</h2>
-<p>TTFT measures how long a client waits before receiving the first token. High TTFT indicates that requests are spending too long in prefill or in the waiting queue before prefill even begins.</p>
-<p>Unlike TPOT, which reflects decode throughput, high TTFT with stable TPOT strongly suggests the bottleneck is in prefill or queue pressure — not decode.</p>
-<p>In benchmark reports, TTFT is usually client-observed. vLLM Doctor reads the server-side vLLM TTFT histogram, then uses queue depth and TPOT to explain whether the delay looks like admission pressure, prefill pressure, or a broader serving bottleneck.</p>
-<div class="admonition note">
-<p class="admonition-title">Prometheus mode only</p>
-<p>TTFT percentiles require <code>histogram_quantile()</code> over a time window. This rule does not fire in direct scrape mode.</p>
-</div>
-<h2 id="signals">Signals</h2>
-<table>
-<thead>
-<tr>
-<th>Signal</th>
-<th>Condition</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>High TTFT</td>
-<td><code>ttft_p95_seconds &gt;= 2.0</code> (default)</td>
-</tr>
-<tr>
-<td>TPOT stable</td>
-<td><code>tpot_p95_seconds &lt; 0.2</code> — decode is not the bottleneck</td>
-</tr>
-<tr>
-<td>Requests queued</td>
-<td><code>num_requests_waiting &gt; 0</code> — prefill pressure confirmed</td>
-</tr>
-</tbody>
-</table>
-<h2 id="confidence">Confidence</h2>
-<table>
-<thead>
-<tr>
-<th>Signals matched</th>
-<th>Confidence</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>High TTFT only</td>
-<td>Low</td>
-</tr>
-<tr>
-<td>High TTFT + stable TPOT</td>
-<td>Medium</td>
-</tr>
-<tr>
-<td>High TTFT + stable TPOT + queue depth</td>
-<td>High</td>
-</tr>
-</tbody>
-</table>
-<h2 id="likely-causes">Likely causes</h2>
-<ul>
-<li>Long input prompts increasing prefill compute time</li>
-<li>Queue pressure delaying prefill start</li>
-<li>Chunked prefill not enabled or misconfigured</li>
-<li>Insufficient capacity for current prompt load</li>
-</ul>
-<h2 id="recommendations">Recommendations</h2>
-<ul>
-<li>Enable or tune chunked prefill (<code>--enable-chunked-prefill</code>)</li>
-<li>Reduce max prompt length or filter long requests upstream</li>
-<li>Inspect queue depth — consider adding replicas</li>
-<li>Separate long-context traffic to dedicated instances</li>
-</ul>
-<h2 id="metrics-used">Metrics used</h2>
-<ul>
-<li><code>vllm:time_to_first_token_seconds</code> (histogram)</li>
-<li><code>vllm:request_time_per_output_token_seconds</code> (histogram)</li>
-<li><code>vllm:num_requests_waiting</code></li>
-</ul>
-<h2 id="configuration">Configuration</h2>
-<table>
-<thead>
-<tr>
-<th>Setting</th>
-<th>Default</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>TTFT p95 threshold</td>
-<td><code>2.0s</code></td>
-</tr>
-<tr>
-<td>TPOT p95 threshold</td>
-<td><code>0.2s</code></td>
-</tr>
-</tbody>
-</table>
+<h1 id="glossary">Glossary</h1>
+<p>This glossary maps vLLM Doctor terms to common serving and benchmarking language.</p>
+<h2 id="ttft">TTFT</h2>
+<p><strong>Time to first token</strong> measures how long a client waits before receiving the first output token.</p>
+<p>In vLLM Doctor, TTFT comes from <code>vllm:time_to_first_token_seconds</code>. High TTFT usually points to queue delay, long prefill work, or both.</p>
+<h2 id="tpot">TPOT</h2>
+<p><strong>Time per output token</strong> measures decode-token latency on the server side.</p>
+<p>In vLLM Doctor, TPOT comes from <code>vllm:request_time_per_output_token_seconds</code>. High TPOT usually points to decode pressure, GPU memory bandwidth pressure, or too many concurrent sequences.</p>
+<h2 id="itl">ITL</h2>
+<p><strong>Inter-token latency</strong> is a common client-side benchmarking term for the time between streamed output tokens.</p>
+<p>TPOT and ITL describe neighboring ideas. vLLM Doctor uses TPOT because it diagnoses server-side vLLM metrics; tools such as GuideLLM may report the client-observed ITL for endpoint behavior.</p>
+<h2 id="e2e-latency">E2E Latency</h2>
+<p><strong>End-to-end latency</strong> is the total client-observed time for a request, from submission until completion.</p>
+<p>vLLM Doctor does not diagnose E2E latency directly today. It explains server-side contributors such as queue latency, TTFT, TPOT, cache pressure, and error or abort rates.</p>
+<h2 id="prefill">Prefill</h2>
+<p><strong>Prefill</strong> is the phase where vLLM processes the input prompt before generating output tokens.</p>
+<p>Long prompts, low prefix-cache reuse, and queue pressure can make prefill-related latency worse. vLLM Doctor reports prefill throughput with <code>vllm:prompt_tokens_per_second</code>.</p>
+<h2 id="decode">Decode</h2>
+<p><strong>Decode</strong> is the phase where vLLM generates output tokens.</p>
+<p>Decode bottlenecks often show up as high TPOT or low decode throughput. vLLM Doctor reports decode throughput with <code>vllm:generation_tokens_per_second</code>.</p>
+<h2 id="queue-latency">Queue Latency</h2>
+<p><strong>Queue latency</strong> is the time a request spends waiting before prefill begins.</p>
+<p>vLLM Doctor reads this from <code>vllm:request_queue_time_seconds</code> in Prometheus mode. High queue latency usually means the server cannot admit requests fast enough for the current load.</p>
+<h2 id="kv-cache-pressure">KV Cache Pressure</h2>
+<p><strong>KV cache pressure</strong> means GPU KV cache usage is high enough to limit admission or force preemptions.</p>
+<p>When the cache is full, requests can wait even if raw GPU compute is not the only bottleneck.</p>
+<h2 id="prefix-cache-hit-rate">Prefix Cache Hit Rate</h2>
+<p><strong>Prefix cache hit rate</strong> measures how often vLLM reuses cached prompt-prefix computation.</p>
+<p>Low hit rate can increase redundant prefill work, especially for workloads with repeated system prompts, templates, or few-shot context.</p>
 
 
 
@@ -1062,10 +1036,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":[],"search":"../../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":[],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.6e5f0216.min.js"></script>
+      <script src="../assets/javascripts/bundle.6e5f0216.min.js"></script>
       
     
   </body>

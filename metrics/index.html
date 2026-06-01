@@ -16,6 +16,8 @@
         <link rel="prev" href="../configuration/">
       
       
+        <link rel="next" href="../glossary/">
+      
       
         
       
@@ -651,6 +653,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#client-vs-server-terminology" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Client vs server terminology
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#notes" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -665,6 +678,32 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Glossary
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -714,6 +753,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Supported metrics
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#client-vs-server-terminology" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Client vs server terminology
       </span>
     </span>
   </a>
@@ -820,6 +870,50 @@
 <td><code>vllm:num_preemptions_total</code></td>
 <td>Cumulative number of sequence preemptions due to KV cache exhaustion</td>
 <td>Both</td>
+</tr>
+</tbody>
+</table>
+<h2 id="client-vs-server-terminology">Client vs server terminology</h2>
+<p>GuideLLM and other benchmark tools often describe endpoint behavior with client-observed terms such as ITL, E2E latency, request latency, and workload throughput.</p>
+<p>vLLM Doctor uses server-side vLLM metrics. The closest mappings are:</p>
+<table>
+<thead>
+<tr>
+<th>Client or benchmark term</th>
+<th>vLLM Doctor term</th>
+<th>Server metric</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TTFT</td>
+<td>TTFT p95</td>
+<td><code>vllm:time_to_first_token_seconds</code></td>
+</tr>
+<tr>
+<td>ITL</td>
+<td>TPOT p95</td>
+<td><code>vllm:request_time_per_output_token_seconds</code></td>
+</tr>
+<tr>
+<td>E2E latency</td>
+<td>Not diagnosed directly</td>
+<td>Explained through queue, TTFT, TPOT, and errors</td>
+</tr>
+<tr>
+<td>Prompt throughput</td>
+<td>Prefill throughput</td>
+<td><code>vllm:prompt_tokens_per_second</code></td>
+</tr>
+<tr>
+<td>Output throughput</td>
+<td>Decode throughput</td>
+<td><code>vllm:generation_tokens_per_second</code></td>
+</tr>
+<tr>
+<td>Admission delay</td>
+<td>Queue latency</td>
+<td><code>vllm:request_queue_time_seconds</code></td>
 </tr>
 </tbody>
 </table>

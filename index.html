@@ -304,6 +304,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-does-this-relate-to-guidellm" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How does this relate to GuideLLM?
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#installation" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -702,6 +713,32 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Glossary
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -747,6 +784,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Why not just a dashboard?
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-does-this-relate-to-guidellm" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How does this relate to GuideLLM?
       </span>
     </span>
   </a>
@@ -817,17 +865,17 @@
 
 <h1 id="introduction">Introduction</h1>
 <p><img src="assets/wordmark.svg" alt="vLLM Doctor" class="vd-wordmark"></p>
-<p>Diagnose vLLM serving issues from <code>/metrics</code>.</p>
+<p>Diagnose vLLM server bottlenecks from live metrics.</p>
 <p><img alt="vllm-doctor demo" src="demo.png" /></p>
-<p>vLLM Doctor reads production metrics and turns them into operational findings: what looks wrong, how confident the diagnosis is, and which vLLM knobs are worth checking first.</p>
+<p>vLLM Doctor reads vLLM server metrics and turns them into diagnostic findings: what looks unhealthy, why it may be happening, and which vLLM settings are worth checking first.</p>
 <div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:8000/metrics
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Built for incident context</p>
-<p>vLLM Doctor is not a dashboard replacement. It is a fast diagnostic snapshot for a single server or Prometheus target.</p>
+<p>vLLM Doctor is not a dashboard replacement or benchmark runner. It is a fast server-side diagnostic snapshot for a single vLLM server or Prometheus target.</p>
 </div>
 <h2 id="why-not-just-a-dashboard">Why not just a dashboard?</h2>
-<p>Dashboards show metrics. vLLM Doctor explains inference-system behavior.</p>
+<p>Dashboards show metrics. vLLM Doctor explains server-side inference behavior.</p>
 <table>
 <thead>
 <tr>
@@ -864,6 +912,9 @@
 </tr>
 </tbody>
 </table>
+<h2 id="how-does-this-relate-to-guidellm">How does this relate to GuideLLM?</h2>
+<p>GuideLLM is a good fit for generating workloads and measuring endpoint behavior. vLLM Doctor is a good fit for explaining server-side symptoms from vLLM metrics.</p>
+<p>Used together, GuideLLM can create or replay load while vLLM Doctor helps explain bottlenecks such as queue pressure, KV cache pressure, high TTFT, or high TPOT.</p>
 <h2 id="installation">Installation</h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">pip</label><label for="__tabbed_1_2">uv</label></div>
 <div class="tabbed-content">
@@ -933,7 +984,7 @@ Options:
 <span class="w">  </span>Requests<span class="w"> </span>Running<span class="w">                             </span><span class="m">12</span>
 <span class="w">  </span>Requests<span class="w"> </span>Waiting<span class="w">                              </span><span class="m">7</span>
 <span class="w">  </span>GPU<span class="w"> </span>Cache<span class="w"> </span>Usage<span class="w">        </span>███████████████████░<span class="w"> </span><span class="m">94</span>%
-<span class="w">  </span>Generation<span class="w"> </span>Tokens/s<span class="w">                        </span><span class="m">42</span>.0
+<span class="w">  </span>Decode<span class="w"> </span>Tokens/s<span class="w">                            </span><span class="m">42</span>.0
 <span class="w">  </span>TTFT<span class="w"> </span>p95<span class="w"> </span><span class="o">(</span>s<span class="o">)</span><span class="w">                              </span><span class="m">3</span>.200
 <span class="w">  </span>TPOT<span class="w"> </span>p95<span class="w"> </span><span class="o">(</span>s<span class="o">)</span><span class="w">                              </span><span class="m">0</span>.050
 </code></pre></div>

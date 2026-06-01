@@ -728,6 +728,32 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../glossary/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Glossary
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -868,6 +894,7 @@
 <h2 id="background">Background</h2>
 <p>TPOT measures how long each output token takes to generate during the decode phase. High TPOT indicates that the GPU is struggling to keep up with the decode workload — typically due to memory bandwidth saturation or too many concurrent sequences.</p>
 <p>Unlike TTFT, which reflects prefill or queue pressure, high TPOT with normal TTFT isolates the bottleneck to the decode phase.</p>
+<p>In client-side benchmark tools, the neighboring concept is often called ITL, or inter-token latency. vLLM Doctor uses TPOT because it diagnoses the server-side vLLM histogram for time per output token.</p>
 <div class="admonition note">
 <p class="admonition-title">Prometheus mode only</p>
 <p>TPOT percentiles require <code>histogram_quantile()</code> over a time window. This rule does not fire in direct scrape mode.</p>
