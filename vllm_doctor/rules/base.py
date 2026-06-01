@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
 
 class Rule(ABC):
+    id: ClassVar[str]
     name: ClassVar[str]
     title: ClassVar[str]
     severity: ClassVar[Severity]

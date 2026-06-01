@@ -47,6 +47,7 @@ vllm-doctor = "vllm_doctor.cli:app"
 
 [dependency-groups]
 dev = [
+  "freezegun==1.5.1",
   "pytest==9.0.3",
   "pytest-asyncio==1.3.0",
   "pytest-cov",

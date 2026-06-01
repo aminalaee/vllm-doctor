@@ -4,6 +4,7 @@ from vllm_doctor.rules.base import Rule
 
 
 class _EmptyRule(Rule):
+    id = "empty"
     name = "Empty"
     title = "Empty"
     severity = Severity.info
@@ -13,6 +14,7 @@ class _EmptyRule(Rule):
 
 
 class _CriticalRule(Rule):
+    id = "critical"
     name = "Critical"
     title = "Critical"
     severity = Severity.critical
@@ -22,6 +24,7 @@ class _CriticalRule(Rule):
 
 
 class _WarningRule(Rule):
+    id = "warning"
     name = "Warning"
     title = "Warning"
     severity = Severity.warning
@@ -31,6 +34,7 @@ class _WarningRule(Rule):
 
 
 class _InfoRule(Rule):
+    id = "info"
     name = "Info"
     title = "Info"
     severity = Severity.info
@@ -40,6 +44,7 @@ class _InfoRule(Rule):
 
 
 class _LowConfRule(Rule):
+    id = "low"
     name = "Low"
     title = "Low"
     severity = Severity.warning
@@ -49,6 +54,7 @@ class _LowConfRule(Rule):
 
 
 class _MediumConfRule(Rule):
+    id = "medium"
     name = "Medium"
     title = "Medium"
     severity = Severity.warning
@@ -58,6 +64,7 @@ class _MediumConfRule(Rule):
 
 
 class _HighConfRule(Rule):
+    id = "high"
     name = "High"
     title = "High"
     severity = Severity.warning
@@ -102,4 +109,5 @@ class TestRun:
 
     def test_result_preserves_rule_name(self) -> None:
         results = run(metrics=Metrics(), rules=[_EmptyRule()])
+        assert results[0].id == "empty"
         assert results[0].name == "Empty"

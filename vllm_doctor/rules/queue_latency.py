@@ -28,6 +28,7 @@ _DEFAULT_HIGH_QUEUE_TIME_P95 = 1.0
 
 
 class QueueLatencyRule(Rule):
+    id = "queue_latency"
     name = "Queue Latency"
     title = "High queue latency"
     severity = Severity.warning

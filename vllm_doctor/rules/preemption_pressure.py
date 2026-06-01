@@ -28,6 +28,7 @@ _DEFAULT_HIGH_CACHE_USAGE = 0.80
 
 
 class PreemptionPressureRule(Rule):
+    id = "preemption_pressure"
     name = "Preemption Pressure"
     title = "Preemption pressure"
     severity = Severity.warning
