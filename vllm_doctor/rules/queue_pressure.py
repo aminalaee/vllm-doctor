@@ -19,8 +19,6 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.utils.trend import rising
-
 DEFAULT_HIGH_WAITING = 5
 DEFAULT_HIGH_RUNNING = 50
 
@@ -54,21 +52,17 @@ class QueuePressureRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "QueuePressureRule":
         return cls(high_waiting=config.queue_pressure.high_waiting, high_running=config.queue_pressure.high_running)
 
-    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
-        if current.num_requests_waiting is None or current.num_requests_waiting <= self.high_waiting:
+    def run(self, metrics: Metrics) -> FindingData | None:
+        if metrics.num_requests_waiting is None or metrics.num_requests_waiting <= self.high_waiting:
             return None
 
         signals: list[str] = []
-        evidence = [f"Waiting requests: {current.num_requests_waiting:.0f} (threshold: {self.high_waiting})"]
+        evidence = [f"Waiting requests: {metrics.num_requests_waiting:.0f} (threshold: {self.high_waiting})"]
 
-        running_high = current.num_requests_running is not None and current.num_requests_running > self.high_running
+        running_high = metrics.num_requests_running is not None and metrics.num_requests_running > self.high_running
         if running_high:
             signals.append("Queue pressure compounding with server saturation")
-            evidence.append(f"Running requests: {current.num_requests_running:.0f} (threshold: {self.high_running})")
-
-        if previous is not None and rising(current.num_requests_waiting, previous.num_requests_waiting):
-            prev_w, curr_w = previous.num_requests_waiting, current.num_requests_waiting
-            signals.append(f"Queue depth growing ({prev_w:.0f} → {curr_w:.0f} waiting)")
+            evidence.append(f"Running requests: {metrics.num_requests_running:.0f} (threshold: {self.high_running})")
 
         return FindingData(
             confidence=Confidence.high if running_high else Confidence.low,

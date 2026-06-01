@@ -8,7 +8,7 @@ class _EmptyRule(Rule):
     title = "Empty"
     severity = Severity.info
 
-    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+    def run(self, _metrics: Metrics) -> FindingData | None:
         return None
 
 
@@ -17,7 +17,7 @@ class _CriticalRule(Rule):
     title = "Critical"
     severity = Severity.critical
 
-    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+    def run(self, _metrics: Metrics) -> FindingData | None:
         return FindingData(confidence=Confidence.high, summary="test")
 
 
@@ -26,7 +26,7 @@ class _WarningRule(Rule):
     title = "Warning"
     severity = Severity.warning
 
-    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+    def run(self, _metrics: Metrics) -> FindingData | None:
         return FindingData(confidence=Confidence.high, summary="test")
 
 
@@ -35,7 +35,7 @@ class _InfoRule(Rule):
     title = "Info"
     severity = Severity.info
 
-    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+    def run(self, _metrics: Metrics) -> FindingData | None:
         return FindingData(confidence=Confidence.high, summary="test")
 
 
@@ -44,7 +44,7 @@ class _LowConfRule(Rule):
     title = "Low"
     severity = Severity.warning
 
-    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+    def run(self, _metrics: Metrics) -> FindingData | None:
         return FindingData(confidence=Confidence.low, summary="test")
 
 
@@ -53,7 +53,7 @@ class _MediumConfRule(Rule):
     title = "Medium"
     severity = Severity.warning
 
-    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+    def run(self, _metrics: Metrics) -> FindingData | None:
         return FindingData(confidence=Confidence.medium, summary="test")
 
 
@@ -62,26 +62,26 @@ class _HighConfRule(Rule):
     title = "High"
     severity = Severity.warning
 
-    def run(self, _current: Metrics, _previous: Metrics | None = None) -> FindingData | None:
+    def run(self, _metrics: Metrics) -> FindingData | None:
         return FindingData(confidence=Confidence.high, summary="test")
 
 
 class TestRun:
     def test_returns_empty_when_no_rules(self) -> None:
-        assert run(current=Metrics(), rules=[]) == []
+        assert run(metrics=Metrics(), rules=[]) == []
 
     def test_ok_results_when_no_findings(self) -> None:
-        results = run(current=Metrics(), rules=[_EmptyRule(), _EmptyRule()])
+        results = run(metrics=Metrics(), rules=[_EmptyRule(), _EmptyRule()])
         assert len(results) == 2
         assert all(r.finding is None for r in results)
 
     def test_aggregates_findings_from_multiple_rules(self) -> None:
-        results = run(current=Metrics(), rules=[_WarningRule(), _InfoRule()])
+        results = run(metrics=Metrics(), rules=[_WarningRule(), _InfoRule()])
         assert len(results) == 2
 
     def test_sorts_by_confidence_within_same_severity(self) -> None:
         results = run(
-            current=Metrics(),
+            metrics=Metrics(),
             rules=[_LowConfRule(), _MediumConfRule(), _HighConfRule()],
         )
         confidences = [r.finding.confidence for r in results if r.finding]
@@ -89,33 +89,17 @@ class TestRun:
 
     def test_sorts_by_severity(self) -> None:
         results = run(
-            current=Metrics(),
+            metrics=Metrics(),
             rules=[_InfoRule(), _WarningRule(), _CriticalRule()],
         )
         severities = [r.finding.severity for r in results if r.finding]
         assert severities == [Severity.critical, Severity.warning, Severity.info]
 
     def test_ok_rules_sorted_last(self) -> None:
-        results = run(current=Metrics(), rules=[_EmptyRule(), _WarningRule()])
+        results = run(metrics=Metrics(), rules=[_EmptyRule(), _WarningRule()])
         assert results[0].finding is not None
         assert results[-1].finding is None
 
     def test_result_preserves_rule_name(self) -> None:
-        results = run(current=Metrics(), rules=[_EmptyRule()])
+        results = run(metrics=Metrics(), rules=[_EmptyRule()])
         assert results[0].name == "Empty"
-
-    def test_passes_previous_to_rules(self) -> None:
-        received: list[Metrics | None] = []
-
-        class CapturingRule(Rule):
-            name = "Capturing"
-            title = "Capturing"
-            severity = Severity.info
-
-            def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
-                received.append(previous)
-                return None
-
-        prev = Metrics(num_requests_running=5.0)
-        run(current=Metrics(), rules=[CapturingRule()], previous=prev)
-        assert received[0] is prev

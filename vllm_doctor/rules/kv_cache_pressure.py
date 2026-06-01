@@ -22,8 +22,6 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.utils.trend import rising
-
 DEFAULT_HIGH_CACHE_USAGE = 0.90
 
 
@@ -51,26 +49,22 @@ class KVCachePressureRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "KVCachePressureRule":
         return cls(high_cache_usage=config.kv_cache_pressure.high_cache_usage)
 
-    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
-        if current.kv_cache_usage_perc is None or current.kv_cache_usage_perc < self.high_cache_usage:
+    def run(self, metrics: Metrics) -> FindingData | None:
+        if metrics.kv_cache_usage_perc is None or metrics.kv_cache_usage_perc < self.high_cache_usage:
             return None
 
         signals: list[str] = []
-        evidence = [f"GPU KV cache usage: {current.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"]
+        evidence = [f"GPU KV cache usage: {metrics.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"]
 
-        waiting_high = current.num_requests_waiting is not None and current.num_requests_waiting > 0
+        waiting_high = metrics.num_requests_waiting is not None and metrics.num_requests_waiting > 0
         if waiting_high:
             signals.append("Cache saturation blocking new request admission")
-            evidence.append(f"Waiting requests: {current.num_requests_waiting:.0f} (blocked by full cache)")
-
-        if previous is not None and rising(current.kv_cache_usage_perc, previous.kv_cache_usage_perc):
-            prev_c, curr_c = previous.kv_cache_usage_perc, current.kv_cache_usage_perc
-            signals.append(f"KV cache usage rising ({prev_c:.0%} → {curr_c:.0%})")
+            evidence.append(f"Waiting requests: {metrics.num_requests_waiting:.0f} (blocked by full cache)")
 
         return FindingData(
             confidence=Confidence.high if waiting_high else Confidence.medium,
             summary=(
-                f"GPU KV cache at {current.kv_cache_usage_perc:.0%} — "
+                f"GPU KV cache at {metrics.kv_cache_usage_perc:.0%} — "
                 "new requests cannot be admitted until sequences complete."
             ),
             signals=signals,

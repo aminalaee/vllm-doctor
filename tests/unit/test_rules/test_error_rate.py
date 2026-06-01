@@ -61,13 +61,13 @@ class TestErrorRateRule:
         assert rule.run(_metrics(70, 30, 0)) is not None
 
     async def test_error_rate_with_scrape_fixture(self, rule: ErrorRateRule) -> None:
-        current = await snapshot_from_scrape_fixture("error-rate.txt")
-        assert rule.run(current) is not None
+        metrics = await snapshot_from_scrape_fixture("error-rate.txt")
+        assert rule.run(metrics) is not None
 
     async def test_error_rate_with_prometheus_fixture(self, rule: ErrorRateRule) -> None:
-        current = await snapshot_from_prometheus_fixture("error-rate.json")
-        assert rule.run(current) is not None
+        metrics = await snapshot_from_prometheus_fixture("error-rate.json")
+        assert rule.run(metrics) is not None
 
     def test_only_error_metric_present(self, rule: ErrorRateRule) -> None:
-        current = Metrics(request_error_total=10.0, request_success_total=90.0)
-        assert rule.run(current) is not None
+        metrics = Metrics(request_error_total=10.0, request_success_total=90.0)
+        assert rule.run(metrics) is not None

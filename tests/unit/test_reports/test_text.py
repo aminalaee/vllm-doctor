@@ -39,7 +39,7 @@ class TestRenderText:
     def test_shows_header(self) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=_CTX, current=Metrics(), checks=[]),
+            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[]),
             console=Console(file=buf, highlight=False),
         )
         assert "vLLM Doctor" in buf.getvalue()
@@ -47,7 +47,7 @@ class TestRenderText:
     def test_ok_health_when_no_findings(self) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=_CTX, current=Metrics(), checks=[]),
+            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[]),
             console=Console(file=buf, highlight=False),
         )
         assert "OK" in buf.getvalue()
@@ -55,7 +55,7 @@ class TestRenderText:
     def test_shows_matrix_rule_name(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
+            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Queue Pressure" in buf.getvalue()
@@ -63,7 +63,7 @@ class TestRenderText:
     def test_shows_severity_in_health(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
+            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "WARNING" in buf.getvalue()
@@ -71,7 +71,7 @@ class TestRenderText:
     def test_matrix_ok_row_when_no_finding(self) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=_CTX, current=Metrics(), checks=[RuleResult(name="My Rule")]),
+            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[RuleResult(name="My Rule")]),
             console=Console(file=buf, highlight=False),
         )
         assert "My Rule" in buf.getvalue()
@@ -80,7 +80,7 @@ class TestRenderText:
     def test_shows_finding_title(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
+            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Queue pressure" in buf.getvalue()
@@ -88,7 +88,7 @@ class TestRenderText:
     def test_shows_evidence(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
+            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Waiting requests: 20" in buf.getvalue()
@@ -96,17 +96,17 @@ class TestRenderText:
     def test_shows_recommendation(self, queue_check: RuleResult) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=_CTX, current=Metrics(), checks=[queue_check]),
+            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[queue_check]),
             console=Console(file=buf, highlight=False),
         )
         assert "Add replicas" in buf.getvalue()
 
     def test_verbose_shows_metrics(self) -> None:
         ctx = DiagnosisContext(window="1h")
-        current = Metrics(num_requests_running=5, kv_cache_usage_perc=0.5)
+        metrics = Metrics(num_requests_running=5, kv_cache_usage_perc=0.5)
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=ctx, current=current, checks=[]),
+            DiagnosisResult(context=ctx, metrics=metrics, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=True,
         )
@@ -115,10 +115,10 @@ class TestRenderText:
 
     def test_verbose_shows_cache_bar(self) -> None:
         ctx = DiagnosisContext(window="1h")
-        current = Metrics(kv_cache_usage_perc=0.94)
+        metrics = Metrics(kv_cache_usage_perc=0.94)
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=ctx, current=current, checks=[]),
+            DiagnosisResult(context=ctx, metrics=metrics, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=True,
         )
@@ -126,10 +126,10 @@ class TestRenderText:
 
     def test_verbose_nan_cache_shows_na(self) -> None:
         ctx = DiagnosisContext(window="1h")
-        current = Metrics(kv_cache_usage_perc=float("nan"))
+        metrics = Metrics(kv_cache_usage_perc=float("nan"))
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=ctx, current=current, checks=[]),
+            DiagnosisResult(context=ctx, metrics=metrics, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=True,
         )
@@ -137,10 +137,10 @@ class TestRenderText:
 
     def test_non_verbose_hides_metrics(self) -> None:
         ctx = DiagnosisContext(window="1h")
-        current = Metrics(num_requests_running=5)
+        metrics = Metrics(num_requests_running=5)
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=ctx, current=current, checks=[]),
+            DiagnosisResult(context=ctx, metrics=metrics, checks=[]),
             console=Console(file=buf, highlight=False),
             verbose=False,
         )

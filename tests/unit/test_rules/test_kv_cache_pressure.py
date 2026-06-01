@@ -42,8 +42,8 @@ class TestKVCachePressureRule:
         assert rule.run(high_cache_with_waiting).confidence == Confidence.high
 
     def test_waiting_zero_gives_medium_confidence(self, rule: KVCachePressureRule) -> None:
-        current = Metrics(kv_cache_usage_perc=0.95, num_requests_waiting=0)
-        assert rule.run(current).confidence == Confidence.medium
+        metrics = Metrics(kv_cache_usage_perc=0.95, num_requests_waiting=0)
+        assert rule.run(metrics).confidence == Confidence.medium
 
     def test_evidence_contains_cache_usage(self, rule: KVCachePressureRule, high_cache: Metrics) -> None:
         result = rule.run(high_cache)
@@ -56,12 +56,12 @@ class TestKVCachePressureRule:
         assert any("5" in e for e in result.evidence)
 
     async def test_kv_cache_pressure_with_scrape_fixture(self, rule: KVCachePressureRule) -> None:
-        current = await snapshot_from_scrape_fixture("kv-pressure.txt")
-        assert rule.run(current) is not None
+        metrics = await snapshot_from_scrape_fixture("kv-pressure.txt")
+        assert rule.run(metrics) is not None
 
     async def test_kv_cache_pressure_with_prometheus_fixture(self, rule: KVCachePressureRule) -> None:
-        current = await snapshot_from_prometheus_fixture("kv-pressure.json")
-        assert rule.run(current) is not None
+        metrics = await snapshot_from_prometheus_fixture("kv-pressure.json")
+        assert rule.run(metrics) is not None
 
     def test_custom_threshold(self) -> None:
         rule = KVCachePressureRule(high_cache_usage=0.75)

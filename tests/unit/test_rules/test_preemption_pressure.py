@@ -26,32 +26,32 @@ class TestPreemptionPressureRule:
         assert rule.run(Metrics(num_preemptions_total=10)).confidence == Confidence.medium
 
     def test_high_confidence_with_high_cache(self, rule: PreemptionPressureRule) -> None:
-        current = Metrics(num_preemptions_total=10, kv_cache_usage_perc=0.85)
-        assert rule.run(current).confidence == Confidence.high
+        metrics = Metrics(num_preemptions_total=10, kv_cache_usage_perc=0.85)
+        assert rule.run(metrics).confidence == Confidence.high
 
     def test_medium_confidence_with_low_cache(self, rule: PreemptionPressureRule) -> None:
-        current = Metrics(num_preemptions_total=10, kv_cache_usage_perc=0.5)
-        assert rule.run(current).confidence == Confidence.medium
+        metrics = Metrics(num_preemptions_total=10, kv_cache_usage_perc=0.5)
+        assert rule.run(metrics).confidence == Confidence.medium
 
     def test_evidence_contains_preemption_count(self, rule: PreemptionPressureRule) -> None:
         assert any("42" in e for e in rule.run(Metrics(num_preemptions_total=42)).evidence)
 
     def test_evidence_contains_cache_usage_when_high(self, rule: PreemptionPressureRule) -> None:
-        current = Metrics(num_preemptions_total=5, kv_cache_usage_perc=0.90)
-        assert any("90%" in e for e in rule.run(current).evidence)
+        metrics = Metrics(num_preemptions_total=5, kv_cache_usage_perc=0.90)
+        assert any("90%" in e for e in rule.run(metrics).evidence)
 
     def test_summary_contains_preemption_count(self, rule: PreemptionPressureRule) -> None:
         assert "7" in rule.run(Metrics(num_preemptions_total=7)).summary
 
     async def test_preemption_pressure_with_scrape_fixture(self, rule: PreemptionPressureRule) -> None:
-        current = await snapshot_from_scrape_fixture("preemption-pressure.txt")
-        assert rule.run(current) is not None
+        metrics = await snapshot_from_scrape_fixture("preemption-pressure.txt")
+        assert rule.run(metrics) is not None
 
     async def test_preemption_pressure_with_prometheus_fixture(self, rule: PreemptionPressureRule) -> None:
-        current = await snapshot_from_prometheus_fixture("preemption-pressure.json")
-        assert rule.run(current) is not None
+        metrics = await snapshot_from_prometheus_fixture("preemption-pressure.json")
+        assert rule.run(metrics) is not None
 
     def test_custom_cache_threshold(self) -> None:
         rule = PreemptionPressureRule(high_cache_usage=0.95)
-        current = Metrics(num_preemptions_total=5, kv_cache_usage_perc=0.90)
-        assert rule.run(current).confidence == Confidence.medium
+        metrics = Metrics(num_preemptions_total=5, kv_cache_usage_perc=0.90)
+        assert rule.run(metrics).confidence == Confidence.medium

@@ -42,16 +42,16 @@ class TestLiveScrape:
         assert isinstance(samples[0].value, float)
 
     async def test_snapshot_fields_populated(self, client: ScrapeClient) -> None:
-        current = await collect(client, window="now")
-        assert isinstance(current, Metrics)
-        assert current.num_requests_running is not None
-        assert current.num_requests_waiting is not None
-        assert current.num_requests_running >= 0
-        assert current.num_requests_waiting >= 0
+        metrics = await collect(client, window="now")
+        assert isinstance(metrics, Metrics)
+        assert metrics.num_requests_running is not None
+        assert metrics.num_requests_waiting is not None
+        assert metrics.num_requests_running >= 0
+        assert metrics.num_requests_waiting >= 0
 
     async def test_diagnosis_runs_without_error(self, client: ScrapeClient) -> None:
-        current = await collect(client, window="now")
-        findings = run(current=current, rules=[QueuePressureRule()])
+        metrics = await collect(client, window="now")
+        findings = run(metrics=metrics, rules=[QueuePressureRule()])
         assert isinstance(findings, list)
 
     async def test_ttft_percentile_returns_none_in_scrape_mode(self, client: ScrapeClient) -> None:
@@ -59,21 +59,21 @@ class TestLiveScrape:
         assert result is None
 
     async def test_prefix_cache_hit_rate_populated(self, client: ScrapeClient) -> None:
-        current = await collect(client, window="now")
+        metrics = await collect(client, window="now")
         # hit rate is None only when no queries have been made yet
-        assert current.prefix_cache_hit_rate is None or (0.0 <= current.prefix_cache_hit_rate <= 1.0)
+        assert metrics.prefix_cache_hit_rate is None or (0.0 <= metrics.prefix_cache_hit_rate <= 1.0)
 
     async def test_queue_time_p95_none_in_scrape_mode(self, client: ScrapeClient) -> None:
-        current = await collect(client, window="now")
-        assert current.queue_time_p95_seconds is None
+        metrics = await collect(client, window="now")
+        assert metrics.queue_time_p95_seconds is None
 
     async def test_preemptions_is_numeric(self, client: ScrapeClient) -> None:
-        current = await collect(client, window="now")
-        assert current.num_preemptions_total is not None
-        assert current.num_preemptions_total >= 0
+        metrics = await collect(client, window="now")
+        assert metrics.num_preemptions_total is not None
+        assert metrics.num_preemptions_total >= 0
 
     async def test_diagnosis_runs_with_all_rules(self, client: ScrapeClient) -> None:
-        current = await collect(client, window="now")
+        metrics = await collect(client, window="now")
         all_rules = [
             QueuePressureRule(),
             QueueLatencyRule(),
@@ -87,8 +87,8 @@ class TestLiveScrape:
         ]
         result = DiagnosisResult(
             context=DiagnosisContext(window="now"),
-            current=current,
-            checks=run(current=current, rules=all_rules),
+            metrics=metrics,
+            checks=run(metrics=metrics, rules=all_rules),
         )
         assert isinstance(result.checks, list)
 

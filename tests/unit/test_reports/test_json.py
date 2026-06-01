@@ -31,14 +31,14 @@ def queue_finding() -> Finding:
 
 class TestRenderJson:
     def test_ok_health_no_findings(self) -> None:
-        result = DiagnosisResult(context=_CTX, current=Metrics(), checks=[])
+        result = DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[])
         output = json.loads(json_report.render(result))
         assert output["health"] == "ok"
 
     def test_health_reflects_worst_severity(self, queue_finding: Finding) -> None:
         result = DiagnosisResult(
             context=_CTX,
-            current=Metrics(),
+            metrics=Metrics(),
             checks=[RuleResult(name="Queue Pressure", finding=queue_finding)],
         )
         output = json.loads(json_report.render(result))
@@ -47,7 +47,7 @@ class TestRenderJson:
     def test_checks_in_output(self, queue_finding: Finding) -> None:
         result = DiagnosisResult(
             context=_CTX,
-            current=Metrics(),
+            metrics=Metrics(),
             checks=[
                 RuleResult(name="Queue Pressure", finding=queue_finding),
                 RuleResult(name="KV Cache Pressure"),
@@ -61,29 +61,29 @@ class TestRenderJson:
         assert output["checks"][1]["finding"] is None
 
     def test_empty_checks(self) -> None:
-        result = DiagnosisResult(context=_CTX, current=Metrics(), checks=[])
+        result = DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[])
         output = json.loads(json_report.render(result))
         assert output["checks"] == []
 
     def test_metrics_not_in_default_output(self) -> None:
-        result = DiagnosisResult(context=_CTX, current=Metrics(), checks=[])
+        result = DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[])
         output = json.loads(json_report.render(result))
         assert "metrics" not in output
 
     def test_metrics_in_verbose_output(self) -> None:
-        result = DiagnosisResult(context=_CTX, current=Metrics(), checks=[])
+        result = DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[])
         output = json.loads(json_report.render(result, verbose=True))
         assert "metrics" in output
 
     def test_window_in_output(self) -> None:
-        result = DiagnosisResult(context=_CTX, current=Metrics(), checks=[])
+        result = DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[])
         output = json.loads(json_report.render(result))
         assert output["window"] == "1h"
 
     def test_signals_excluded_from_finding(self, queue_finding: Finding) -> None:
         result = DiagnosisResult(
             context=_CTX,
-            current=Metrics(),
+            metrics=Metrics(),
             checks=[RuleResult(name="Queue Pressure", finding=queue_finding)],
         )
         output = json.loads(json_report.render(result))

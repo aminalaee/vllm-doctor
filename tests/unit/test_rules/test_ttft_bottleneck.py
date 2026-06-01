@@ -68,26 +68,26 @@ class TestTTFTBottleneckRule:
         assert any("10" in e for e in result.evidence)
 
     def test_high_tpot_does_not_boost_confidence(self, rule: TTFTBottleneckRule) -> None:
-        current = Metrics(ttft_p95_seconds=3.0, tpot_p95_seconds=0.5)
-        assert rule.run(current).confidence == Confidence.low
+        metrics = Metrics(ttft_p95_seconds=3.0, tpot_p95_seconds=0.5)
+        assert rule.run(metrics).confidence == Confidence.low
 
     def test_no_finding_when_ttft_is_nan(self, rule: TTFTBottleneckRule) -> None:
         assert rule.run(Metrics(ttft_p95_seconds=float("nan"))) is None
 
     def test_no_finding_when_tpot_is_nan(self, rule: TTFTBottleneckRule) -> None:
-        current = Metrics(ttft_p95_seconds=3.0, tpot_p95_seconds=float("nan"))
-        result = rule.run(current)
+        metrics = Metrics(ttft_p95_seconds=3.0, tpot_p95_seconds=float("nan"))
+        result = rule.run(metrics)
         assert result is not None
         assert not any("nan" in e for e in result.evidence)
 
     async def test_ttft_bottleneck_with_scrape_fixture(self, rule: TTFTBottleneckRule) -> None:
-        current = await snapshot_from_scrape_fixture("ttft-bottleneck.txt")
+        metrics = await snapshot_from_scrape_fixture("ttft-bottleneck.txt")
         # ttft_p95_seconds unavailable from scrape endpoint
-        assert rule.run(current) is None
+        assert rule.run(metrics) is None
 
     async def test_ttft_bottleneck_with_prometheus_fixture(self, rule: TTFTBottleneckRule) -> None:
-        current = await snapshot_from_prometheus_fixture("ttft-bottleneck.json")
-        assert rule.run(current) is not None
+        metrics = await snapshot_from_prometheus_fixture("ttft-bottleneck.json")
+        assert rule.run(metrics) is not None
 
     def test_custom_threshold(self) -> None:
         rule = TTFTBottleneckRule(high_ttft_p95=5.0)

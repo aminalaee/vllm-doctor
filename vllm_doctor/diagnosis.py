@@ -28,13 +28,12 @@ def _assemble(rule: Rule, data: FindingData) -> Finding:
 
 
 def run(
-    current: Metrics,
+    metrics: Metrics,
     rules: Sequence[Rule],
-    previous: Metrics | None = None,
 ) -> list[RuleResult]:
     results = []
     for rule in rules:
-        data = rule.run(current, previous)
+        data = rule.run(metrics)
         finding = _assemble(rule, data) if data is not None else None
         results.append(RuleResult(name=rule.name, finding=finding))
     return sorted(results, key=_sort_key)

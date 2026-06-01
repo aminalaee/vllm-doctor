@@ -52,12 +52,12 @@ class TestQueuePressureRule:
         assert rule.run(Metrics(num_requests_waiting=1, num_requests_running=80)) is None
 
     async def test_queue_pressure_with_scrape_fixture(self) -> None:
-        current = await snapshot_from_scrape_fixture("queue-pressure.txt")
-        assert QueuePressureRule().run(current) is not None
+        metrics = await snapshot_from_scrape_fixture("queue-pressure.txt")
+        assert QueuePressureRule().run(metrics) is not None
 
     async def test_queue_pressure_with_prometheus_fixture(self) -> None:
-        current = await snapshot_from_prometheus_fixture("queue-pressure.json")
-        assert QueuePressureRule().run(current) is not None
+        metrics = await snapshot_from_prometheus_fixture("queue-pressure.json")
+        assert QueuePressureRule().run(metrics) is not None
 
     def test_custom_thresholds(self) -> None:
         rule = QueuePressureRule(high_waiting=100, high_running=200)

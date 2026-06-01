@@ -88,7 +88,7 @@ def _metrics_table(result: DiagnosisResult) -> Table:
     table.add_column(justify="right", no_wrap=True)
 
     for name, field in Metrics.model_fields.items():
-        value = getattr(result.current, name)
+        value = getattr(result.metrics, name)
         if value is None:
             continue
         label = field.title or name
