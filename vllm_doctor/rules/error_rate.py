@@ -32,6 +32,7 @@ DEFAULT_HIGH_ABORT_RATE = 0.10
 
 
 class ErrorRateRule(Rule):
+    id = "error_rate"
     name = "Error Rate"
     title = "Elevated error rate"
     severity = Severity.warning  # overridden to critical when errors_high

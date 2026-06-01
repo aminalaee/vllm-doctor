@@ -84,6 +84,7 @@ class Finding(BaseModel):
 
 
 class RuleResult(BaseModel):
+    id: str
     name: str
     finding: Finding | None = None
 

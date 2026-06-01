@@ -35,5 +35,5 @@ def run(
     for rule in rules:
         data = rule.run(metrics)
         finding = _assemble(rule, data) if data is not None else None
-        results.append(RuleResult(name=rule.name, finding=finding))
+        results.append(RuleResult(id=rule.id, name=rule.name, finding=finding))
     return sorted(results, key=_sort_key)

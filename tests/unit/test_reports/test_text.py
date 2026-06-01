@@ -32,7 +32,7 @@ def queue_finding() -> Finding:
 
 @pytest.fixture
 def queue_check(queue_finding: Finding) -> RuleResult:
-    return RuleResult(name="Queue Pressure", finding=queue_finding)
+    return RuleResult(id="queue_pressure", name="Queue Pressure", finding=queue_finding)
 
 
 class TestRenderText:
@@ -71,7 +71,7 @@ class TestRenderText:
     def test_matrix_ok_row_when_no_finding(self) -> None:
         buf = io.StringIO()
         render(
-            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[RuleResult(name="My Rule")]),
+            DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[RuleResult(id="my_rule", name="My Rule")]),
             console=Console(file=buf, highlight=False),
         )
         assert "My Rule" in buf.getvalue()

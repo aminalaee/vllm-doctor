@@ -31,6 +31,7 @@ DEFAULT_LOW_RUNNING = 2
 
 
 class LowThroughputRule(Rule):
+    id = "low_throughput"
     name = "Low Throughput"
     title = "Low throughput"
     severity = Severity.warning

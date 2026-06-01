@@ -24,6 +24,7 @@ DEFAULT_HIGH_RUNNING = 50
 
 
 class QueuePressureRule(Rule):
+    id = "queue_pressure"
     name = "Queue Pressure"
     title = "Queue pressure"
     severity = Severity.warning

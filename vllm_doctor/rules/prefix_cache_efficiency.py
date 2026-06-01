@@ -25,6 +25,7 @@ _HIGH_CONFIDENCE_MAX_RATE = 0.2
 
 
 class PrefixCacheEfficiencyRule(Rule):
+    id = "prefix_cache_efficiency"
     name = "Prefix Cache Efficiency"
     title = "Low prefix cache hit rate"
     severity = Severity.warning

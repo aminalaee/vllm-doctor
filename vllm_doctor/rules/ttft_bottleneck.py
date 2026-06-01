@@ -19,6 +19,7 @@ _DEFAULT_HIGH_TPOT_P95 = 0.2
 
 
 class TTFTBottleneckRule(Rule):
+    id = "ttft_bottleneck"
     name = "High TTFT"
     title = "High time to first token (TTFT)"
     severity = Severity.warning

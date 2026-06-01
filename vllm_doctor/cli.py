@@ -69,8 +69,7 @@ async def _run(url: str, window: str, fmt: Format, verbose: bool, live: int | No
         elif fmt == Format.json:
 
             def render_json(r: DiagnosisResult) -> None:
-                console.clear()
-                typer.echo(json_report.render(r, verbose=verbose))
+                typer.echo(json_report.render(r, verbose=verbose, compact=True))
 
             await _live_loop(client, rules, window, live, render_json)
         else:

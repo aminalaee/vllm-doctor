@@ -26,6 +26,7 @@ DEFAULT_HIGH_CACHE_USAGE = 0.90
 
 
 class KVCachePressureRule(Rule):
+    id = "kv_cache_pressure"
     name = "KV Cache Pressure"
     title = "KV cache pressure"
     severity = Severity.critical

@@ -20,6 +20,7 @@ _DEFAULT_LOW_GEN_TOKENS_PER_SEC = 50.0
 
 
 class TPOTBottleneckRule(Rule):
+    id = "tpot_bottleneck"
     name = "High TPOT"
     title = "High time per output token (TPOT)"
     severity = Severity.warning
