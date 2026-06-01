@@ -24,8 +24,6 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.utils.trend import rising
-
 _DEFAULT_HIGH_QUEUE_TIME_P95 = 1.0
 
 
@@ -54,22 +52,19 @@ class QueueLatencyRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "QueueLatencyRule":
         return cls(high_queue_time_p95=config.queue_latency.high_queue_time_p95)
 
-    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
-        queue_time = current.queue_time_p95_seconds
+    def run(self, metrics: Metrics) -> FindingData | None:
+        queue_time = metrics.queue_time_p95_seconds
         if queue_time is None or not math.isfinite(queue_time) or queue_time < self.high_queue_time_p95:
             return None
 
         evidence = [f"Queue time p95: {queue_time:.3f}s (threshold: {self.high_queue_time_p95}s)"]
         signals: list[str] = []
 
-        waiting = current.num_requests_waiting
+        waiting = metrics.num_requests_waiting
         waiting_confirmed = waiting is not None and waiting > 0
         if waiting_confirmed:
             signals.append(f"{int(waiting)} requests queued — active backlog confirmed")
             evidence.append(f"Waiting requests: {int(waiting)}")
-
-        if previous is not None and rising(queue_time, previous.queue_time_p95_seconds):
-            signals.append(f"Queue time worsening ({previous.queue_time_p95_seconds:.2f}s → {queue_time:.2f}s p95)")
 
         return FindingData(
             confidence=Confidence.high if waiting_confirmed else Confidence.low,

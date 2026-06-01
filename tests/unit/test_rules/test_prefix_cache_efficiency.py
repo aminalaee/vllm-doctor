@@ -40,12 +40,12 @@ class TestPrefixCacheEfficiencyRule:
         assert any("10%" in e for e in result.evidence)
 
     async def test_prefix_cache_efficiency_with_scrape_fixture(self, rule: PrefixCacheEfficiencyRule) -> None:
-        current = await snapshot_from_scrape_fixture("prefix-cache.txt")
-        assert rule.run(current) is not None
+        metrics = await snapshot_from_scrape_fixture("prefix-cache.txt")
+        assert rule.run(metrics) is not None
 
     async def test_prefix_cache_efficiency_with_prometheus_fixture(self, rule: PrefixCacheEfficiencyRule) -> None:
-        current = await snapshot_from_prometheus_fixture("prefix-cache.json")
-        assert rule.run(current) is not None
+        metrics = await snapshot_from_prometheus_fixture("prefix-cache.json")
+        assert rule.run(metrics) is not None
 
     def test_custom_threshold(self) -> None:
         rule = PrefixCacheEfficiencyRule(min_hit_rate=0.8)

@@ -61,10 +61,10 @@ class ErrorRateRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "ErrorRateRule":
         return cls(high_error_rate=config.error_rate.high_error_rate, high_abort_rate=config.error_rate.high_abort_rate)
 
-    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
-        errors = current.request_error_total
-        aborts = current.request_abort_total
-        success = current.request_success_total
+    def run(self, metrics: Metrics) -> FindingData | None:
+        errors = metrics.request_error_total
+        aborts = metrics.request_abort_total
+        success = metrics.request_success_total
 
         if errors is None and aborts is None:
             return None

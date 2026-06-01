@@ -51,19 +51,19 @@ class PreemptionPressureRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "PreemptionPressureRule":
         return cls(high_cache_usage=config.preemption_pressure.high_cache_usage)
 
-    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
-        preemptions = current.num_preemptions_total
+    def run(self, metrics: Metrics) -> FindingData | None:
+        preemptions = metrics.num_preemptions_total
         if preemptions is None or preemptions == 0:
             return None
 
         evidence = [f"Preemptions total: {preemptions:.0f}"]
         signals: list[str] = []
 
-        cache_high = current.kv_cache_usage_perc is not None and current.kv_cache_usage_perc >= self.high_cache_usage
+        cache_high = metrics.kv_cache_usage_perc is not None and metrics.kv_cache_usage_perc >= self.high_cache_usage
         if cache_high:
             signals.append("KV cache under pressure while preemptions are occurring")
             evidence.append(
-                f"GPU KV cache usage: {current.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"
+                f"GPU KV cache usage: {metrics.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"
             )
 
         return FindingData(

@@ -23,7 +23,7 @@ def render(result: DiagnosisResult, verbose: bool = False) -> str:
         client_mode=result.context.client_mode,
         notice=_SCRAPE_MODE_NOTICE if result.context.client_mode == ClientMode.scrape else None,
         checks=result.checks,
-        metrics=result.current,
+        metrics=result.metrics,
     )
     exclude: dict = {"checks": {"__all__": {"finding": {"signals"}}}}
     if not verbose:

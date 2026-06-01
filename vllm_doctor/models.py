@@ -90,7 +90,7 @@ class RuleResult(BaseModel):
 
 class DiagnosisResult(BaseModel):
     context: DiagnosisContext
-    current: Metrics
+    metrics: Metrics
     checks: list[RuleResult] = []
 
     @property

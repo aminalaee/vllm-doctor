@@ -15,8 +15,6 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.utils.trend import rising
-
 _DEFAULT_HIGH_TPOT_P95 = 0.2
 _DEFAULT_LOW_GEN_TOKENS_PER_SEC = 50.0
 
@@ -54,13 +52,13 @@ class TPOTBottleneckRule(Rule):
             low_gen_tokens_per_sec=config.tpot_bottleneck.low_gen_tokens_per_sec,
         )
 
-    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
-        tpot = current.tpot_p95_seconds
+    def run(self, metrics: Metrics) -> FindingData | None:
+        tpot = metrics.tpot_p95_seconds
         if tpot is None or not math.isfinite(tpot) or tpot < self.high_tpot_p95:
             return None
 
-        ttft = current.ttft_p95_seconds
-        gen = current.generation_tokens_per_second
+        ttft = metrics.ttft_p95_seconds
+        gen = metrics.generation_tokens_per_second
 
         signals = [f"TPOT p95 ({tpot:.2f}s) exceeds threshold ({self.high_tpot_p95}s)"]
         evidence = [f"TPOT p95: {tpot:.3f}s"]
@@ -76,9 +74,6 @@ class TPOTBottleneckRule(Rule):
             evidence.append(f"TTFT p95: {ttft:.3f}s")
         if ttft_normal:
             signals.append("TTFT p95 is normal — bottleneck is in decode, not prefill")
-
-        if previous is not None and rising(tpot, previous.tpot_p95_seconds):
-            signals.append(f"TPOT p95 rising ({previous.tpot_p95_seconds:.3f}s → {tpot:.3f}s)")
 
         signals_count = sum([True, gen_low, ttft_normal])
         if signals_count >= 3:

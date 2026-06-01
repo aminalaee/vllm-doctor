@@ -25,8 +25,6 @@ from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
-from vllm_doctor.rules.utils.trend import falling
-
 DEFAULT_LOW_PROMPT_TPS = 10.0
 DEFAULT_LOW_GEN_TPS = 50.0
 DEFAULT_LOW_RUNNING = 2
@@ -71,22 +69,22 @@ class LowThroughputRule(Rule):
             low_running=config.low_throughput.low_running,
         )
 
-    def run(self, current: Metrics, previous: Metrics | None = None) -> FindingData | None:
-        if current.prompt_tokens_per_second is None and current.generation_tokens_per_second is None:
+    def run(self, metrics: Metrics) -> FindingData | None:
+        if metrics.prompt_tokens_per_second is None and metrics.generation_tokens_per_second is None:
             return None
 
         prompt_low = (
-            current.prompt_tokens_per_second is not None and current.prompt_tokens_per_second < self.low_prompt_tps
+            metrics.prompt_tokens_per_second is not None and metrics.prompt_tokens_per_second < self.low_prompt_tps
         )
         gen_low = (
-            current.generation_tokens_per_second is not None and current.generation_tokens_per_second < self.low_gen_tps
+            metrics.generation_tokens_per_second is not None and metrics.generation_tokens_per_second < self.low_gen_tps
         )
 
         if not prompt_low and not gen_low:
             return None
 
         # Suppress when requests are waiting — that's queue pressure, not underutilization
-        if current.num_requests_waiting is not None and current.num_requests_waiting > 0:
+        if metrics.num_requests_waiting is not None and metrics.num_requests_waiting > 0:
             return None
 
         signals: list[str] = []
@@ -99,27 +97,19 @@ class LowThroughputRule(Rule):
         else:
             signals.append("Decode throughput below threshold")
 
-        if current.prompt_tokens_per_second is not None:
+        if metrics.prompt_tokens_per_second is not None:
             evidence.append(
-                f"Prompt tokens/s: {current.prompt_tokens_per_second:.1f} (threshold: {self.low_prompt_tps:.1f})"
+                f"Prompt tokens/s: {metrics.prompt_tokens_per_second:.1f} (threshold: {self.low_prompt_tps:.1f})"
             )
-        if current.generation_tokens_per_second is not None:
+        if metrics.generation_tokens_per_second is not None:
             evidence.append(
-                f"Generation tokens/s: {current.generation_tokens_per_second:.1f} (threshold: {self.low_gen_tps:.1f})"
+                f"Generation tokens/s: {metrics.generation_tokens_per_second:.1f} (threshold: {self.low_gen_tps:.1f})"
             )
 
-        running_low = current.num_requests_running is not None and current.num_requests_running < self.low_running
+        running_low = metrics.num_requests_running is not None and metrics.num_requests_running < self.low_running
         if running_low:
             signals.append("Very few active requests — no batching benefit")
-            evidence.append(f"Requests running: {current.num_requests_running:.0f}")
-
-        if previous is not None:
-            if gen_low and falling(current.generation_tokens_per_second, previous.generation_tokens_per_second):
-                prev_g, curr_g = previous.generation_tokens_per_second, current.generation_tokens_per_second
-                signals.append(f"Generation throughput declining ({prev_g:.1f} → {curr_g:.1f} tok/s)")
-            elif prompt_low and falling(current.prompt_tokens_per_second, previous.prompt_tokens_per_second):
-                prev_p, curr_p = previous.prompt_tokens_per_second, current.prompt_tokens_per_second
-                signals.append(f"Prompt throughput declining ({prev_p:.1f} → {curr_p:.1f} tok/s)")
+            evidence.append(f"Requests running: {metrics.num_requests_running:.0f}")
 
         return FindingData(
             confidence=Confidence.medium if (prompt_low and gen_low) or running_low else Confidence.low,

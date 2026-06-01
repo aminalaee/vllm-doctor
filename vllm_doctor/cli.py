@@ -12,7 +12,7 @@ from vllm_doctor.clients.scrape import ScrapeClient
 from vllm_doctor.collector import collect
 from vllm_doctor.config import Config, load_config
 from vllm_doctor.diagnosis import run
-from vllm_doctor.models import ClientMode, DiagnosisContext, DiagnosisResult, Metrics
+from vllm_doctor.models import ClientMode, DiagnosisContext, DiagnosisResult
 from vllm_doctor.reports import json as json_report
 from vllm_doctor.reports import text as text_report
 from vllm_doctor.rules.base import Rule
@@ -31,13 +31,12 @@ async def _diagnose(
     rules: list[Rule],
     window: str,
     model: str | None = None,
-    previous: Metrics | None = None,
 ) -> DiagnosisResult:
     client_mode = ClientMode.scrape if isinstance(client, ScrapeClient) else ClientMode.prometheus
     context = DiagnosisContext(window=window, model_name=model, client_mode=client_mode)
-    current = await collect(client, window=window, model=model)
-    checks = run(current=current, rules=rules, previous=previous)
-    return DiagnosisResult(context=context, current=current, checks=checks)
+    metrics = await collect(client, window=window, model=model)
+    checks = run(metrics=metrics, rules=rules)
+    return DiagnosisResult(context=context, metrics=metrics, checks=checks)
 
 
 async def _live_loop(
@@ -47,11 +46,9 @@ async def _live_loop(
     interval: int,
     render: Callable[[DiagnosisResult], None],
 ) -> None:
-    previous: Metrics | None = None
     while True:
-        result = await _diagnose(client, rules, window, previous=previous)
+        result = await _diagnose(client, rules, window)
         render(result)
-        previous = result.current
         await asyncio.sleep(interval)
 
 
