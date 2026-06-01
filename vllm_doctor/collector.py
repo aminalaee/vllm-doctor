@@ -63,10 +63,11 @@ METRICS: list[Metric] = [
 
 async def collect(
     client: Client,
-    window: str,
+    since: str,
     model: str | None = None,
 ) -> Metrics:
-    rate_window = window if window != "now" else "5m"
+    if since == "now":
+        since = "5m"
     needed = {name for m in METRICS for name in m.probe_names()}
-    raw = await run_probes(client, needed, rate_window, model)
+    raw = await run_probes(client, needed, since, model)
     return Metrics(**{m.output: m.compute(raw) for m in METRICS})

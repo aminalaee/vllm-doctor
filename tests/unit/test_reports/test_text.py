@@ -14,7 +14,7 @@ from vllm_doctor.models import (
 )
 from vllm_doctor.reports.text import render
 
-_CTX = DiagnosisContext(window="1h", model_name="meta-llama/Llama-3.1-8B")
+_CTX = DiagnosisContext(since="1h", model_name="meta-llama/Llama-3.1-8B")
 
 
 @pytest.fixture
@@ -102,7 +102,7 @@ class TestRenderText:
         assert "Add replicas" in buf.getvalue()
 
     def test_verbose_shows_metrics(self) -> None:
-        ctx = DiagnosisContext(window="1h")
+        ctx = DiagnosisContext(since="1h")
         metrics = Metrics(num_requests_running=5, kv_cache_usage_perc=0.5)
         buf = io.StringIO()
         render(
@@ -114,7 +114,7 @@ class TestRenderText:
         assert "Requests Running" in buf.getvalue()
 
     def test_verbose_shows_cache_bar(self) -> None:
-        ctx = DiagnosisContext(window="1h")
+        ctx = DiagnosisContext(since="1h")
         metrics = Metrics(kv_cache_usage_perc=0.94)
         buf = io.StringIO()
         render(
@@ -125,7 +125,7 @@ class TestRenderText:
         assert "█" in buf.getvalue()
 
     def test_verbose_nan_cache_shows_na(self) -> None:
-        ctx = DiagnosisContext(window="1h")
+        ctx = DiagnosisContext(since="1h")
         metrics = Metrics(kv_cache_usage_perc=float("nan"))
         buf = io.StringIO()
         render(
@@ -136,7 +136,7 @@ class TestRenderText:
         assert "n/a" in buf.getvalue()
 
     def test_non_verbose_hides_metrics(self) -> None:
-        ctx = DiagnosisContext(window="1h")
+        ctx = DiagnosisContext(since="1h")
         metrics = Metrics(num_requests_running=5)
         buf = io.StringIO()
         render(

@@ -19,7 +19,7 @@ format:
 
 demo:
 	# requires: brew install charmbracelet/tap/freeze
-	uv run python scripts/serve_metrics.py tests/fixtures/metrics/demo.txt > /dev/null 2>&1 & \
+	uv run python scripts/serve_metrics.py tests/fixtures/scrape/demo.txt > /dev/null 2>&1 & \
 	sleep 0.5 && \
 	{ printf '$$ vllm-doctor --url http://localhost:8000/metrics\n\n'; FORCE_COLOR=1 COLUMNS=120 uv run vllm-doctor --url http://localhost:8000/metrics; } \
 		| freeze - --language ansi --output docs/demo.png --window --shadow.blur 20 --shadow.x 0 --shadow.y 8; \

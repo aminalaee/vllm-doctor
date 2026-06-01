@@ -18,11 +18,11 @@ class ScrapeClient:
         response = await _get(self._client, self.url)
         return _parse(response.text, metric_name)
 
-    async def query_increase(self, metric_name: str, window: str) -> None:
+    async def query_increase(self, metric_name: str, since: str) -> None:
         return None
 
     async def query_percentile(
-        self, metric: str, quantile: float, model: str | None = None, window: str = "5m"
+        self, metric: str, quantile: float, model: str | None = None, since: str = "5m"
     ) -> float | None:
         return None
 

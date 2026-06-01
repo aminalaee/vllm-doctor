@@ -52,25 +52,25 @@ PROBES: dict[str, Probe] = {
 }
 
 
-async def _run(client: Client, probe: Probe, rate_window: str, model: str | None) -> float | None:
+async def _run(client: Client, probe: Probe, since: str, model: str | None) -> float | None:
     expr = f"{probe.metric}{label_selector(model, **probe.labels)}"
     if probe.kind == ProbeKind.gauge:
         samples = await client.query(expr)
         return sum(s.value for s in samples) if samples else None
     if probe.kind == ProbeKind.increase:
-        samples = await client.query_increase(expr, rate_window)
+        samples = await client.query_increase(expr, since)
         if samples is None:
             samples = await client.query(expr)
         return sum(s.value for s in samples) if samples else None
-    return await client.query_percentile(probe.metric, probe.quantile, model, rate_window)
+    return await client.query_percentile(probe.metric, probe.quantile, model, since)
 
 
 async def run_probes(
     client: Client,
     names: Iterable[str],
-    rate_window: str,
+    since: str,
     model: str | None,
 ) -> dict[str, float | None]:
     names = list(names)
-    values = await asyncio.gather(*[_run(client, PROBES[n], rate_window, model) for n in names])
+    values = await asyncio.gather(*[_run(client, PROBES[n], since, model) for n in names])
     return dict(zip(names, values))

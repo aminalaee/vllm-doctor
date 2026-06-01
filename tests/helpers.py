@@ -19,10 +19,10 @@ async def snapshot_from_scrape_fixture(name: str) -> Metrics:
         url="http://testserver/metrics",
         client=httpx.AsyncClient(transport=transport),
     ) as client:
-        return await collect(client, window="now")
+        return await collect(client, since="now")
 
 
-async def snapshot_from_prometheus_fixture(name: str, window: str = "1h") -> Metrics:
+async def snapshot_from_prometheus_fixture(name: str, since: str = "1h") -> Metrics:
     metrics: dict[str, float] = json.loads((_PROMETHEUS_FIXTURES / name).read_text())
 
     def handler(r: httpx.Request) -> httpx.Response:
@@ -36,4 +36,4 @@ async def snapshot_from_prometheus_fixture(name: str, window: str = "1h") -> Met
         base_url="http://testserver",
         client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     ) as client:
-        return await collect(client, window=window)
+        return await collect(client, since=since)

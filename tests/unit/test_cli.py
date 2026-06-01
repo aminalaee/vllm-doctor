@@ -43,19 +43,11 @@ class TestCLI:
         assert result.exit_code == 0
         assert "OK" in result.output
 
-    def test_live_zero_exits_nonzero(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--live", "0"])
-        assert result.exit_code != 0
-
-    def test_live_negative_exits_nonzero(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--live", "-1"])
-        assert result.exit_code != 0
-
     def test_missing_url_exits_nonzero(self, runner: CliRunner) -> None:
         result = runner.invoke(app, [])
         assert result.exit_code != 0
 
-    def test_live_interval_override(
+    def test_watch_loop_runs(
         self,
         runner: CliRunner,
         scrape_client: ScrapeClient,
@@ -69,11 +61,11 @@ class TestCLI:
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
         monkeypatch.setattr("vllm_doctor.cli.asyncio.sleep", fake_sleep)
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--live", "10"])
+        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--watch"])
         assert result.exit_code == 0
         assert "OK" in result.output
 
-    def test_live_short_flag(
+    def test_watch_short_flag(
         self,
         runner: CliRunner,
         scrape_client: ScrapeClient,
@@ -87,12 +79,12 @@ class TestCLI:
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
         monkeypatch.setattr("vllm_doctor.cli.asyncio.sleep", fake_sleep)
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "-l", "10"])
+        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "-w"])
         assert result.exit_code == 0
         assert "OK" in result.output
 
     @freeze_time("2026-06-01 13:44:39 UTC")
-    def test_json_format_contract(
+    def test_json_output_contract(
         self,
         runner: CliRunner,
         scrape_client: ScrapeClient,
@@ -102,7 +94,7 @@ class TestCLI:
             return scrape_client
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--format", "json"])
+        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--output", "json"])
         assert result.exit_code == 0
 
         output = json.loads(result.output)
@@ -110,7 +102,7 @@ class TestCLI:
         assert output["schema_version"] == "1"
         assert output["metadata"]["generated_at"] == "2026-06-01T13:44:39+00:00"
         assert output["metadata"]["target"]["model_name"] is None
-        assert output["metadata"]["target"]["window"] == "now"
+        assert output["metadata"]["target"]["since"] == "now"
         assert output["metadata"]["target"]["client_mode"] == "scrape"
         assert output["health"] == "ok"
         assert "notice" in output
