@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 
-from vllm_doctor.models import Confidence, Finding, FindingData, Metrics, RuleResult, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import Confidence, Finding, FindingData, RuleResult, Severity
 from vllm_doctor.rules.base import Rule
 
 _SEVERITY = list(Severity)
@@ -28,7 +29,7 @@ def _assemble(rule: Rule, data: FindingData) -> Finding:
 
 
 def run(
-    metrics: Metrics,
+    metrics: MetricSeriesSnapshot,
     rules: Sequence[Rule],
 ) -> list[RuleResult]:
     results = []

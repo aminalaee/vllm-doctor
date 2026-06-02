@@ -15,7 +15,8 @@ Confidence:
 
 from typing import TYPE_CHECKING
 
-from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
@@ -48,8 +49,8 @@ class PrefixCacheEfficiencyRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "PrefixCacheEfficiencyRule":
         return cls(min_hit_rate=config.prefix_cache_efficiency.min_hit_rate)
 
-    def run(self, metrics: Metrics) -> FindingData | None:
-        hit_rate = metrics.prefix_cache_hit_rate
+    def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
+        hit_rate = metrics.prefix_cache_hit_rate.value()
         if hit_rate is None or hit_rate >= self.min_hit_rate:
             return None
 

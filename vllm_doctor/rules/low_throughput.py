@@ -20,7 +20,8 @@ Confidence:
 
 from typing import TYPE_CHECKING
 
-from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
@@ -70,22 +71,20 @@ class LowThroughputRule(Rule):
             low_running=config.low_throughput.low_running,
         )
 
-    def run(self, metrics: Metrics) -> FindingData | None:
-        if metrics.prompt_tokens_per_second is None and metrics.generation_tokens_per_second is None:
+    def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
+        prompt = metrics.prompt_tokens_per_second.value()
+        gen = metrics.generation_tokens_per_second.value()
+        if prompt is None and gen is None:
             return None
 
-        prompt_low = (
-            metrics.prompt_tokens_per_second is not None and metrics.prompt_tokens_per_second < self.low_prompt_tps
-        )
-        gen_low = (
-            metrics.generation_tokens_per_second is not None and metrics.generation_tokens_per_second < self.low_gen_tps
-        )
+        prompt_low = prompt is not None and prompt < self.low_prompt_tps
+        gen_low = gen is not None and gen < self.low_gen_tps
 
         if not prompt_low and not gen_low:
             return None
 
-        # Suppress when requests are waiting — that's queue pressure, not underutilization
-        if metrics.num_requests_waiting is not None and metrics.num_requests_waiting > 0:
+        waiting = metrics.num_requests_waiting.value()
+        if waiting is not None and waiting > 0:
             return None
 
         signals: list[str] = []
@@ -98,19 +97,16 @@ class LowThroughputRule(Rule):
         else:
             signals.append("Decode throughput below threshold")
 
-        if metrics.prompt_tokens_per_second is not None:
-            evidence.append(
-                f"Prompt tokens/s: {metrics.prompt_tokens_per_second:.1f} (threshold: {self.low_prompt_tps:.1f})"
-            )
-        if metrics.generation_tokens_per_second is not None:
-            evidence.append(
-                f"Generation tokens/s: {metrics.generation_tokens_per_second:.1f} (threshold: {self.low_gen_tps:.1f})"
-            )
+        if prompt is not None:
+            evidence.append(f"Prompt tokens/s: {prompt:.1f} (threshold: {self.low_prompt_tps:.1f})")
+        if gen is not None:
+            evidence.append(f"Generation tokens/s: {gen:.1f} (threshold: {self.low_gen_tps:.1f})")
 
-        running_low = metrics.num_requests_running is not None and metrics.num_requests_running < self.low_running
+        running = metrics.num_requests_running.value()
+        running_low = running is not None and running < self.low_running
         if running_low:
             signals.append("Very few active requests — no batching benefit")
-            evidence.append(f"Requests running: {metrics.num_requests_running:.0f}")
+            evidence.append(f"Requests running: {running:.0f}")
 
         return FindingData(
             confidence=Confidence.medium if (prompt_low and gen_low) or running_low else Confidence.low,

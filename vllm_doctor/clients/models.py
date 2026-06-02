@@ -2,6 +2,13 @@ from pydantic import BaseModel
 
 
 class MetricSample(BaseModel):
+    """One labeled value from a Prometheus query.
+
+    A single time series sample: a set of labels (dimensions) and the numeric
+    value at the queried time. The label set distinguishes pods, models,
+    finished_reason values, etc.
+    """
+
     labels: dict[str, str]
     value: float
     timestamp: float | None = None

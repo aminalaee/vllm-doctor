@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
-from vllm_doctor.models import FindingData, Metrics, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import FindingData, Severity
 
 if TYPE_CHECKING:
     from vllm_doctor.config import RulesConfig
@@ -21,4 +22,4 @@ class Rule(ABC):
         raise NotImplementedError(f"{cls.__name__}.from_config is not implemented")
 
     @abstractmethod
-    def run(self, metrics: Metrics) -> FindingData | None: ...
+    def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None: ...

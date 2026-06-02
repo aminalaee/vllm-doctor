@@ -37,7 +37,7 @@ vLLM Doctor uses server-side vLLM metrics. The closest mappings are:
 ## Notes
 
 - Metric names use colons (e.g. `vllm:num_requests_running`), not underscores. vLLM Doctor preserves the original names — no normalization.
-- All metrics are per model instance. If multiple models are running, values are summed across instances unless filtered by `model_name` label.
+- Metrics preserve labels internally. Reported scalar values use each metric's diagnostic aggregation: counts and throughput are summed, while utilization and percentile-style values use the highest observed value. Use the model filter to scope collection to one `model_name`.
 - Latency histograms (`time_to_first_token_seconds`, `request_time_per_output_token_seconds`) require Prometheus mode — direct scrape mode returns `None` for these fields.
 - Request counts by reason (`error`, `abort`) are derived from `vllm:request_success_total` filtered by the `finished_reason` label.
 - Prefix cache hit rate is computed as `prefix_cache_hits_total / prefix_cache_queries_total`. It is `n/a` when no queries have been made.

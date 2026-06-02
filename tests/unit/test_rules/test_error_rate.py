@@ -1,7 +1,8 @@
 import pytest
 
 from tests.helpers import snapshot_from_prometheus_fixture, snapshot_from_scrape_fixture
-from vllm_doctor.models import Confidence, Metrics, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import Confidence, Severity
 from vllm_doctor.rules.error_rate import ErrorRateRule
 
 
@@ -10,8 +11,8 @@ def rule() -> ErrorRateRule:
     return ErrorRateRule()
 
 
-def _metrics(success: float, errors: float, aborts: float) -> Metrics:
-    return Metrics(
+def _metrics(success: float, errors: float, aborts: float) -> MetricSeriesSnapshot:
+    return MetricSeriesSnapshot(
         request_success_total=success,
         request_error_total=errors,
         request_abort_total=aborts,
@@ -20,7 +21,7 @@ def _metrics(success: float, errors: float, aborts: float) -> Metrics:
 
 class TestErrorRateRule:
     def test_no_finding_when_metrics_missing(self, rule: ErrorRateRule) -> None:
-        assert rule.run(Metrics()) is None
+        assert rule.run(MetricSeriesSnapshot()) is None
 
     def test_no_finding_when_total_zero(self, rule: ErrorRateRule) -> None:
         assert rule.run(_metrics(0, 0, 0)) is None
@@ -69,5 +70,5 @@ class TestErrorRateRule:
         assert rule.run(metrics) is not None
 
     def test_only_error_metric_present(self, rule: ErrorRateRule) -> None:
-        metrics = Metrics(request_error_total=10.0, request_success_total=90.0)
+        metrics = MetricSeriesSnapshot(request_error_total=10.0, request_success_total=90.0)
         assert rule.run(metrics) is not None

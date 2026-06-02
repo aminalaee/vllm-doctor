@@ -1,5 +1,6 @@
 from vllm_doctor.diagnosis import run
-from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
 
@@ -9,7 +10,7 @@ class _EmptyRule(Rule):
     title = "Empty"
     severity = Severity.info
 
-    def run(self, _metrics: Metrics) -> FindingData | None:
+    def run(self, _metrics: MetricSeriesSnapshot) -> FindingData | None:
         return None
 
 
@@ -19,7 +20,7 @@ class _CriticalRule(Rule):
     title = "Critical"
     severity = Severity.critical
 
-    def run(self, _metrics: Metrics) -> FindingData | None:
+    def run(self, _metrics: MetricSeriesSnapshot) -> FindingData | None:
         return FindingData(confidence=Confidence.high, summary="test")
 
 
@@ -29,7 +30,7 @@ class _WarningRule(Rule):
     title = "Warning"
     severity = Severity.warning
 
-    def run(self, _metrics: Metrics) -> FindingData | None:
+    def run(self, _metrics: MetricSeriesSnapshot) -> FindingData | None:
         return FindingData(confidence=Confidence.high, summary="test")
 
 
@@ -39,7 +40,7 @@ class _InfoRule(Rule):
     title = "Info"
     severity = Severity.info
 
-    def run(self, _metrics: Metrics) -> FindingData | None:
+    def run(self, _metrics: MetricSeriesSnapshot) -> FindingData | None:
         return FindingData(confidence=Confidence.high, summary="test")
 
 
@@ -49,7 +50,7 @@ class _LowConfRule(Rule):
     title = "Low"
     severity = Severity.warning
 
-    def run(self, _metrics: Metrics) -> FindingData | None:
+    def run(self, _metrics: MetricSeriesSnapshot) -> FindingData | None:
         return FindingData(confidence=Confidence.low, summary="test")
 
 
@@ -59,7 +60,7 @@ class _MediumConfRule(Rule):
     title = "Medium"
     severity = Severity.warning
 
-    def run(self, _metrics: Metrics) -> FindingData | None:
+    def run(self, _metrics: MetricSeriesSnapshot) -> FindingData | None:
         return FindingData(confidence=Confidence.medium, summary="test")
 
 
@@ -69,26 +70,26 @@ class _HighConfRule(Rule):
     title = "High"
     severity = Severity.warning
 
-    def run(self, _metrics: Metrics) -> FindingData | None:
+    def run(self, _metrics: MetricSeriesSnapshot) -> FindingData | None:
         return FindingData(confidence=Confidence.high, summary="test")
 
 
 class TestRun:
     def test_returns_empty_when_no_rules(self) -> None:
-        assert run(metrics=Metrics(), rules=[]) == []
+        assert run(metrics=MetricSeriesSnapshot(), rules=[]) == []
 
     def test_ok_results_when_no_findings(self) -> None:
-        results = run(metrics=Metrics(), rules=[_EmptyRule(), _EmptyRule()])
+        results = run(metrics=MetricSeriesSnapshot(), rules=[_EmptyRule(), _EmptyRule()])
         assert len(results) == 2
         assert all(r.finding is None for r in results)
 
     def test_aggregates_findings_from_multiple_rules(self) -> None:
-        results = run(metrics=Metrics(), rules=[_WarningRule(), _InfoRule()])
+        results = run(metrics=MetricSeriesSnapshot(), rules=[_WarningRule(), _InfoRule()])
         assert len(results) == 2
 
     def test_sorts_by_confidence_within_same_severity(self) -> None:
         results = run(
-            metrics=Metrics(),
+            metrics=MetricSeriesSnapshot(),
             rules=[_LowConfRule(), _MediumConfRule(), _HighConfRule()],
         )
         confidences = [r.finding.confidence for r in results if r.finding]
@@ -96,18 +97,18 @@ class TestRun:
 
     def test_sorts_by_severity(self) -> None:
         results = run(
-            metrics=Metrics(),
+            metrics=MetricSeriesSnapshot(),
             rules=[_InfoRule(), _WarningRule(), _CriticalRule()],
         )
         severities = [r.finding.severity for r in results if r.finding]
         assert severities == [Severity.critical, Severity.warning, Severity.info]
 
     def test_ok_rules_sorted_last(self) -> None:
-        results = run(metrics=Metrics(), rules=[_EmptyRule(), _WarningRule()])
+        results = run(metrics=MetricSeriesSnapshot(), rules=[_EmptyRule(), _WarningRule()])
         assert results[0].finding is not None
         assert results[-1].finding is None
 
     def test_result_preserves_rule_name(self) -> None:
-        results = run(metrics=Metrics(), rules=[_EmptyRule()])
+        results = run(metrics=MetricSeriesSnapshot(), rules=[_EmptyRule()])
         assert results[0].id == "empty"
         assert results[0].name == "Empty"

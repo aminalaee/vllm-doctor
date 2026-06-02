@@ -2,13 +2,13 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel
 
-from vllm_doctor.models import ClientMode, DiagnosisResult, Health, Metrics, RuleResult
+from vllm_doctor.models import ClientMode, DiagnosisResult, Health, RuleResult
 
 _SCRAPE_MODE_NOTICE = "TTFT, TPOT and Queue Latency rules require Prometheus — connect to Prometheus for full analysis."
 _SCHEMA_VERSION = "1"
 
 
-class Target(BaseModel):
+class ReportTarget(BaseModel):
     model_name: str | None
     since: str
     client_mode: ClientMode
@@ -16,7 +16,7 @@ class Target(BaseModel):
 
 class Metadata(BaseModel):
     generated_at: str
-    target: Target
+    target: ReportTarget
 
 
 class DiagnosisReport(BaseModel):
@@ -25,7 +25,7 @@ class DiagnosisReport(BaseModel):
     health: Health
     notice: str | None
     checks: list[RuleResult]
-    metrics: Metrics
+    metrics: dict[str, float | None]
 
 
 def render(result: DiagnosisResult, verbose: bool = False, compact: bool = False) -> str:
@@ -33,7 +33,7 @@ def render(result: DiagnosisResult, verbose: bool = False, compact: bool = False
         schema_version=_SCHEMA_VERSION,
         metadata=Metadata(
             generated_at=datetime.now(timezone.utc).isoformat(),
-            target=Target(
+            target=ReportTarget(
                 model_name=result.context.model_name,
                 since=result.context.since,
                 client_mode=result.context.client_mode,
@@ -42,7 +42,7 @@ def render(result: DiagnosisResult, verbose: bool = False, compact: bool = False
         health=result.health,
         notice=_SCRAPE_MODE_NOTICE if result.context.client_mode == ClientMode.scrape else None,
         checks=result.checks,
-        metrics=result.metrics,
+        metrics=result.metrics.model_dump(),
     )
     exclude: dict = {"checks": {"__all__": {"finding": {"signals"}}}}
     if not verbose:

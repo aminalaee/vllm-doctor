@@ -6,7 +6,8 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
-from vllm_doctor.models import ClientMode, DiagnosisResult, Finding, Health, Metrics, Severity
+from vllm_doctor.metrics import METRIC_SPECS
+from vllm_doctor.models import ClientMode, DiagnosisResult, Finding, Health, Severity
 
 _SEVERITY_COLOR = {
     Severity.critical: "red",
@@ -87,22 +88,21 @@ def _metrics_table(result: DiagnosisResult) -> Table:
     table.add_column(style="dim", no_wrap=True)
     table.add_column(justify="right", no_wrap=True)
 
-    for name, field in Metrics.model_fields.items():
+    for spec in METRIC_SPECS:
+        name = spec.output
         value = getattr(result.metrics, name)
         if value is None:
             continue
-        label = field.title or name
-        extra = field.json_schema_extra or {}
-        fmt = str(extra.get("fmt", ".0f"))
+        display = spec.display
 
-        if extra.get("bar"):
+        if display.bar:
             if not math.isfinite(value):
-                table.add_row(label, Text("n/a", style="dim"))
+                table.add_row(display.title, Text("n/a", style="dim"))
             else:
                 color = "red" if value >= 0.9 else "yellow" if value >= 0.7 else "green"
-                table.add_row(label, _cache_bar(value, color))
+                table.add_row(display.title, _cache_bar(value, color))
         else:
-            table.add_row(label, Text(format(value, fmt), style="bold"))
+            table.add_row(display.title, Text(format(value, display.fmt), style="bold"))
 
     return table
 

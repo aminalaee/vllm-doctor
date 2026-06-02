@@ -3,13 +3,13 @@ import json
 import pytest
 from freezegun import freeze_time
 
+from vllm_doctor.metrics import MetricSeriesSnapshot
 from vllm_doctor.models import (
     ClientMode,
     Confidence,
     DiagnosisContext,
     DiagnosisResult,
     Finding,
-    Metrics,
     RuleResult,
     Severity,
 )
@@ -36,7 +36,7 @@ class TestRenderJson:
     def test_default_report_shape(self, queue_finding: Finding) -> None:
         result = DiagnosisResult(
             context=_CTX,
-            metrics=Metrics(),
+            metric_series=MetricSeriesSnapshot(),
             checks=[
                 RuleResult(id="queue_pressure", name="Queue Pressure", finding=queue_finding),
                 RuleResult(id="kv_cache_pressure", name="KV Cache Pressure"),
@@ -78,7 +78,7 @@ class TestRenderJson:
     def test_scrape_notice_shape(self) -> None:
         result = DiagnosisResult(
             context=DiagnosisContext(since="now", client_mode=ClientMode.scrape),
-            metrics=Metrics(),
+            metric_series=MetricSeriesSnapshot(),
             checks=[],
         )
         output = json.loads(json_report.render(result))
@@ -103,7 +103,7 @@ class TestRenderJson:
     def test_verbose_metrics_shape(self) -> None:
         result = DiagnosisResult(
             context=_CTX,
-            metrics=Metrics(num_requests_running=2, prefix_cache_hit_rate=0.5),
+            metric_series=MetricSeriesSnapshot(num_requests_running=2, prefix_cache_hit_rate=0.5),
             checks=[],
         )
         output = json.loads(json_report.render(result, verbose=True))
@@ -129,7 +129,7 @@ class TestRenderJson:
         critical_finding = queue_finding.model_copy(update={"severity": Severity.critical})
         result = DiagnosisResult(
             context=_CTX,
-            metrics=Metrics(),
+            metric_series=MetricSeriesSnapshot(),
             checks=[
                 RuleResult(id="queue_pressure", name="Queue Pressure", finding=queue_finding),
                 RuleResult(id="kv_cache_pressure", name="KV Cache Pressure", finding=critical_finding),
@@ -140,7 +140,7 @@ class TestRenderJson:
 
     @freeze_time("2026-06-01 13:44:39 UTC")
     def test_empty_report(self) -> None:
-        result = DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[])
+        result = DiagnosisResult(context=_CTX, metric_series=MetricSeriesSnapshot(), checks=[])
         output = json.loads(json_report.render(result))
         assert output["health"] == "ok"
         assert output["checks"] == []
@@ -151,6 +151,6 @@ class TestRenderJson:
     )
     @freeze_time("2026-06-01 13:44:39 UTC")
     def test_metrics_visibility(self, verbose: bool, expected: bool) -> None:
-        result = DiagnosisResult(context=_CTX, metrics=Metrics(), checks=[])
+        result = DiagnosisResult(context=_CTX, metric_series=MetricSeriesSnapshot(), checks=[])
         output = json.loads(json_report.render(result, verbose=verbose))
         assert ("metrics" in output) is expected

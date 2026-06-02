@@ -4,7 +4,8 @@ import pytest
 from vllm_doctor.clients import ScrapeClient, resolve_client
 from vllm_doctor.collector import collect
 from vllm_doctor.diagnosis import run
-from vllm_doctor.models import DiagnosisContext, DiagnosisResult, Metrics
+from vllm_doctor.metrics import Metrics
+from vllm_doctor.models import DiagnosisContext, DiagnosisResult
 from vllm_doctor.rules.error_rate import ErrorRateRule
 from vllm_doctor.rules.kv_cache_pressure import KVCachePressureRule
 from vllm_doctor.rules.low_throughput import LowThroughputRule
@@ -42,7 +43,7 @@ class TestLiveScrape:
         assert isinstance(samples[0].value, float)
 
     async def test_snapshot_fields_populated(self, client: ScrapeClient) -> None:
-        metrics = await collect(client, since="now")
+        metrics = (await collect(client, since="now")).metrics
         assert isinstance(metrics, Metrics)
         assert metrics.num_requests_running is not None
         assert metrics.num_requests_waiting is not None
@@ -50,8 +51,8 @@ class TestLiveScrape:
         assert metrics.num_requests_waiting >= 0
 
     async def test_diagnosis_runs_without_error(self, client: ScrapeClient) -> None:
-        metrics = await collect(client, since="now")
-        findings = run(metrics=metrics, rules=[QueuePressureRule()])
+        collection = await collect(client, since="now")
+        findings = run(metrics=collection.series, rules=[QueuePressureRule()])
         assert isinstance(findings, list)
 
     async def test_ttft_percentile_returns_none_in_scrape_mode(self, client: ScrapeClient) -> None:
@@ -59,21 +60,22 @@ class TestLiveScrape:
         assert result is None
 
     async def test_prefix_cache_hit_rate_populated(self, client: ScrapeClient) -> None:
-        metrics = await collect(client, since="now")
+        metrics = (await collect(client, since="now")).metrics
         # hit rate is None only when no queries have been made yet
-        assert metrics.prefix_cache_hit_rate is None or (0.0 <= metrics.prefix_cache_hit_rate <= 1.0)
+        hit_rate = metrics.prefix_cache_hit_rate
+        assert hit_rate is None or (0.0 <= hit_rate <= 1.0)
 
     async def test_queue_time_p95_none_in_scrape_mode(self, client: ScrapeClient) -> None:
-        metrics = await collect(client, since="now")
+        metrics = (await collect(client, since="now")).metrics
         assert metrics.queue_time_p95_seconds is None
 
     async def test_preemptions_is_numeric(self, client: ScrapeClient) -> None:
-        metrics = await collect(client, since="now")
+        metrics = (await collect(client, since="now")).metrics
         assert metrics.num_preemptions_total is not None
         assert metrics.num_preemptions_total >= 0
 
     async def test_diagnosis_runs_with_all_rules(self, client: ScrapeClient) -> None:
-        metrics = await collect(client, since="now")
+        collection = await collect(client, since="now")
         all_rules = [
             QueuePressureRule(),
             QueueLatencyRule(),
@@ -87,8 +89,8 @@ class TestLiveScrape:
         ]
         result = DiagnosisResult(
             context=DiagnosisContext(since="now"),
-            metrics=metrics,
-            checks=run(metrics=metrics, rules=all_rules),
+            metric_series=collection.series,
+            checks=run(metrics=collection.series, rules=all_rules),
         )
         assert isinstance(result.checks, list)
 

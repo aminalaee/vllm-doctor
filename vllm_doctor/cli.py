@@ -37,9 +37,13 @@ async def _diagnose(
 ) -> DiagnosisResult:
     client_mode = ClientMode.scrape if isinstance(client, ScrapeClient) else ClientMode.prometheus
     context = DiagnosisContext(since=since, model_name=model, client_mode=client_mode)
-    metrics = await collect(client, since=since, model=model)
-    checks = run(metrics=metrics, rules=rules)
-    return DiagnosisResult(context=context, metrics=metrics, checks=checks)
+    collection = await collect(client, since=since, model=model)
+    checks = run(metrics=collection.series, rules=rules)
+    return DiagnosisResult(
+        context=context,
+        metric_series=collection.series,
+        checks=checks,
+    )
 
 
 async def _watch_loop(

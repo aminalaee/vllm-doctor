@@ -6,7 +6,7 @@ import pytest
 from freezegun import freeze_time
 from typer.testing import CliRunner
 
-from vllm_doctor.cli import app
+from vllm_doctor.cli import _diagnose, app
 from vllm_doctor.clients.scrape import ScrapeClient
 
 _HEALTHY_FIXTURE = (Path(__file__).parent.parent / "fixtures" / "scrape" / "healthy.txt").read_text()
@@ -29,6 +29,12 @@ def scrape_client() -> ScrapeClient:
 
 
 class TestCLI:
+    async def test_diagnosis_uses_metric_series(self, scrape_client: ScrapeClient) -> None:
+        result = await _diagnose(scrape_client, rules=[], since="now")
+
+        assert result.metric_series.num_requests_running.samples
+        assert result.metrics.num_requests_running is not None
+
     def test_no_issues_detected(
         self,
         runner: CliRunner,

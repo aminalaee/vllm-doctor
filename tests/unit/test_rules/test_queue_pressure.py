@@ -1,7 +1,8 @@
 import pytest
 
 from tests.helpers import snapshot_from_prometheus_fixture, snapshot_from_scrape_fixture
-from vllm_doctor.models import Confidence, Metrics, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import Confidence, Severity
 from vllm_doctor.rules.queue_pressure import QueuePressureRule
 
 
@@ -11,45 +12,45 @@ def rule() -> QueuePressureRule:
 
 
 @pytest.fixture
-def healthy() -> Metrics:
-    return Metrics(num_requests_waiting=1, num_requests_running=10)
+def healthy() -> MetricSeriesSnapshot:
+    return MetricSeriesSnapshot(num_requests_waiting=1, num_requests_running=10)
 
 
 @pytest.fixture
-def high_waiting() -> Metrics:
-    return Metrics(num_requests_waiting=20, num_requests_running=10)
+def high_waiting() -> MetricSeriesSnapshot:
+    return MetricSeriesSnapshot(num_requests_waiting=20, num_requests_running=10)
 
 
 @pytest.fixture
-def saturated() -> Metrics:
-    return Metrics(num_requests_waiting=20, num_requests_running=80)
+def saturated() -> MetricSeriesSnapshot:
+    return MetricSeriesSnapshot(num_requests_waiting=20, num_requests_running=80)
 
 
 class TestQueuePressureRule:
-    def test_no_finding_when_healthy(self, rule: QueuePressureRule, healthy: Metrics) -> None:
+    def test_no_finding_when_healthy(self, rule: QueuePressureRule, healthy: MetricSeriesSnapshot) -> None:
         assert rule.run(healthy) is None
 
-    def test_finding_when_waiting_high(self, rule: QueuePressureRule, high_waiting: Metrics) -> None:
+    def test_finding_when_waiting_high(self, rule: QueuePressureRule, high_waiting: MetricSeriesSnapshot) -> None:
         result = rule.run(high_waiting)
         assert result is not None
         assert rule.severity == Severity.warning
         assert result.confidence == Confidence.low
 
-    def test_high_confidence_when_both_signals(self, rule: QueuePressureRule, saturated: Metrics) -> None:
+    def test_high_confidence_when_both_signals(self, rule: QueuePressureRule, saturated: MetricSeriesSnapshot) -> None:
         result = rule.run(saturated)
         assert result is not None
         assert result.confidence == Confidence.high
 
     def test_no_finding_when_metrics_missing(self, rule: QueuePressureRule) -> None:
-        assert rule.run(Metrics()) is None
+        assert rule.run(MetricSeriesSnapshot()) is None
 
-    def test_evidence_contains_values(self, rule: QueuePressureRule, saturated: Metrics) -> None:
+    def test_evidence_contains_values(self, rule: QueuePressureRule, saturated: MetricSeriesSnapshot) -> None:
         result = rule.run(saturated)
         assert any("20" in e for e in result.evidence)
         assert any("80" in e for e in result.evidence)
 
     def test_no_finding_when_only_running_high(self, rule: QueuePressureRule) -> None:
-        assert rule.run(Metrics(num_requests_waiting=1, num_requests_running=80)) is None
+        assert rule.run(MetricSeriesSnapshot(num_requests_waiting=1, num_requests_running=80)) is None
 
     async def test_queue_pressure_with_scrape_fixture(self) -> None:
         metrics = await snapshot_from_scrape_fixture("queue-pressure.txt")
@@ -61,4 +62,4 @@ class TestQueuePressureRule:
 
     def test_custom_thresholds(self) -> None:
         rule = QueuePressureRule(high_waiting=100, high_running=200)
-        assert rule.run(Metrics(num_requests_waiting=20, num_requests_running=80)) is None
+        assert rule.run(MetricSeriesSnapshot(num_requests_waiting=20, num_requests_running=80)) is None
