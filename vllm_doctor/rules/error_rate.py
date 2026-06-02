@@ -21,7 +21,8 @@ Confidence:
 
 from typing import TYPE_CHECKING
 
-from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
@@ -62,10 +63,10 @@ class ErrorRateRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "ErrorRateRule":
         return cls(high_error_rate=config.error_rate.high_error_rate, high_abort_rate=config.error_rate.high_abort_rate)
 
-    def run(self, metrics: Metrics) -> FindingData | None:
-        errors = metrics.request_error_total
-        aborts = metrics.request_abort_total
-        success = metrics.request_success_total
+    def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
+        errors = metrics.request_error_total.value()
+        aborts = metrics.request_abort_total.value()
+        success = metrics.request_success_total.value()
 
         if errors is None and aborts is None:
             return None

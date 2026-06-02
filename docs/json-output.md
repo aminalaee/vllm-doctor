@@ -45,7 +45,7 @@ New optional fields may be added in minor releases. Removing fields, renaming fi
 ```
 
 !!! note
-    `metrics` is included only when `--verbose` is used.
+    `metrics` is included only when `--verbose` is used. Values are numbers or `null` when unavailable.
 
 !!! note
     `--output json` (one-shot) produces pretty-printed JSON for readability. `--output json --watch` produces compact JSON (one object per line) for streaming and automation.

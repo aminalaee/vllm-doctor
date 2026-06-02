@@ -17,7 +17,8 @@ Confidence:
 
 from typing import TYPE_CHECKING
 
-from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
@@ -50,24 +51,23 @@ class KVCachePressureRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "KVCachePressureRule":
         return cls(high_cache_usage=config.kv_cache_pressure.high_cache_usage)
 
-    def run(self, metrics: Metrics) -> FindingData | None:
-        if metrics.kv_cache_usage_perc is None or metrics.kv_cache_usage_perc < self.high_cache_usage:
+    def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
+        cache = metrics.kv_cache_usage_perc.value()
+        if cache is None or cache < self.high_cache_usage:
             return None
 
-        signals: list[str] = []
-        evidence = [f"GPU KV cache usage: {metrics.kv_cache_usage_perc:.0%} (threshold: {self.high_cache_usage:.0%})"]
+        waiting = metrics.num_requests_waiting.value()
+        waiting_high = waiting is not None and waiting > 0
 
-        waiting_high = metrics.num_requests_waiting is not None and metrics.num_requests_waiting > 0
+        signals: list[str] = []
+        evidence = [f"GPU KV cache usage: {cache:.0%} (threshold: {self.high_cache_usage:.0%})"]
         if waiting_high:
             signals.append("Cache saturation blocking new request admission")
-            evidence.append(f"Waiting requests: {metrics.num_requests_waiting:.0f} (blocked by full cache)")
+            evidence.append(f"Waiting requests: {waiting:.0f} (blocked by full cache)")
 
         return FindingData(
             confidence=Confidence.high if waiting_high else Confidence.medium,
-            summary=(
-                f"GPU KV cache at {metrics.kv_cache_usage_perc:.0%} — "
-                "new requests cannot be admitted until sequences complete."
-            ),
+            summary=(f"GPU KV cache at {cache:.0%} — new requests cannot be admitted until sequences complete."),
             signals=signals,
             evidence=evidence,
         )

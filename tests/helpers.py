@@ -6,23 +6,23 @@ import httpx
 from vllm_doctor.clients.prometheus import PrometheusClient
 from vllm_doctor.clients.scrape import ScrapeClient
 from vllm_doctor.collector import collect
-from vllm_doctor.models import Metrics
+from vllm_doctor.metrics import MetricSeriesSnapshot
 
 _SCRAPE_FIXTURES = Path(__file__).parent / "fixtures" / "scrape"
 _PROMETHEUS_FIXTURES = Path(__file__).parent / "fixtures" / "prometheus"
 
 
-async def snapshot_from_scrape_fixture(name: str) -> Metrics:
+async def snapshot_from_scrape_fixture(name: str) -> MetricSeriesSnapshot:
     text = (_SCRAPE_FIXTURES / name).read_text()
     transport = httpx.MockTransport(lambda _: httpx.Response(200, text=text, headers={"content-type": "text/plain"}))
     async with ScrapeClient(
         url="http://testserver/metrics",
         client=httpx.AsyncClient(transport=transport),
     ) as client:
-        return await collect(client, since="now")
+        return (await collect(client, since="now")).series
 
 
-async def snapshot_from_prometheus_fixture(name: str, since: str = "1h") -> Metrics:
+async def snapshot_from_prometheus_fixture(name: str, since: str = "1h") -> MetricSeriesSnapshot:
     metrics: dict[str, float] = json.loads((_PROMETHEUS_FIXTURES / name).read_text())
 
     def handler(r: httpx.Request) -> httpx.Response:
@@ -36,4 +36,4 @@ async def snapshot_from_prometheus_fixture(name: str, since: str = "1h") -> Metr
         base_url="http://testserver",
         client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     ) as client:
-        return await collect(client, since=since)
+        return (await collect(client, since=since)).series

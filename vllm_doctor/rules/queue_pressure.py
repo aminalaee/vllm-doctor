@@ -14,7 +14,8 @@ Confidence:
 
 from typing import TYPE_CHECKING
 
-from vllm_doctor.models import Confidence, FindingData, Metrics, Severity
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
 if TYPE_CHECKING:
@@ -53,17 +54,19 @@ class QueuePressureRule(Rule):
     def from_config(cls, config: "RulesConfig") -> "QueuePressureRule":
         return cls(high_waiting=config.queue_pressure.high_waiting, high_running=config.queue_pressure.high_running)
 
-    def run(self, metrics: Metrics) -> FindingData | None:
-        if metrics.num_requests_waiting is None or metrics.num_requests_waiting <= self.high_waiting:
+    def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
+        waiting = metrics.num_requests_waiting.value()
+        if waiting is None or waiting <= self.high_waiting:
             return None
 
-        signals: list[str] = []
-        evidence = [f"Waiting requests: {metrics.num_requests_waiting:.0f} (threshold: {self.high_waiting})"]
+        running = metrics.num_requests_running.value()
+        running_high = running is not None and running > self.high_running
 
-        running_high = metrics.num_requests_running is not None and metrics.num_requests_running > self.high_running
+        signals: list[str] = []
+        evidence = [f"Waiting requests: {waiting:.0f} (threshold: {self.high_waiting})"]
         if running_high:
             signals.append("Queue pressure compounding with server saturation")
-            evidence.append(f"Running requests: {metrics.num_requests_running:.0f} (threshold: {self.high_running})")
+            evidence.append(f"Running requests: {running:.0f} (threshold: {self.high_running})")
 
         return FindingData(
             confidence=Confidence.high if running_high else Confidence.low,

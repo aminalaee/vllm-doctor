@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from vllm_doctor.clients import Client
-from vllm_doctor.clients.models import label_selector
+from vllm_doctor.clients.models import MetricSample, label_selector
+from vllm_doctor.metrics import MetricSeries
 
 NUM_REQUESTS_RUNNING = "vllm:num_requests_running"
 NUM_REQUESTS_WAITING = "vllm:num_requests_waiting"
@@ -21,6 +22,8 @@ NUM_PREEMPTIONS_TOTAL = "vllm:num_preemptions_total"
 
 
 class ProbeKind(Enum):
+    """Which Prometheus query shape a probe uses: instant gauge, rate-of-counter, or histogram quantile."""
+
     gauge = "gauge"
     increase = "increase"
     percentile = "percentile"
@@ -28,6 +31,8 @@ class ProbeKind(Enum):
 
 @dataclass(frozen=True)
 class Probe:
+    """One raw Prometheus query: which metric, what kind of query, what label filters."""
+
     kind: ProbeKind
     metric: str
     quantile: float = 0.0
@@ -52,17 +57,19 @@ PROBES: dict[str, Probe] = {
 }
 
 
-async def _run(client: Client, probe: Probe, since: str, model: str | None) -> float | None:
+async def _run(client: Client, probe: Probe, since: str, model: str | None) -> MetricSeries:
     expr = f"{probe.metric}{label_selector(model, **probe.labels)}"
     if probe.kind == ProbeKind.gauge:
-        samples = await client.query(expr)
-        return sum(s.value for s in samples) if samples else None
+        return MetricSeries(samples=await client.query(expr))
     if probe.kind == ProbeKind.increase:
         samples = await client.query_increase(expr, since)
         if samples is None:
             samples = await client.query(expr)
-        return sum(s.value for s in samples) if samples else None
-    return await client.query_percentile(probe.metric, probe.quantile, model, since)
+        return MetricSeries(samples=samples)
+    value = await client.query_percentile(probe.metric, probe.quantile, model, since)
+    if value is None:
+        return MetricSeries()
+    return MetricSeries(samples=[MetricSample(labels={}, value=value)])
 
 
 async def run_probes(
@@ -70,7 +77,7 @@ async def run_probes(
     names: Iterable[str],
     since: str,
     model: str | None,
-) -> dict[str, float | None]:
+) -> dict[str, MetricSeries]:
     names = list(names)
     values = await asyncio.gather(*[_run(client, PROBES[n], since, model) for n in names])
     return dict(zip(names, values))
