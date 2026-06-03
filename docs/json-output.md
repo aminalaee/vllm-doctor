@@ -4,13 +4,9 @@
 
 Text output is optimized for terminal use and is not treated as a stable report format.
 
-## Compatibility
+## Examples
 
-For `schema_version` `1`, vLLM Doctor preserves existing field names, field meanings, and enum values.
-
-New optional fields may be added in minor releases. Removing fields, renaming fields, changing field meanings, or changing enum values requires a new schema version.
-
-## Example
+Default JSON output:
 
 ```json
 {
@@ -44,8 +40,44 @@ New optional fields may be added in minor releases. Removing fields, renaming fi
 }
 ```
 
-!!! note
-    `metrics` is included only when `--verbose` is used. Values are numbers or `null` when unavailable.
+Verbose JSON includes observed metrics:
+
+```json
+{
+  "schema_version": "1",
+  "metadata": {
+    "generated_at": "2026-06-01T10:30:00+00:00",
+    "target": {
+      "model_name": null,
+      "since": "5m",
+      "client_mode": "prometheus"
+    }
+  },
+  "health": "warning",
+  "notice": null,
+  "checks": [],
+  "metrics": {
+    "num_requests_running": {
+      "value": 12,
+      "by": {
+        "pod": {
+          "vllm-0": 2,
+          "vllm-1": 10
+        }
+      }
+    },
+    "kv_cache_usage_perc": {
+      "value": 0.94,
+      "by": {
+        "pod": {
+          "vllm-0": 0.41,
+          "vllm-1": 0.94
+        }
+      }
+    }
+  }
+}
+```
 
 !!! note
     `--output json` (one-shot) produces pretty-printed JSON for readability. `--output json --watch` produces compact JSON (one object per line) for streaming and automation.
@@ -60,6 +92,10 @@ New optional fields may be added in minor releases. Removing fields, renaming fi
 | `notice`         | Optional mode-specific notice                         |
 | `checks`         | Rule results, sorted by severity and confidence       |
 | `metrics`        | Observed metrics; included only with `--verbose`      |
+
+## Metrics
+
+`value` is the scalar diagnostic value for the metric. `by` is present only when vLLM Doctor detects multiple replicas — its single key is the label that distinguishes them (e.g. `pod`, `instance`, `host`, `server`), and the inner map keys are the per-replica values. Per-replica numbers use the metric's own aggregation (`max` for KV cache usage and latency percentiles, `sum` for counters).
 
 ## Metadata
 

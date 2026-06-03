@@ -71,15 +71,18 @@ class MetricSeries(BaseModel):
     def value(self) -> float | None:
         return aggregate(self, self.aggregate_by)
 
-    def by(self, dim: str) -> dict[str, float]:
-        """Group samples by the given dimension, summing within each group."""
-        result: dict[str, float] = {}
+    def by(self, dim: str) -> dict[str, float | None]:
+        """Group samples by the given dimension, aggregating within each group via `aggregate_by`."""
+        groups: dict[str, list[MetricSample]] = {}
         for sample in self.samples:
             key = sample.labels.get(dim)
             if key is None:
                 continue
-            result[key] = result.get(key, 0.0) + sample.value
-        return result
+            groups.setdefault(key, []).append(sample)
+        return {
+            key: MetricSeries(samples=samples, aggregate_by=self.aggregate_by).value()
+            for key, samples in groups.items()
+        }
 
     def filter(self, **labels: str) -> "MetricSeries":
         """Return a new series containing only samples matching all given labels."""
@@ -91,7 +94,13 @@ _SeriesMetric = Annotated[MetricSeries, Field(default_factory=MetricSeries)]
 
 
 class MetricSeriesSnapshot(BaseModel):
-    """Raw labeled metric series used internally to derive scalar Metrics."""
+    """Raw labeled metric series used internally to derive scalar Metrics.
+
+    Each field's `aggregate_by` is set from the matching `MetricSpec` after
+    construction, so `series.value()` and `series.by(label)` produce the
+    metric's intended aggregation regardless of how the snapshot was built
+    (collector output, test fixture, deserialized JSON).
+    """
 
     num_requests_running: _SeriesMetric
     num_requests_waiting: _SeriesMetric
@@ -106,6 +115,13 @@ class MetricSeriesSnapshot(BaseModel):
     prefix_cache_hit_rate: _SeriesMetric
     queue_time_p95_seconds: _SeriesMetric
     num_preemptions_total: _SeriesMetric
+
+    @model_validator(mode="after")
+    def _apply_spec_aggregation(self) -> "MetricSeriesSnapshot":
+        for spec in METRIC_SPECS:
+            if isinstance(spec, Direct):
+                getattr(self, spec.output).aggregate_by = spec.aggregate_by
+        return self
 
     def to_metrics(self) -> Metrics:
         return Metrics(**{name: getattr(self, name).value() for name in type(self).model_fields})
@@ -136,9 +152,29 @@ class MetricSpec(ABC):
 
 @dataclass(frozen=True)
 class MetricDisplay:
+    """How a metric is rendered in reports."""
+
     title: str
     fmt: str = ".0f"
     bar: bool = False
+
+
+REPLICA_LABELS = ("pod", "pod_name", "kubernetes_pod_name", "instance", "host", "hostname", "server", "endpoint")
+
+
+def detect_replica_label(snapshot: "MetricSeriesSnapshot") -> str | None:
+    """Pick the first known label that has >1 distinct values across the metric series.
+
+    Returns None when the snapshot looks like a single-replica deployment.
+    """
+    for label in REPLICA_LABELS:
+        values: set[str] = set()
+        for spec in METRIC_SPECS:
+            series = getattr(snapshot, spec.output)
+            values.update(s.labels[label] for s in series.samples if label in s.labels)
+        if len(values) > 1:
+            return label
+    return None
 
 
 @dataclass(frozen=True)

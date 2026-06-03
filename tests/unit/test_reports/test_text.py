@@ -3,7 +3,8 @@ import io
 import pytest
 from rich.console import Console
 
-from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.clients.models import MetricSample
+from vllm_doctor.metrics import MetricSeries, MetricSeriesSnapshot
 from vllm_doctor.models import (
     Confidence,
     DiagnosisContext,
@@ -113,6 +114,7 @@ class TestRenderText:
             verbose=True,
         )
         assert "Observed Metrics" in buf.getvalue()
+        assert "Summary" in buf.getvalue()
         assert "Requests Running" in buf.getvalue()
 
     def test_verbose_shows_cache_bar(self) -> None:
@@ -147,3 +149,110 @@ class TestRenderText:
             verbose=False,
         )
         assert "Observed Metrics" not in buf.getvalue()
+
+    def test_non_verbose_hides_dimensional_metrics_when_multiple_entities(self) -> None:
+        ctx = DiagnosisContext(since="1h")
+        metric_series = MetricSeriesSnapshot(
+            num_requests_running=MetricSeries(
+                samples=[
+                    MetricSample(labels={"pod": "vllm-0"}, value=2.0),
+                    MetricSample(labels={"pod": "vllm-1"}, value=7.0),
+                ]
+            ),
+            kv_cache_usage_perc=MetricSeries(
+                samples=[
+                    MetricSample(labels={"pod": "vllm-0"}, value=0.40),
+                    MetricSample(labels={"pod": "vllm-1"}, value=0.92),
+                ]
+            ),
+        )
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(context=ctx, metric_series=metric_series, checks=[]),
+            console=Console(file=buf, highlight=False),
+            verbose=False,
+        )
+        output = buf.getvalue()
+
+        assert "Observed Metrics" not in output
+        assert "vllm-0" not in output
+        assert "vllm-1" not in output
+
+    def test_verbose_shows_dimensional_metrics_when_multiple_entities(self) -> None:
+        ctx = DiagnosisContext(since="1h")
+        metric_series = MetricSeriesSnapshot(
+            num_requests_running=MetricSeries(
+                samples=[
+                    MetricSample(labels={"pod": "vllm-0"}, value=2.0),
+                    MetricSample(labels={"pod": "vllm-1"}, value=7.0),
+                ]
+            ),
+            kv_cache_usage_perc=MetricSeries(
+                samples=[
+                    MetricSample(labels={"pod": "vllm-0"}, value=0.40),
+                    MetricSample(labels={"pod": "vllm-1"}, value=0.92),
+                ]
+            ),
+        )
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(context=ctx, metric_series=metric_series, checks=[]),
+            console=Console(file=buf, highlight=False, width=160),
+            verbose=True,
+        )
+        output = buf.getvalue()
+
+        assert "Summary" in output
+        assert "Observed Metrics per pod" in output
+        assert "vllm-0" in output
+        assert "vllm-1" in output
+        assert "GPU Cache Usage" in output
+
+    def test_dimensional_metrics_fallback_to_instance_label(self) -> None:
+        ctx = DiagnosisContext(since="1h")
+        metric_series = MetricSeriesSnapshot(
+            num_requests_waiting=MetricSeries(
+                samples=[
+                    MetricSample(labels={"instance": "10.0.0.1:8000"}, value=0.0),
+                    MetricSample(labels={"instance": "10.0.0.2:8000"}, value=4.0),
+                ]
+            )
+        )
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(context=ctx, metric_series=metric_series, checks=[]),
+            console=Console(file=buf, highlight=False),
+            verbose=True,
+        )
+
+        assert "Observed Metrics per instance" in buf.getvalue()
+
+    def test_single_replica_hides_dimensional_metrics(self) -> None:
+        ctx = DiagnosisContext(since="1h")
+        metric_series = MetricSeriesSnapshot(
+            num_requests_running=MetricSeries(samples=[MetricSample(labels={"pod": "vllm-0"}, value=2.0)])
+        )
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(context=ctx, metric_series=metric_series, checks=[]),
+            console=Console(file=buf, highlight=False),
+            verbose=True,
+        )
+
+        assert "vllm-0" not in buf.getvalue()
+
+    def test_dimensional_metrics_limit_replica_columns(self) -> None:
+        ctx = DiagnosisContext(since="1h")
+        metric_series = MetricSeriesSnapshot(
+            num_requests_waiting=MetricSeries(
+                samples=[MetricSample(labels={"pod": f"vllm-{index}"}, value=float(index)) for index in range(8)]
+            )
+        )
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(context=ctx, metric_series=metric_series, checks=[]),
+            console=Console(file=buf, highlight=False, width=200),
+            verbose=True,
+        )
+
+        assert "+2 more" in buf.getvalue()
