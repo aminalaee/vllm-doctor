@@ -79,7 +79,7 @@ Options:
       --help                  Show this message and exit.
 ```
 
-## Example output
+## Example verbose output
 
 ```shell
 ─────────── vLLM Doctor  ·  Health: CRITICAL  ·  Since: 5m ────────────
@@ -105,10 +105,20 @@ Options:
 
 ─────────────────────────── Observed Metrics ───────────────────────────
 
+  Summary
   Requests Running                             12
   Requests Waiting                              7
   GPU Cache Usage        ███████████████████░ 94%
-  Decode Tokens/s                            42.0
+  Prefill Tokens/s                          390.0
+  Decode Tokens/s                           252.0
   TTFT p95 (s)                              3.200
   TPOT p95 (s)                              0.050
+
+─────────────────────── Observed Metrics per pod ───────────────────────
+                          vllm-1    vllm-0
+  Requests Running            10         2
+  Requests Waiting             7         0
+  GPU Cache Usage            94%       41%
+  Prefill Tokens/s          80.0       310
+  Decode Tokens/s           42.0       210
 ```

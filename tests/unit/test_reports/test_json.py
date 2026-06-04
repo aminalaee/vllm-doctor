@@ -3,7 +3,8 @@ import json
 import pytest
 from freezegun import freeze_time
 
-from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.clients.models import MetricSample
+from vllm_doctor.metrics import MetricSeries, MetricSeriesSnapshot
 from vllm_doctor.models import (
     ClientMode,
     Confidence,
@@ -109,20 +110,66 @@ class TestRenderJson:
         output = json.loads(json_report.render(result, verbose=True))
         assert output["metadata"]["generated_at"] == "2026-06-01T13:44:39+00:00"
         assert output["metrics"] == {
-            "num_requests_running": 2.0,
-            "num_requests_waiting": None,
-            "kv_cache_usage_perc": None,
-            "prompt_tokens_per_second": None,
-            "generation_tokens_per_second": None,
-            "request_success_total": None,
-            "request_error_total": None,
-            "request_abort_total": None,
-            "ttft_p95_seconds": None,
-            "tpot_p95_seconds": None,
-            "prefix_cache_hit_rate": 0.5,
-            "queue_time_p95_seconds": None,
-            "num_preemptions_total": None,
+            "num_requests_running": {"value": 2.0},
+            "num_requests_waiting": {"value": None},
+            "kv_cache_usage_perc": {"value": None},
+            "prompt_tokens_per_second": {"value": None},
+            "generation_tokens_per_second": {"value": None},
+            "request_success_total": {"value": None},
+            "request_error_total": {"value": None},
+            "request_abort_total": {"value": None},
+            "ttft_p95_seconds": {"value": None},
+            "tpot_p95_seconds": {"value": None},
+            "prefix_cache_hit_rate": {"value": 0.5},
+            "queue_time_p95_seconds": {"value": None},
+            "num_preemptions_total": {"value": None},
         }
+
+    @freeze_time("2026-06-01 13:44:39 UTC")
+    def test_verbose_metrics_include_replica_breakdown(self) -> None:
+        result = DiagnosisResult(
+            context=_CTX,
+            metric_series=MetricSeriesSnapshot(
+                num_requests_running=MetricSeries(
+                    samples=[
+                        MetricSample(labels={"pod": "vllm-0"}, value=2.0),
+                        MetricSample(labels={"pod": "vllm-1"}, value=10.0),
+                    ]
+                ),
+                kv_cache_usage_perc=MetricSeries(
+                    samples=[
+                        MetricSample(labels={"pod": "vllm-0"}, value=0.41),
+                        MetricSample(labels={"pod": "vllm-1"}, value=0.94),
+                    ]
+                ),
+            ),
+            checks=[],
+        )
+
+        output = json.loads(json_report.render(result, verbose=True))
+
+        assert output["metrics"]["num_requests_running"] == {
+            "value": 12.0,
+            "by": {"pod": {"vllm-0": 2.0, "vllm-1": 10.0}},
+        }
+        assert output["metrics"]["kv_cache_usage_perc"] == {
+            "value": 0.94,
+            "by": {"pod": {"vllm-0": 0.41, "vllm-1": 0.94}},
+        }
+
+    @freeze_time("2026-06-01 13:44:39 UTC")
+    def test_verbose_metrics_omit_replica_breakdown_for_single_replica(self) -> None:
+        result = DiagnosisResult(
+            context=_CTX,
+            metric_series=MetricSeriesSnapshot(
+                num_requests_running=MetricSeries(samples=[MetricSample(labels={"pod": "vllm-0"}, value=2.0)]),
+            ),
+            checks=[],
+        )
+
+        output = json.loads(json_report.render(result, verbose=True))
+
+        assert output["metrics"]["num_requests_running"] == {"value": 2.0}
 
     @freeze_time("2026-06-01 13:44:39 UTC")
     def test_health_reflects_worst_severity(self, queue_finding: Finding) -> None:

@@ -6,7 +6,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
-from vllm_doctor.metrics import METRIC_SPECS
+from vllm_doctor.metrics import METRIC_SPECS, detect_replica_label
 from vllm_doctor.models import ClientMode, DiagnosisResult, Finding, Health, Severity
 
 _SEVERITY_COLOR = {
@@ -31,6 +31,7 @@ _SEVERITY_ICON = {
 _BAR_WIDTH = 20
 _BAR_FILLED = "█"
 _BAR_EMPTY = "░"
+_MAX_REPLICAS = 6
 
 
 def _cache_bar(value: float, color: str) -> Text:
@@ -107,6 +108,60 @@ def _metrics_table(result: DiagnosisResult) -> Table:
     return table
 
 
+def _replica_table(result: DiagnosisResult, label: str) -> Table:
+    values_per_spec: dict[str, dict[str, float | None]] = {}
+    specs_with_data = []
+    for spec in METRIC_SPECS:
+        breakdown = getattr(result.metric_series, spec.output).by(label)
+        if breakdown:
+            specs_with_data.append(spec)
+            values_per_spec[spec.output] = breakdown
+
+    replicas = sorted({name for breakdown in values_per_spec.values() for name in breakdown})
+
+    def sort_key(replica: str) -> tuple[float, float, float]:
+        waiting = values_per_spec.get("num_requests_waiting", {}).get(replica) or 0.0
+        cache = values_per_spec.get("kv_cache_usage_perc", {}).get(replica) or 0.0
+        running = values_per_spec.get("num_requests_running", {}).get(replica) or 0.0
+        return (waiting, cache, running)
+
+    replicas = sorted(replicas, key=sort_key, reverse=True)
+    visible = replicas[:_MAX_REPLICAS]
+    hidden = len(replicas) - len(visible)
+
+    table = Table(show_header=True, box=None, padding=(0, 2))
+    table.add_column("", style="dim", no_wrap=True, max_width=28, overflow="ellipsis")
+    for replica in visible:
+        table.add_column(replica, justify="right", no_wrap=True)
+    if hidden > 0:
+        table.add_column(f"+{hidden} more", justify="right", no_wrap=True, style="dim")
+
+    for spec in specs_with_data:
+        row = [spec.display.title]
+        for replica in visible:
+            value = values_per_spec[spec.output].get(replica)
+            row.append("n/a" if value is None or not math.isfinite(value) else format(value, spec.display.fmt))
+        if hidden > 0:
+            row.append("")
+        table.add_row(*row)
+
+    return table
+
+
+def _observed_metrics(result: DiagnosisResult) -> list:
+    items: list = [
+        Rule("Observed Metrics", style="dim"),
+        Text(),
+        Text("  Summary", style="dim"),
+        _metrics_table(result),
+    ]
+    label = detect_replica_label(result.metric_series)
+    if label is not None:
+        items += [Text(), Rule(f"Observed Metrics per {label}", style="dim"), Text(), _replica_table(result, label)]
+    items.append(Text())
+    return items
+
+
 def build(result: DiagnosisResult, verbose: bool = False) -> Group:
     h = result.health
     color = _HEALTH_COLOR[h]
@@ -145,12 +200,7 @@ def build(result: DiagnosisResult, verbose: bool = False) -> Group:
         items.append(Text())
 
     if verbose:
-        items += [
-            Rule("Observed Metrics", style="dim"),
-            Text(),
-            _metrics_table(result),
-            Text(),
-        ]
+        items += _observed_metrics(result)
 
     return Group(*items)
 
