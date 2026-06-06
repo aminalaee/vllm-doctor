@@ -53,6 +53,28 @@ class TestCLI:
         result = runner.invoke(app, [])
         assert result.exit_code != 0
 
+    def test_connection_error_exits_cleanly(
+        self,
+        runner: CliRunner,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def handler(_: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("connection refused")
+
+        unreachable = ScrapeClient(
+            url="http://localhost:8000/metrics",
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+
+        async def fake_resolve(url: str, **_: object) -> ScrapeClient:
+            return unreachable
+
+        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
+        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics"])
+        assert result.exit_code == 1
+        assert "could not read metrics" in result.output
+        assert "Traceback" not in result.output
+
     def test_watch_loop_runs(
         self,
         runner: CliRunner,

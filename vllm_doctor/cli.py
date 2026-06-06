@@ -3,11 +3,13 @@ from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
 
+import httpx
 import typer
 from rich.console import Console
 from rich.live import Live
 
 from vllm_doctor.clients import Client, resolve_client
+from vllm_doctor.clients.exceptions import ClientError
 from vllm_doctor.clients.scrape import ScrapeClient
 from vllm_doctor.collector import collect
 from vllm_doctor.config import Config, load_config
@@ -111,3 +113,6 @@ def main(
         asyncio.run(_run(url, since, output, verbose, watch, config))
     except KeyboardInterrupt:
         pass
+    except (ClientError, httpx.HTTPError) as e:
+        typer.secho(f"Error: could not read metrics from {url}: {e}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from e

@@ -19,9 +19,33 @@ class TestResolveClient:
         )
         assert isinstance(client, ScrapeClient)
 
+    async def test_returns_scrape_client_for_openmetrics_endpoint(self) -> None:
+        transport = httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                text=SAMPLE_METRICS,
+                headers={"content-type": "application/openmetrics-text; version=1.0.0; charset=utf-8"},
+            )
+        )
+        client = await resolve_client(
+            "http://localhost:8000/metrics",
+            client=httpx.AsyncClient(transport=transport),
+        )
+        assert isinstance(client, ScrapeClient)
+
     async def test_returns_prometheus_client_on_connect_error(self) -> None:
         def handler(_: httpx.Request) -> httpx.Response:
             raise httpx.ConnectError("refused")
+
+        client = await resolve_client(
+            "http://localhost:9090",
+            client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        )
+        assert isinstance(client, PrometheusClient)
+
+    async def test_returns_prometheus_client_on_probe_timeout(self) -> None:
+        def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ReadTimeout("timed out", request=request)
 
         client = await resolve_client(
             "http://localhost:9090",

@@ -18,6 +18,9 @@ class Client(Protocol):
     async def aclose(self) -> None: ...
 
 
+_SCRAPE_CONTENT_TYPES = ("text/plain", "application/openmetrics-text")
+
+
 async def resolve_client(
     url: str,
     timeout: float = 10.0,
@@ -27,9 +30,10 @@ async def resolve_client(
     http = client or httpx.AsyncClient(timeout=timeout)
     try:
         response = await http.get(url)
-        if response.status_code == 200 and "text/plain" in response.headers.get("content-type", ""):
+        content_type = response.headers.get("content-type", "")
+        if response.status_code == 200 and any(ct in content_type for ct in _SCRAPE_CONTENT_TYPES):
             return ScrapeClient(url, client=http)
-    except httpx.ConnectError:
+    except httpx.HTTPError:
         pass
     return PrometheusClient(url, client=http)
 
