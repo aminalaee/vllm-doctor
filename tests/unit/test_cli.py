@@ -6,6 +6,7 @@ import pytest
 from freezegun import freeze_time
 from typer.testing import CliRunner
 
+from vllm_doctor import __version__
 from vllm_doctor.cli import _diagnose, app
 from vllm_doctor.clients.scrape import ScrapeClient
 
@@ -52,6 +53,12 @@ class TestCLI:
     def test_missing_url_exits_nonzero(self, runner: CliRunner) -> None:
         result = runner.invoke(app, [])
         assert result.exit_code != 0
+
+    def test_version_flag(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["--version"])
+        assert result.exit_code == 0
+        assert __version__ in result.output
+        assert "vllm-doctor" in result.output
 
     def test_connection_error_exits_cleanly(
         self,
