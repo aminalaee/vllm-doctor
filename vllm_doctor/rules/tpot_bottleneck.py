@@ -8,23 +8,20 @@ rather than prefill or queue saturation.
 """
 
 import math
-from typing import TYPE_CHECKING
 
+from vllm_doctor.config import TPOTBottleneckConfig
 from vllm_doctor.metrics import MetricSeriesSnapshot
 from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
-if TYPE_CHECKING:
-    from vllm_doctor.config import RulesConfig
-_DEFAULT_HIGH_TPOT_P95 = 0.2
-_DEFAULT_LOW_GEN_TOKENS_PER_SEC = 50.0
 
-
-class TPOTBottleneckRule(Rule):
+class TPOTBottleneckRule(Rule[TPOTBottleneckConfig]):
     id = "tpot_bottleneck"
     name = "High TPOT"
     title = "High time per output token (TPOT)"
     severity = Severity.warning
+    config_attr = "tpot_bottleneck"
+    config_cls = TPOTBottleneckConfig
     likely_causes = [
         "GPU memory bandwidth saturated during decode",
         "Too many concurrent sequences reducing per-request throughput",
@@ -39,33 +36,18 @@ class TPOTBottleneckRule(Rule):
     ]
     related_metrics = ["tpot_p95_seconds", "generation_tokens_per_second", "ttft_p95_seconds"]
 
-    def __init__(
-        self,
-        high_tpot_p95: float = _DEFAULT_HIGH_TPOT_P95,
-        low_gen_tokens_per_sec: float = _DEFAULT_LOW_GEN_TOKENS_PER_SEC,
-    ) -> None:
-        self.high_tpot_p95 = high_tpot_p95
-        self.low_gen_tokens_per_sec = low_gen_tokens_per_sec
-
-    @classmethod
-    def from_config(cls, config: "RulesConfig") -> "TPOTBottleneckRule":
-        return cls(
-            high_tpot_p95=config.tpot_bottleneck.high_tpot_p95,
-            low_gen_tokens_per_sec=config.tpot_bottleneck.low_gen_tokens_per_sec,
-        )
-
     def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
         tpot = metrics.tpot_p95_seconds.value()
-        if tpot is None or not math.isfinite(tpot) or tpot < self.high_tpot_p95:
+        if tpot is None or not math.isfinite(tpot) or tpot < self.cfg.high_tpot_p95:
             return None
 
         ttft = metrics.ttft_p95_seconds.value()
         gen = metrics.generation_tokens_per_second.value()
 
-        signals = [f"TPOT p95 ({tpot:.2f}s) exceeds threshold ({self.high_tpot_p95}s)"]
+        signals = [f"TPOT p95 ({tpot:.2f}s) exceeds threshold ({self.cfg.high_tpot_p95}s)"]
         evidence = [f"TPOT p95: {tpot:.3f}s"]
 
-        gen_low = gen is not None and math.isfinite(gen) and gen < self.low_gen_tokens_per_sec
+        gen_low = gen is not None and math.isfinite(gen) and gen < self.cfg.low_gen_tokens_per_sec
         ttft_normal = ttft is not None and math.isfinite(ttft) and ttft < 2.0
 
         if gen is not None and math.isfinite(gen):

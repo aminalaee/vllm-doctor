@@ -16,23 +16,19 @@ Confidence:
   preemptions + high cache usage → high   (actively under memory pressure)
 """
 
-from typing import TYPE_CHECKING
-
+from vllm_doctor.config import PreemptionPressureConfig
 from vllm_doctor.metrics import MetricSeriesSnapshot
 from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
-if TYPE_CHECKING:
-    from vllm_doctor.config import RulesConfig
 
-_DEFAULT_HIGH_CACHE_USAGE = 0.80
-
-
-class PreemptionPressureRule(Rule):
+class PreemptionPressureRule(Rule[PreemptionPressureConfig]):
     id = "preemption_pressure"
     name = "Preemption Pressure"
     title = "Preemption pressure"
     severity = Severity.warning
+    config_attr = "preemption_pressure"
+    config_cls = PreemptionPressureConfig
     likely_causes = [
         "KV cache too small for the concurrent request mix",
         "Long-context requests exhausting cache before shorter ones complete",
@@ -46,13 +42,6 @@ class PreemptionPressureRule(Rule):
     ]
     related_metrics = ["vllm:num_preemptions_total", "vllm:kv_cache_usage_perc"]
 
-    def __init__(self, high_cache_usage: float = _DEFAULT_HIGH_CACHE_USAGE) -> None:
-        self.high_cache_usage = high_cache_usage
-
-    @classmethod
-    def from_config(cls, config: "RulesConfig") -> "PreemptionPressureRule":
-        return cls(high_cache_usage=config.preemption_pressure.high_cache_usage)
-
     def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
         preemptions = metrics.num_preemptions_total.value()
         if preemptions is None or preemptions == 0:
@@ -62,10 +51,10 @@ class PreemptionPressureRule(Rule):
         signals: list[str] = []
 
         cache = metrics.kv_cache_usage_perc.value()
-        cache_high = cache is not None and cache >= self.high_cache_usage
+        cache_high = cache is not None and cache >= self.cfg.high_cache_usage
         if cache_high:
             signals.append("KV cache under pressure while preemptions are occurring")
-            evidence.append(f"GPU KV cache usage: {cache:.0%} (threshold: {self.high_cache_usage:.0%})")
+            evidence.append(f"GPU KV cache usage: {cache:.0%} (threshold: {self.cfg.high_cache_usage:.0%})")
 
         return FindingData(
             confidence=Confidence.high if cache_high else Confidence.medium,

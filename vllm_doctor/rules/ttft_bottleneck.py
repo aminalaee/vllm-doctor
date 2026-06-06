@@ -7,23 +7,20 @@ Confidence rises when TPOT is healthy — ruling out a general decode bottleneck
 """
 
 import math
-from typing import TYPE_CHECKING
 
+from vllm_doctor.config import TTFTBottleneckConfig
 from vllm_doctor.metrics import MetricSeriesSnapshot
 from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
-if TYPE_CHECKING:
-    from vllm_doctor.config import RulesConfig
-_DEFAULT_HIGH_TTFT_P95 = 2.0
-_DEFAULT_HIGH_TPOT_P95 = 0.2
 
-
-class TTFTBottleneckRule(Rule):
+class TTFTBottleneckRule(Rule[TTFTBottleneckConfig]):
     id = "ttft_bottleneck"
     name = "High TTFT"
     title = "High time to first token (TTFT)"
     severity = Severity.warning
+    config_attr = "ttft_bottleneck"
+    config_cls = TTFTBottleneckConfig
     likely_causes = [
         "Long input prompts increasing prefill time",
         "Queue pressure delaying prefill start",
@@ -38,32 +35,17 @@ class TTFTBottleneckRule(Rule):
     ]
     related_metrics = ["ttft_p95_seconds", "num_requests_waiting", "tpot_p95_seconds"]
 
-    def __init__(
-        self,
-        high_ttft_p95: float = _DEFAULT_HIGH_TTFT_P95,
-        high_tpot_p95: float = _DEFAULT_HIGH_TPOT_P95,
-    ) -> None:
-        self.high_ttft_p95 = high_ttft_p95
-        self.high_tpot_p95 = high_tpot_p95
-
-    @classmethod
-    def from_config(cls, config: "RulesConfig") -> "TTFTBottleneckRule":
-        return cls(
-            high_ttft_p95=config.ttft_bottleneck.high_ttft_p95,
-            high_tpot_p95=config.ttft_bottleneck.high_tpot_p95,
-        )
-
     def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
         ttft = metrics.ttft_p95_seconds.value()
-        if ttft is None or not math.isfinite(ttft) or ttft < self.high_ttft_p95:
+        if ttft is None or not math.isfinite(ttft) or ttft < self.cfg.high_ttft_p95:
             return None
 
         tpot = metrics.tpot_p95_seconds.value()
         waiting = metrics.num_requests_waiting.value()
 
-        signals = [f"TTFT p95 ({ttft:.2f}s) exceeds threshold ({self.high_ttft_p95}s)"]
+        signals = [f"TTFT p95 ({ttft:.2f}s) exceeds threshold ({self.cfg.high_ttft_p95}s)"]
         evidence = [f"TTFT p95: {ttft:.3f}s"]
-        tpot_stable = tpot is not None and math.isfinite(tpot) and tpot < self.high_tpot_p95
+        tpot_stable = tpot is not None and math.isfinite(tpot) and tpot < self.cfg.high_tpot_p95
 
         if tpot is not None and math.isfinite(tpot):
             evidence.append(f"TPOT p95: {tpot:.3f}s")

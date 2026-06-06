@@ -12,23 +12,19 @@ Confidence:
   2 signals → high
 """
 
-from typing import TYPE_CHECKING
-
+from vllm_doctor.config import QueuePressureConfig
 from vllm_doctor.metrics import MetricSeriesSnapshot
 from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
-if TYPE_CHECKING:
-    from vllm_doctor.config import RulesConfig
-DEFAULT_HIGH_WAITING = 5
-DEFAULT_HIGH_RUNNING = 50
 
-
-class QueuePressureRule(Rule):
+class QueuePressureRule(Rule[QueuePressureConfig]):
     id = "queue_pressure"
     name = "Queue Pressure"
     title = "Queue pressure"
     severity = Severity.warning
+    config_attr = "queue_pressure"
+    config_cls = QueuePressureConfig
     likely_causes = [
         "Insufficient replica capacity for current traffic",
         "Autoscaling has not reacted yet",
@@ -42,31 +38,19 @@ class QueuePressureRule(Rule):
     ]
     related_metrics = ["vllm:num_requests_waiting", "vllm:num_requests_running"]
 
-    def __init__(
-        self,
-        high_waiting: int = DEFAULT_HIGH_WAITING,
-        high_running: int = DEFAULT_HIGH_RUNNING,
-    ) -> None:
-        self.high_waiting = high_waiting
-        self.high_running = high_running
-
-    @classmethod
-    def from_config(cls, config: "RulesConfig") -> "QueuePressureRule":
-        return cls(high_waiting=config.queue_pressure.high_waiting, high_running=config.queue_pressure.high_running)
-
     def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
         waiting = metrics.num_requests_waiting.value()
-        if waiting is None or waiting <= self.high_waiting:
+        if waiting is None or waiting <= self.cfg.high_waiting:
             return None
 
         running = metrics.num_requests_running.value()
-        running_high = running is not None and running > self.high_running
+        running_high = running is not None and running > self.cfg.high_running
 
         signals: list[str] = []
-        evidence = [f"Waiting requests: {waiting:.0f} (threshold: {self.high_waiting})"]
+        evidence = [f"Waiting requests: {waiting:.0f} (threshold: {self.cfg.high_waiting})"]
         if running_high:
             signals.append("Queue pressure compounding with server saturation")
-            evidence.append(f"Running requests: {running:.0f} (threshold: {self.high_running})")
+            evidence.append(f"Running requests: {running:.0f} (threshold: {self.cfg.high_running})")
 
         return FindingData(
             confidence=Confidence.high if running_high else Confidence.low,
