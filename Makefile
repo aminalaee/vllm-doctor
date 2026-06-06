@@ -4,10 +4,7 @@ setup:
 	uv sync --all-groups
 
 test:
-	uv run pytest tests/unit --cov=vllm_doctor --cov-report=term-missing --cov-fail-under=90
-
-test-integration:
-	uv run pytest tests/integration/ -v
+	uv run pytest tests --cov=vllm_doctor --cov-report=term-missing --cov-fail-under=95
 
 lint:
 	uv run ruff check vllm_doctor tests
@@ -37,4 +34,4 @@ build:
 publish:
 	uv publish
 
-.PHONY: all setup test test-integration lint format demo docs docs-build build publish
+.PHONY: all setup test lint format demo docs docs-build build publish
