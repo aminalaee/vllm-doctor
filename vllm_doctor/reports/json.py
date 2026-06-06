@@ -4,8 +4,8 @@ from pydantic import BaseModel
 
 from vllm_doctor.metrics import METRIC_SPECS, MetricSeriesSnapshot, detect_replica_label
 from vllm_doctor.models import ClientMode, DiagnosisResult, Health, RuleResult
+from vllm_doctor.reports import SCRAPE_MODE_NOTICE
 
-_SCRAPE_MODE_NOTICE = "TTFT, TPOT and Queue Latency rules require Prometheus — connect to Prometheus for full analysis."
 _SCHEMA_VERSION = "1"
 
 
@@ -56,7 +56,7 @@ def render(result: DiagnosisResult, verbose: bool = False, compact: bool = False
             ),
         ),
         health=result.health,
-        notice=_SCRAPE_MODE_NOTICE if result.context.client_mode == ClientMode.scrape else None,
+        notice=SCRAPE_MODE_NOTICE if result.context.client_mode == ClientMode.scrape else None,
         checks=result.checks,
         metrics=_structured_metrics(result.metric_series),
     )

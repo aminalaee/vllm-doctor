@@ -8,6 +8,7 @@ from rich.text import Text
 
 from vllm_doctor.metrics import METRIC_SPECS, detect_replica_label
 from vllm_doctor.models import ClientMode, DiagnosisResult, Finding, Health, Severity
+from vllm_doctor.reports import SCRAPE_MODE_NOTICE
 
 _SEVERITY_COLOR = {
     Severity.critical: "red",
@@ -191,12 +192,7 @@ def build(result: DiagnosisResult, verbose: bool = False) -> Group:
         items += [_matrix_table(result), Text()]
 
     if result.context.client_mode == ClientMode.scrape:
-        items.append(
-            Text(
-                "⚠ TTFT, TPOT and Queue Latency rules require Prometheus — connect to Prometheus for full analysis.",
-                style="dim yellow",
-            )
-        )
+        items.append(Text(f"⚠ {SCRAPE_MODE_NOTICE}", style="dim yellow"))
         items.append(Text())
 
     if verbose:

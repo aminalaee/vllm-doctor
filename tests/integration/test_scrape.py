@@ -19,6 +19,18 @@ from vllm_doctor.rules.ttft_bottleneck import TTFTBottleneckRule
 METRICS_URL = "http://localhost:8000/metrics"
 
 
+def _vllm_metrics_available() -> bool:
+    try:
+        response = httpx.get(METRICS_URL, timeout=2.0)
+    except httpx.HTTPError:
+        return False
+    return response.status_code == 200 and "vllm:" in response.text
+
+
+if not _vllm_metrics_available():
+    pytest.skip(f"no vLLM metrics endpoint at {METRICS_URL}", allow_module_level=True)
+
+
 @pytest.fixture
 async def client() -> ScrapeClient:
     c = await resolve_client(METRICS_URL)
