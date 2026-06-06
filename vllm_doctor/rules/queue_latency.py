@@ -17,22 +17,20 @@ Confidence:
 """
 
 import math
-from typing import TYPE_CHECKING
 
+from vllm_doctor.config import QueueLatencyConfig
 from vllm_doctor.metrics import MetricSeriesSnapshot
 from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
-if TYPE_CHECKING:
-    from vllm_doctor.config import RulesConfig
-_DEFAULT_HIGH_QUEUE_TIME_P95 = 1.0
 
-
-class QueueLatencyRule(Rule):
+class QueueLatencyRule(Rule[QueueLatencyConfig]):
     id = "queue_latency"
     name = "Queue Latency"
     title = "High queue latency"
     severity = Severity.warning
+    config_attr = "queue_latency"
+    config_cls = QueueLatencyConfig
     likely_causes = [
         "Insufficient replica capacity for current request rate",
         "Long-context requests blocking admission of new sequences",
@@ -47,19 +45,12 @@ class QueueLatencyRule(Rule):
     ]
     related_metrics = ["vllm:request_queue_time_seconds", "vllm:num_requests_waiting"]
 
-    def __init__(self, high_queue_time_p95: float = _DEFAULT_HIGH_QUEUE_TIME_P95) -> None:
-        self.high_queue_time_p95 = high_queue_time_p95
-
-    @classmethod
-    def from_config(cls, config: "RulesConfig") -> "QueueLatencyRule":
-        return cls(high_queue_time_p95=config.queue_latency.high_queue_time_p95)
-
     def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
         queue_time = metrics.queue_time_p95_seconds.value()
-        if queue_time is None or not math.isfinite(queue_time) or queue_time < self.high_queue_time_p95:
+        if queue_time is None or not math.isfinite(queue_time) or queue_time < self.cfg.high_queue_time_p95:
             return None
 
-        evidence = [f"Queue time p95: {queue_time:.3f}s (threshold: {self.high_queue_time_p95}s)"]
+        evidence = [f"Queue time p95: {queue_time:.3f}s (threshold: {self.cfg.high_queue_time_p95}s)"]
         signals: list[str] = []
 
         waiting = metrics.num_requests_waiting.value()

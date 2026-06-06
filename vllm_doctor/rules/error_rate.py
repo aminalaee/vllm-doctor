@@ -19,24 +19,19 @@ Confidence:
   both high                            → high
 """
 
-from typing import TYPE_CHECKING
-
+from vllm_doctor.config import ErrorRateConfig
 from vllm_doctor.metrics import MetricSeriesSnapshot
 from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
-if TYPE_CHECKING:
-    from vllm_doctor.config import RulesConfig
 
-DEFAULT_HIGH_ERROR_RATE = 0.05
-DEFAULT_HIGH_ABORT_RATE = 0.10
-
-
-class ErrorRateRule(Rule):
+class ErrorRateRule(Rule[ErrorRateConfig]):
     id = "error_rate"
     name = "Error Rate"
     title = "Elevated error rate"
     severity = Severity.warning  # overridden to critical when errors_high
+    config_attr = "error_rate"
+    config_cls = ErrorRateConfig
     likely_causes = [
         "Server-side OOM or internal errors under high load",
         "Requests exceeding timeout limits causing client aborts",
@@ -50,18 +45,6 @@ class ErrorRateRule(Rule):
         "Reduce load or add replicas if errors correlate with traffic spikes",
     ]
     related_metrics = ["vllm:request_success_total"]
-
-    def __init__(
-        self,
-        high_error_rate: float = DEFAULT_HIGH_ERROR_RATE,
-        high_abort_rate: float = DEFAULT_HIGH_ABORT_RATE,
-    ) -> None:
-        self.high_error_rate = high_error_rate
-        self.high_abort_rate = high_abort_rate
-
-    @classmethod
-    def from_config(cls, config: "RulesConfig") -> "ErrorRateRule":
-        return cls(high_error_rate=config.error_rate.high_error_rate, high_abort_rate=config.error_rate.high_abort_rate)
 
     def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
         errors = metrics.request_error_total.value()
@@ -78,8 +61,8 @@ class ErrorRateRule(Rule):
         error_rate = (errors or 0.0) / total
         abort_rate = (aborts or 0.0) / total
 
-        errors_high = error_rate >= self.high_error_rate
-        aborts_high = abort_rate >= self.high_abort_rate
+        errors_high = error_rate >= self.cfg.high_error_rate
+        aborts_high = abort_rate >= self.cfg.high_abort_rate
 
         if not errors_high and not aborts_high:
             return None
@@ -91,13 +74,13 @@ class ErrorRateRule(Rule):
             signals.append("Elevated server-side error rate")
             evidence.append(
                 f"Error rate: {error_rate:.1%} ({errors:.0f} errors out of {total:.0f} requests, "
-                f"threshold: {self.high_error_rate:.1%})"
+                f"threshold: {self.cfg.high_error_rate:.1%})"
             )
         if aborts_high:
             signals.append("Elevated client abort rate — clients disconnecting before response")
             evidence.append(
                 f"Abort rate: {abort_rate:.1%} ({aborts:.0f} aborts out of {total:.0f} requests, "
-                f"threshold: {self.high_abort_rate:.1%})"
+                f"threshold: {self.cfg.high_abort_rate:.1%})"
             )
 
         return FindingData(

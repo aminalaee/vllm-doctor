@@ -13,23 +13,21 @@ Confidence:
   otherwise                     → medium
 """
 
-from typing import TYPE_CHECKING
-
+from vllm_doctor.config import PrefixCacheEfficiencyConfig
 from vllm_doctor.metrics import MetricSeriesSnapshot
 from vllm_doctor.models import Confidence, FindingData, Severity
 from vllm_doctor.rules.base import Rule
 
-if TYPE_CHECKING:
-    from vllm_doctor.config import RulesConfig
-_DEFAULT_MIN_HIT_RATE = 0.5
 _HIGH_CONFIDENCE_MAX_RATE = 0.2
 
 
-class PrefixCacheEfficiencyRule(Rule):
+class PrefixCacheEfficiencyRule(Rule[PrefixCacheEfficiencyConfig]):
     id = "prefix_cache_efficiency"
     name = "Prefix Cache Efficiency"
     title = "Low prefix cache hit rate"
     severity = Severity.warning
+    config_attr = "prefix_cache_efficiency"
+    config_cls = PrefixCacheEfficiencyConfig
     likely_causes = [
         "Requests do not share common prefixes (system prompts, few-shot examples)",
         "Prefix caching not enabled (--enable-prefix-caching not set)",
@@ -42,16 +40,9 @@ class PrefixCacheEfficiencyRule(Rule):
     ]
     related_metrics = ["vllm:prefix_cache_hits_total", "vllm:prefix_cache_queries_total"]
 
-    def __init__(self, min_hit_rate: float = _DEFAULT_MIN_HIT_RATE) -> None:
-        self.min_hit_rate = min_hit_rate
-
-    @classmethod
-    def from_config(cls, config: "RulesConfig") -> "PrefixCacheEfficiencyRule":
-        return cls(min_hit_rate=config.prefix_cache_efficiency.min_hit_rate)
-
     def run(self, metrics: MetricSeriesSnapshot) -> FindingData | None:
         hit_rate = metrics.prefix_cache_hit_rate.value()
-        if hit_rate is None or hit_rate >= self.min_hit_rate:
+        if hit_rate is None or hit_rate >= self.cfg.min_hit_rate:
             return None
 
         return FindingData(
