@@ -34,6 +34,7 @@ nav:
       - High TTFT: "rules/ttft-bottleneck.md"
       - High TPOT: "rules/tpot-bottleneck.md"
       - Prefix Cache Efficiency: "rules/prefix-cache-efficiency.md"
+      - Replica Imbalance: "rules/replica-imbalance.md"
   - Configuration: "configuration.md"
   - Metrics: "metrics.md"
   - JSON Output: "json-output.md"
