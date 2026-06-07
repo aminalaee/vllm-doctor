@@ -47,6 +47,11 @@ low_gen_tokens_per_sec = 50.0      # corroborating signal
 
 [rules.prefix_cache_efficiency]
 min_hit_rate = 0.50         # fraction (0.0–1.0)
+
+[rules.replica_imbalance]
+imbalance_factor = 2.0      # busiest / least-busy running ratio
+cache_gap = 0.30            # kv cache usage max − min (fraction)
+min_total_running = 5.0     # minimum total running load before the running signal fires
 ```
 
 ## Partial config

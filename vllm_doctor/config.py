@@ -62,6 +62,12 @@ class PrefixCacheEfficiencyConfig(_StrictModel):
     min_hit_rate: float = 0.50
 
 
+class ReplicaImbalanceConfig(_StrictModel):
+    imbalance_factor: float = 2.0
+    cache_gap: float = 0.30
+    min_total_running: float = 5.0
+
+
 class RulesConfig(_StrictModel):
     queue_pressure: QueuePressureConfig = QueuePressureConfig()
     queue_latency: QueueLatencyConfig = QueueLatencyConfig()
@@ -72,6 +78,7 @@ class RulesConfig(_StrictModel):
     ttft_bottleneck: TTFTBottleneckConfig = TTFTBottleneckConfig()
     tpot_bottleneck: TPOTBottleneckConfig = TPOTBottleneckConfig()
     prefix_cache_efficiency: PrefixCacheEfficiencyConfig = PrefixCacheEfficiencyConfig()
+    replica_imbalance: ReplicaImbalanceConfig = ReplicaImbalanceConfig()
 
 
 class Config(_StrictModel):
