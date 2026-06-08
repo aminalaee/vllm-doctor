@@ -79,3 +79,8 @@ class TestLoadConfig:
 
     def test_full_config_prefix_cache_efficiency(self, full_config):
         assert full_config.rules.prefix_cache_efficiency.min_hit_rate == 0.70
+
+    def test_full_config_replica_imbalance(self, full_config):
+        assert full_config.rules.replica_imbalance.imbalance_factor == 3.0
+        assert full_config.rules.replica_imbalance.cache_gap == 0.25
+        assert full_config.rules.replica_imbalance.min_total_running == 8.0

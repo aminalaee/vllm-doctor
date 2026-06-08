@@ -30,3 +30,8 @@ low_gen_tokens_per_sec = 30.0
 
 [rules.prefix_cache_efficiency]
 min_hit_rate = 0.70
+
+[rules.replica_imbalance]
+imbalance_factor = 3.0
+cache_gap = 0.25
+min_total_running = 8.0

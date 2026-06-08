@@ -23,6 +23,20 @@ Default JSON output:
   "notice": null,
   "checks": [
     {
+      "id": "replica_imbalance",
+      "name": "Replica Imbalance",
+      "finding": {
+        "severity": "warning",
+        "confidence": "high",
+        "title": "Replica imbalance",
+        "summary": "Load is unevenly distributed across replicas — one replica is doing more work than its peers.",
+        "evidence": ["running vllm-1=10 vs vllm-0=2; cache 94% vs 41%; waiting vllm-1=7 vs vllm-0=0"],
+        "likely_causes": ["Load balancer not distributing requests evenly (sticky sessions or connection reuse)"],
+        "recommendations": ["Check the load balancer / service routing and session affinity settings"],
+        "related_metrics": ["vllm:num_requests_running"]
+      }
+    },
+    {
       "id": "queue_pressure",
       "name": "Queue Pressure",
       "finding": {
@@ -39,6 +53,8 @@ Default JSON output:
   ]
 }
 ```
+
+When several deployments share one Prometheus target, replica imbalance evidence is prefixed with the model, e.g. `"llama-70b: running vllm-1=10 vs vllm-0=2"`, and a separate line is emitted per affected model.
 
 Verbose JSON includes observed metrics:
 
