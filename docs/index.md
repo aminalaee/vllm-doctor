@@ -9,7 +9,7 @@ Diagnose vLLM server bottlenecks from live metrics.
 vLLM Doctor reads vLLM server metrics and turns them into diagnostic findings: what looks unhealthy, why it may be happening, and which vLLM settings are worth checking first.
 
 ```shell
-vllm-doctor --url http://localhost:8000/metrics
+vllm-doctor http://localhost:8000/metrics
 ```
 
 !!! note "Built for incident context"
@@ -52,7 +52,7 @@ Used together, GuideLLM can create or replay load while vLLM Doctor helps explai
 === "Direct scrape"
 
     ```shell
-    vllm-doctor --url http://localhost:8000/metrics
+    vllm-doctor http://localhost:8000/metrics
     ```
 
     !!! note
@@ -61,21 +61,24 @@ Used together, GuideLLM can create or replay load while vLLM Doctor helps explai
 === "Prometheus"
 
     ```shell
-    vllm-doctor --url http://localhost:9090
+    vllm-doctor http://localhost:9090
     ```
 
 ## Options
 
 ```
-Usage: vllm-doctor [OPTIONS]
+Usage: vllm-doctor [OPTIONS] URL
+
+Arguments:
+  URL                         vLLM /metrics or Prometheus URL to diagnose.  [required]
 
 Options:
-  -u, --url      TEXT         URL to diagnose (vLLM /metrics or Prometheus).  [required]
   -s, --since    TEXT         Time window (e.g. '1h', '30m', 'now').  [default: now]
   -w, --watch                 Refresh continuously every 5s (pipe through `watch -n N` for a different interval).
   -o, --output   [text|json]  Output format.  [default: text]
   -v, --verbose               Show additional diagnostic detail.
   -c, --config   PATH         Path to config file (default: vllm-doctor.toml).
+      --version               Show version and exit.
       --help                  Show this message and exit.
 ```
 

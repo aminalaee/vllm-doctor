@@ -5,7 +5,7 @@ Usage:
     python scripts/serve_metrics.py tests/fixtures/prometheus/demo.json --port 9090
 
 Then in another terminal:
-    vllm-doctor --url http://localhost:8000 --verbose
+    vllm-doctor http://localhost:8000 --verbose
 """
 
 import http.server
@@ -61,7 +61,7 @@ def main(
     server = http.server.HTTPServer(("", port), Handler)
     url = f"http://localhost:{port}" if prometheus_fixture is not None else f"http://localhost:{port}/metrics"
     typer.echo(f"Serving {fixture} on {url}")
-    typer.echo(f"Run: vllm-doctor --url {url} --verbose")
+    typer.echo(f"Run: vllm-doctor {url} --verbose")
     typer.echo("Press Ctrl+C to stop.")
     try:
         server.serve_forever()
