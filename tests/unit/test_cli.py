@@ -82,6 +82,20 @@ class TestCLI:
         assert "could not read metrics" in result.output
         assert "Traceback" not in result.output
 
+    def test_model_flag_sets_target(
+        self,
+        runner: CliRunner,
+        scrape_client: ScrapeClient,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        async def fake_resolve(url: str, **_: object) -> ScrapeClient:
+            return scrape_client
+
+        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
+        result = runner.invoke(app, ["http://localhost:8000/metrics", "--model", "llama-70b", "--output", "json"])
+        assert result.exit_code == 0
+        assert json.loads(result.output)["metadata"]["target"]["model_name"] == "llama-70b"
+
     def test_watch_loop_runs(
         self,
         runner: CliRunner,

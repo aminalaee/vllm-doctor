@@ -74,6 +74,7 @@ Arguments:
 
 Options:
   -s, --since    TEXT         Time window (e.g. '1h', '30m', 'now').  [default: now]
+  -m, --model    TEXT         Filter metrics by model_name label (for a target serving several models).
   -w, --watch                 Refresh continuously every 5s (pipe through `watch -n N` for a different interval).
   -o, --output   [text|json]  Output format.  [default: text]
   -v, --verbose               Show additional diagnostic detail.

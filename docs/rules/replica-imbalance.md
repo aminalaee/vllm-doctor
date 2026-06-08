@@ -55,4 +55,3 @@ min_total_running = 5.0    # minimum total running load before the running signa
 
 - Requires per-replica labels in the metrics (e.g. `pod`, `instance`, `host`). In direct scrape mode against a single endpoint there is only one replica, so this rule does not fire — use a Prometheus target that scrapes all replicas.
 - Latency imbalance (TTFT, TPOT, queue time) is not detected: those percentiles are returned as a single aggregate value, not per replica.
-- Two separate deployments serving the **same** `model_name` (e.g. canary + prod) are grouped together and may report a false imbalance. Filter to one with a future `--model` flag or distinguish them by a deployment label.

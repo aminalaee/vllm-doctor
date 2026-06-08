@@ -60,20 +60,23 @@ async def _watch_loop(
     rules: list[Rule],
     since: str,
     render: Callable[[DiagnosisResult], None],
+    model: str | None = None,
 ) -> None:
     while True:
-        result = await _diagnose(client, rules, since)
+        result = await _diagnose(client, rules, since, model)
         render(result)
         await asyncio.sleep(_WATCH_INTERVAL_SECONDS)
 
 
-async def _run(url: str, since: str, output: Format, verbose: bool, watch: bool, config: Config) -> None:
+async def _run(
+    url: str, since: str, output: Format, verbose: bool, watch: bool, config: Config, model: str | None = None
+) -> None:
     rules = build_rules(config.rules)
     console = Console()
 
     async with await resolve_client(url) as client:
         if not watch:
-            result = await _diagnose(client, rules, since)
+            result = await _diagnose(client, rules, since, model)
             if output == Format.json:
                 typer.echo(json_report.render(result, verbose=verbose))
             else:
@@ -83,7 +86,7 @@ async def _run(url: str, since: str, output: Format, verbose: bool, watch: bool,
             def render_json(r: DiagnosisResult) -> None:
                 typer.echo(json_report.render(r, verbose=verbose, compact=True))
 
-            await _watch_loop(client, rules, since, render_json)
+            await _watch_loop(client, rules, since, render_json, model)
         else:
             with Live("", console=console, auto_refresh=False) as live_display:
 
@@ -91,7 +94,7 @@ async def _run(url: str, since: str, output: Format, verbose: bool, watch: bool,
                     live_display.update(text_report.build(r, verbose=verbose))
                     live_display.refresh()
 
-                await _watch_loop(client, rules, since, render_text)
+                await _watch_loop(client, rules, since, render_text, model)
 
 
 @app.command()
@@ -102,6 +105,9 @@ def main(
         help="vLLM /metrics or Prometheus URL to diagnose (e.g. http://host:8000/metrics or http://host:9090).",
     ),
     since: str = typer.Option("now", "--since", "-s", help="Time window (e.g. '1h', '30m', 'now')."),
+    model: str | None = typer.Option(
+        None, "--model", "-m", help="Filter metrics by model_name label (for a target serving several models)."
+    ),
     watch: bool = typer.Option(
         False,
         "--watch",
@@ -123,7 +129,7 @@ def main(
 ) -> None:
     try:
         config = load_config(config_path)
-        asyncio.run(_run(url, since, output, verbose, watch, config))
+        asyncio.run(_run(url, since, output, verbose, watch, config, model))
     except KeyboardInterrupt:
         pass
     except (ClientError, httpx.HTTPError) as e:
