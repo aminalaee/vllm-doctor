@@ -1,55 +1,283 @@
 {
   "vllm:num_requests_running": [
-    {"metric": {"pod": "vllm-0"}, "value": [1234567890, "2"]},
-    {"metric": {"pod": "vllm-1"}, "value": [1234567890, "10"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "2"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "10"
+      ]
+    }
   ],
   "vllm:num_requests_waiting": [
-    {"metric": {"pod": "vllm-0"}, "value": [1234567890, "0"]},
-    {"metric": {"pod": "vllm-1"}, "value": [1234567890, "7"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "7"
+      ]
+    }
   ],
   "vllm:kv_cache_usage_perc": [
-    {"metric": {"pod": "vllm-0"}, "value": [1234567890, "0.41"]},
-    {"metric": {"pod": "vllm-1"}, "value": [1234567890, "0.94"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0.41"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0.94"
+      ]
+    }
   ],
   "vllm:prompt_tokens_per_second": [
-    {"metric": {"pod": "vllm-0"}, "value": [1234567890, "310"]},
-    {"metric": {"pod": "vllm-1"}, "value": [1234567890, "80"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "310"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "80"
+      ]
+    }
   ],
   "vllm:generation_tokens_per_second": [
-    {"metric": {"pod": "vllm-0"}, "value": [1234567890, "210"]},
-    {"metric": {"pod": "vllm-1"}, "value": [1234567890, "42"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "210"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "42"
+      ]
+    }
   ],
   "vllm:request_success_total{finished_reason=\"stop\"}": [
-    {"metric": {"pod": "vllm-0", "finished_reason": "stop"}, "value": [1234567890, "84"]},
-    {"metric": {"pod": "vllm-1", "finished_reason": "stop"}, "value": [1234567890, "30"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "finished_reason": "stop",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "84"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "finished_reason": "stop",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "30"
+      ]
+    }
   ],
   "vllm:request_success_total{finished_reason=\"error\"}": [
-    {"metric": {"pod": "vllm-0", "finished_reason": "error"}, "value": [1234567890, "0"]},
-    {"metric": {"pod": "vllm-1", "finished_reason": "error"}, "value": [1234567890, "0"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "finished_reason": "error",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "finished_reason": "error",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0"
+      ]
+    }
   ],
   "vllm:request_success_total{finished_reason=\"abort\"}": [
-    {"metric": {"pod": "vllm-0", "finished_reason": "abort"}, "value": [1234567890, "0"]},
-    {"metric": {"pod": "vllm-1", "finished_reason": "abort"}, "value": [1234567890, "0"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "finished_reason": "abort",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "finished_reason": "abort",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0"
+      ]
+    }
   ],
   "vllm:time_to_first_token_seconds_bucket": [
-    {"metric": {}, "value": [1234567890, "3.2"]}
+    {
+      "metric": {
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "3.2"
+      ]
+    }
   ],
   "vllm:request_time_per_output_token_seconds_bucket": [
-    {"metric": {}, "value": [1234567890, "0.05"]}
+    {
+      "metric": {
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0.05"
+      ]
+    }
   ],
   "vllm:request_queue_time_seconds_bucket": [
-    {"metric": {}, "value": [1234567890, "0.8"]}
+    {
+      "metric": {
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0.8"
+      ]
+    }
   ],
   "vllm:num_preemptions_total": [
-    {"metric": {"pod": "vllm-0"}, "value": [1234567890, "0"]},
-    {"metric": {"pod": "vllm-1"}, "value": [1234567890, "0"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "0"
+      ]
+    }
   ],
   "vllm:prefix_cache_hits_total": [
-    {"metric": {"pod": "vllm-0"}, "value": [1234567890, "20"]},
-    {"metric": {"pod": "vllm-1"}, "value": [1234567890, "5"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "20"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "5"
+      ]
+    }
   ],
   "vllm:prefix_cache_queries_total": [
-    {"metric": {"pod": "vllm-0"}, "value": [1234567890, "40"]},
-    {"metric": {"pod": "vllm-1"}, "value": [1234567890, "10"]}
+    {
+      "metric": {
+        "pod": "vllm-0",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "40"
+      ]
+    },
+    {
+      "metric": {
+        "pod": "vllm-1",
+        "model_name": "meta-llama/Llama-3.1-8B"
+      },
+      "value": [
+        1234567890,
+        "10"
+      ]
+    }
   ]
 }
