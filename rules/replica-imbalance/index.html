@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://aminalaee.github.io/vllm-doctor/rules/low-throughput/">
+        <link rel="canonical" href="https://aminalaee.github.io/vllm-doctor/rules/replica-imbalance/">
       
       
-        <link rel="prev" href="../preemption-pressure/">
+        <link rel="prev" href="../prefix-cache-efficiency/">
       
       
-        <link rel="next" href="../error-rate/">
+        <link rel="next" href="../../configuration/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Low Throughput - vLLM Doctor</title>
+        <title>Replica Imbalance - vLLM Doctor</title>
       
     
     
@@ -83,7 +83,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#low-throughput" class="md-skip">
+        <a href="#replica-imbalance" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +118,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Low Throughput
+              Replica Imbalance
             
           </span>
         </div>
@@ -414,36 +414,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Low Throughput
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../low-throughput/" class="md-nav__link">
         
   
   
@@ -458,104 +432,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#background" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Background
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#signals" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Signals
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#confidence" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Confidence
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#likely-causes" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Likely causes
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#recommendations" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Recommendations
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#metrics-used" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Metrics used
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Configuration
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -673,10 +549,36 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../replica-imbalance/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Replica Imbalance
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -691,6 +593,104 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#signals" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Signals
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#confidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Confidence
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#likely-causes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Likely causes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommendations" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Recommendations
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#metrics-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Metrics used
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Configuration
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Notes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -848,17 +848,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#background" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Background
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#signals" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -924,6 +913,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Notes
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -942,11 +942,11 @@
   
 
 
-<h1 id="low-throughput">Low Throughput</h1>
-<p>Detects when the server is processing requests below expected throughput with no queue pressure.</p>
-<h2 id="background">Background</h2>
-<p>Low throughput with an empty queue means the server is underutilized — not overloaded. This is distinct from queue pressure, where low throughput is caused by saturation. Here, the server has capacity but is not using it, typically due to low incoming load, poor batching, or misconfigured concurrency limits.</p>
+<h1 id="replica-imbalance">Replica Imbalance</h1>
+<p>Detects when load is unevenly distributed across the replicas of a deployment — one replica overloaded while its peers sit idle. This points at the routing layer rather than the model: an uneven load balancer, an unready replica receiving no traffic, or long-context requests pinned to a subset of pods.</p>
+<p>Because one vLLM deployment serves one model, replicas are grouped by the <code>model_name</code> label and compared only against peers serving the same model. This keeps the comparison correct on a shared Prometheus that scrapes several deployments. A group with a single replica is skipped — there is nothing to compare.</p>
 <h2 id="signals">Signals</h2>
+<p>Each signal is evaluated per model group.</p>
 <table>
 <thead>
 <tr>
@@ -956,20 +956,19 @@
 </thead>
 <tbody>
 <tr>
-<td>Prefill throughput low</td>
-<td><code>prompt_tokens_per_second &lt; 10</code> (default)</td>
+<td>Running spread</td>
+<td>busiest replica handles <code>&gt;= imbalance_factor x</code> the least busy (default <code>2x</code>), gated by <code>num_requests_running</code> summing to at least <code>min_total_running</code> (default <code>5</code>)</td>
 </tr>
 <tr>
-<td>Decode throughput low</td>
-<td><code>generation_tokens_per_second &lt; 50</code> (default)</td>
+<td>Cache gap</td>
+<td><code>kv_cache_usage_perc</code> max − min <code>&gt;= cache_gap</code> (default <code>0.30</code>)</td>
 </tr>
 <tr>
-<td>Very few active requests</td>
-<td><code>num_requests_running &lt; 2</code> (default)</td>
+<td>Waiting skew</td>
+<td>one replica has queued requests while another has none</td>
 </tr>
 </tbody>
 </table>
-<p>This rule is suppressed when <code>num_requests_waiting &gt; 0</code> — a queue means the low throughput is a capacity problem, not underutilization.</p>
 <h2 id="confidence">Confidence</h2>
 <table>
 <thead>
@@ -980,43 +979,51 @@
 </thead>
 <tbody>
 <tr>
-<td>Both prefill and decode low, or very few running</td>
+<td>1</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>2</td>
 <td>Medium</td>
 </tr>
 <tr>
-<td>Only one metric low</td>
-<td>Low</td>
+<td>3</td>
+<td>High</td>
 </tr>
 </tbody>
 </table>
 <h2 id="likely-causes">Likely causes</h2>
 <ul>
-<li>Low incoming request rate — server is idle</li>
-<li>Poor batching due to few concurrent requests</li>
-<li><code>max_num_seqs</code> or <code>max_num_batched_tokens</code> configured too conservatively for current load</li>
+<li>Load balancer not distributing requests evenly (sticky sessions or connection reuse)</li>
+<li>A replica is not Ready or recently restarted, so traffic skips it</li>
+<li>Long-context requests pinned to a subset of replicas</li>
+<li>Autoscaler added replicas that are not yet receiving traffic</li>
 </ul>
 <h2 id="recommendations">Recommendations</h2>
 <ul>
-<li>Increase concurrent requests to improve batching efficiency</li>
-<li>Review <code>max_num_seqs</code> and <code>max_num_batched_tokens</code> settings</li>
-<li>Compare against a benchmark baseline to confirm underperformance</li>
-<li>Consider consolidating replicas if load is consistently low</li>
+<li>Check the load balancer / service routing and session affinity settings</li>
+<li>Verify readiness probes — an unready replica receives no traffic</li>
+<li>Compare per-replica latency and restart any unhealthy replica</li>
+<li>Confirm newly added replicas are registered with the load balancer</li>
 </ul>
 <h2 id="metrics-used">Metrics used</h2>
 <ul>
-<li><code>vllm:prompt_tokens_per_second</code></li>
-<li><code>vllm:generation_tokens_per_second</code></li>
 <li><code>vllm:num_requests_running</code></li>
+<li><code>vllm:num_requests_waiting</code></li>
+<li><code>vllm:kv_cache_usage_perc</code></li>
 </ul>
 <h2 id="configuration">Configuration</h2>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">vllm_doctor.rules.low_throughput</span><span class="w"> </span><span class="kn">import</span> <span class="n">LowThroughputRule</span>
-
-<span class="n">rule</span> <span class="o">=</span> <span class="n">LowThroughputRule</span><span class="p">(</span>
-    <span class="n">low_prompt_tps</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span>    <span class="c1"># default: 10.0</span>
-    <span class="n">low_gen_tps</span><span class="o">=</span><span class="mf">100.0</span><span class="p">,</span>      <span class="c1"># default: 50.0</span>
-    <span class="n">low_running</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>          <span class="c1"># default: 2</span>
-<span class="p">)</span>
+<div class="highlight"><pre><span></span><code><span class="k">[rules.replica_imbalance]</span>
+<span class="n">imbalance_factor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">2.0</span><span class="w">     </span><span class="c1"># busiest / least-busy running ratio</span>
+<span class="n">cache_gap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.30</span><span class="w">           </span><span class="c1"># kv cache usage max − min (fraction)</span>
+<span class="n">min_total_running</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">5.0</span><span class="w">    </span><span class="c1"># minimum total running load before the running signal fires</span>
 </code></pre></div>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>Requires per-replica labels in the metrics (e.g. <code>pod</code>, <code>instance</code>, <code>host</code>). In direct scrape mode against a single endpoint there is only one replica, so this rule does not fire — use a Prometheus target that scrapes all replicas.</li>
+<li>Latency imbalance (TTFT, TPOT, queue time) is not detected: those percentiles are returned as a single aggregate value, not per replica.</li>
+<li>Two separate deployments serving the <strong>same</strong> <code>model_name</code> (e.g. canary + prod) are grouped together and may report a false imbalance. Filter to one with a future <code>--model</code> flag or distinguish them by a deployment label.</li>
+</ul>
 
 
 

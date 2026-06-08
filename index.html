@@ -348,10 +348,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example-output" class="md-nav__link">
+  <a href="#example-verbose-output" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Example output
+        Example verbose output
       </span>
     </span>
   </a>
@@ -654,6 +654,33 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./rules/replica-imbalance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Replica Imbalance
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -702,6 +729,32 @@
     
   
   Metrics
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./json-output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON Output
 
     
   </span>
@@ -835,10 +888,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#example-output" class="md-nav__link">
+  <a href="#example-verbose-output" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Example output
+        Example verbose output
       </span>
     </span>
   </a>
@@ -868,7 +921,7 @@
 <p>Diagnose vLLM server bottlenecks from live metrics.</p>
 <p><img alt="vllm-doctor demo" src="demo.png" /></p>
 <p>vLLM Doctor reads vLLM server metrics and turns them into diagnostic findings: what looks unhealthy, why it may be happening, and which vLLM settings are worth checking first.</p>
-<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:8000/metrics
+<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>http://localhost:8000/metrics
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Built for incident context</p>
@@ -932,7 +985,7 @@
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Direct scrape</label><label for="__tabbed_2_2">Prometheus</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:8000/metrics
+<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>http://localhost:8000/metrics
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -940,53 +993,102 @@
 </div>
 </div>
 <div class="tabbed-block">
-<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>--url<span class="w"> </span>http://localhost:9090
+<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>http://localhost:9090
 </code></pre></div>
 </div>
 </div>
 </div>
 <h2 id="options">Options</h2>
-<div class="highlight"><pre><span></span><code>Usage: vllm-doctor [OPTIONS]
+<div class="highlight"><pre><span></span><code>Usage: vllm-doctor [OPTIONS] URL
+
+Arguments:
+  URL                         vLLM /metrics or Prometheus URL to diagnose.  [required]
 
 Options:
-  -u, --url      TEXT         URL to diagnose (vLLM /metrics or Prometheus).  [required]
-  -w, --window   TEXT         Time window (e.g. &#39;1h&#39;, &#39;30m&#39;, &#39;now&#39;).  [default: now]
-  -f, --format   [text|json]  Output format.  [default: text]
+  -s, --since    TEXT         Time window (e.g. &#39;1h&#39;, &#39;30m&#39;, &#39;now&#39;).  [default: now]
+  -w, --watch                 Refresh continuously every 5s (pipe through `watch -n N` for a different interval).
+  -o, --output   [text|json]  Output format.  [default: text]
   -v, --verbose               Show additional diagnostic detail.
-  -l, --live     INTEGER      Refresh interval in seconds (e.g. --live 10).
   -c, --config   PATH         Path to config file (default: vllm-doctor.toml).
+      --version               Show version and exit.
       --help                  Show this message and exit.
 </code></pre></div>
-<h2 id="example-output">Example output</h2>
-<div class="highlight"><pre><span></span><code>───────────<span class="w"> </span>vLLM<span class="w"> </span>Doctor<span class="w">  </span>·<span class="w">  </span>Health:<span class="w"> </span>CRITICAL<span class="w">  </span>·<span class="w">  </span>Window:<span class="w"> </span>5m<span class="w"> </span>────────────
+<h2 id="example-verbose-output">Example verbose output</h2>
+<div class="highlight"><pre><span></span><code>───────────────────────────────────<span class="w"> </span>vLLM<span class="w"> </span>Doctor<span class="w">  </span>·<span class="w">  </span>Health:<span class="w"> </span>CRITICAL<span class="w">  </span>·<span class="w">  </span>Since:<span class="w"> </span>now<span class="w"> </span>────────────────────────────────────
 
-╭─<span class="w"> </span>⚠<span class="w"> </span>Queue<span class="w"> </span>pressure<span class="w">  </span><span class="o">[</span>low<span class="w"> </span>confidence<span class="o">]</span><span class="w"> </span>─────────────────────────────────╮
-│<span class="w">   </span>Waiting<span class="w"> </span>requests:<span class="w"> </span><span class="m">7</span><span class="w">                                                </span>│
-│<span class="w">                                                                      </span>│
-│<span class="w">   </span>→<span class="w"> </span>Add<span class="w"> </span>replicas<span class="w"> </span>or<span class="w"> </span>increase<span class="w"> </span>concurrency<span class="w"> </span>limits<span class="w">                      </span>│
-│<span class="w">   </span>→<span class="w"> </span>Inspect<span class="w"> </span>autoscaling<span class="w"> </span>thresholds<span class="w">                                   </span>│
-╰──────────────────────────────────────────────────────────────────────╯
-╭─<span class="w"> </span>✖<span class="w"> </span>KV<span class="w"> </span>cache<span class="w"> </span>pressure<span class="w">  </span><span class="o">[</span>high<span class="w"> </span>confidence<span class="o">]</span><span class="w"> </span>─────────────────────────────╮
-│<span class="w">   </span>GPU<span class="w"> </span>KV<span class="w"> </span>cache<span class="w"> </span>usage:<span class="w"> </span><span class="m">94</span>%<span class="w">  </span>·<span class="w">  </span>Waiting<span class="w"> </span>requests:<span class="w"> </span><span class="m">7</span><span class="w">                    </span>│
-│<span class="w">                                                                      </span>│
-│<span class="w">   </span>→<span class="w"> </span>Reduce<span class="w"> </span>max_num_seqs<span class="w"> </span>to<span class="w"> </span>limit<span class="w"> </span>concurrent<span class="w"> </span>sequences<span class="w">                </span>│
-│<span class="w">   </span>→<span class="w"> </span>Increase<span class="w"> </span>gpu_memory_utilization<span class="w"> </span><span class="k">if</span><span class="w"> </span>GPU<span class="w"> </span>memory<span class="w"> </span>headroom<span class="w"> </span>exists<span class="w">    </span>│
-╰──────────────────────────────────────────────────────────────────────╯
+╭─<span class="w"> </span>✖<span class="w"> </span>KV<span class="w"> </span>cache<span class="w"> </span>pressure<span class="w">  </span><span class="o">[</span>high<span class="w"> </span>confidence<span class="o">]</span><span class="w"> </span>─────────────────────────────────────────────────────────────────────────────╮
+│<span class="w">   </span>GPU<span class="w"> </span>KV<span class="w"> </span>cache<span class="w"> </span>usage:<span class="w"> </span><span class="m">94</span>%<span class="w"> </span><span class="o">(</span>threshold:<span class="w"> </span><span class="m">90</span>%<span class="o">)</span><span class="w">  </span>·<span class="w">  </span>Waiting<span class="w"> </span>requests:<span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="o">(</span>blocked<span class="w"> </span>by<span class="w"> </span>full<span class="w"> </span>cache<span class="o">)</span><span class="w">                           </span>│
+│<span class="w">                                                                                                                      </span>│
+│<span class="w">   </span>→<span class="w"> </span>Reduce<span class="w"> </span>max_num_seqs<span class="w"> </span>to<span class="w"> </span>limit<span class="w"> </span>concurrent<span class="w"> </span>sequences<span class="w">                                                                </span>│
+│<span class="w">   </span>→<span class="w"> </span>Reduce<span class="w"> </span>max_num_batched_tokens<span class="w"> </span>to<span class="w"> </span>cap<span class="w"> </span>memory<span class="w"> </span>per<span class="w"> </span>step<span class="w">                                                             </span>│
+│<span class="w">   </span>→<span class="w"> </span>Increase<span class="w"> </span>gpu_memory_utilization<span class="w"> </span><span class="k">if</span><span class="w"> </span>GPU<span class="w"> </span>memory<span class="w"> </span>headroom<span class="w"> </span>exists<span class="w">                                                    </span>│
+│<span class="w">   </span>→<span class="w"> </span>Route<span class="w"> </span>long-context<span class="w"> </span>requests<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>dedicated<span class="w"> </span>replica<span class="w">                                                               </span>│
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─<span class="w"> </span>⚠<span class="w"> </span>High<span class="w"> </span><span class="nb">time</span><span class="w"> </span>to<span class="w"> </span>first<span class="w"> </span>token<span class="w"> </span><span class="o">(</span>TTFT<span class="o">)</span><span class="w">  </span><span class="o">[</span>high<span class="w"> </span>confidence<span class="o">]</span><span class="w"> </span>───────────────────────────────────────────────────────────────╮
+│<span class="w">   </span>TTFT<span class="w"> </span>p95:<span class="w"> </span><span class="m">3</span>.200s<span class="w">  </span>·<span class="w">  </span>TPOT<span class="w"> </span>p95:<span class="w"> </span><span class="m">0</span>.050s<span class="w">  </span>·<span class="w">  </span>Waiting<span class="w"> </span>requests:<span class="w"> </span><span class="m">7</span><span class="w">                                                      </span>│
+│<span class="w">                                                                                                                      </span>│
+│<span class="w">   </span>→<span class="w"> </span>Enable<span class="w"> </span>or<span class="w"> </span>tune<span class="w"> </span>chunked<span class="w"> </span>prefill<span class="w"> </span><span class="o">(</span>--enable-chunked-prefill<span class="o">)</span><span class="w">                                                        </span>│
+│<span class="w">   </span>→<span class="w"> </span>Reduce<span class="w"> </span>max<span class="w"> </span>prompt<span class="w"> </span>length<span class="w"> </span>or<span class="w"> </span>filter<span class="w"> </span>long<span class="w"> </span>requests<span class="w">                                                                 </span>│
+│<span class="w">   </span>→<span class="w"> </span>Inspect<span class="w"> </span>queue<span class="w"> </span>depth<span class="w"> </span>—<span class="w"> </span>consider<span class="w"> </span>adding<span class="w"> </span>replicas<span class="w">                                                                   </span>│
+│<span class="w">   </span>→<span class="w"> </span>Separate<span class="w"> </span>long-context<span class="w"> </span>traffic<span class="w"> </span>to<span class="w"> </span>dedicated<span class="w"> </span>instances<span class="w">                                                             </span>│
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─<span class="w"> </span>⚠<span class="w"> </span>Replica<span class="w"> </span>imbalance<span class="w">  </span><span class="o">[</span>high<span class="w"> </span>confidence<span class="o">]</span><span class="w"> </span>─────────────────────────────────────────────────────────────────────────────╮
+│<span class="w">   </span>meta-llama/Llama-3.1-8B:<span class="w"> </span>running<span class="w"> </span>vllm-1<span class="o">=</span><span class="m">10</span><span class="w"> </span>vs<span class="w"> </span>vllm-0<span class="o">=</span><span class="m">2</span><span class="p">;</span><span class="w"> </span>cache<span class="w"> </span><span class="m">94</span>%<span class="w"> </span>vs<span class="w"> </span><span class="m">41</span>%<span class="p">;</span><span class="w"> </span>waiting<span class="w"> </span>vllm-1<span class="o">=</span><span class="m">7</span><span class="w"> </span>vs<span class="w"> </span>vllm-0<span class="o">=</span><span class="m">0</span><span class="w">             </span>│
+│<span class="w">                                                                                                                      </span>│
+│<span class="w">   </span>→<span class="w"> </span>Check<span class="w"> </span>the<span class="w"> </span>load<span class="w"> </span>balancer<span class="w"> </span>/<span class="w"> </span>service<span class="w"> </span>routing<span class="w"> </span>and<span class="w"> </span>session<span class="w"> </span>affinity<span class="w"> </span>settings<span class="w">                                          </span>│
+│<span class="w">   </span>→<span class="w"> </span>Verify<span class="w"> </span>readiness<span class="w"> </span>probes<span class="w"> </span>—<span class="w"> </span>an<span class="w"> </span>unready<span class="w"> </span>replica<span class="w"> </span>receives<span class="w"> </span>no<span class="w"> </span>traffic<span class="w">                                                 </span>│
+│<span class="w">   </span>→<span class="w"> </span>Compare<span class="w"> </span>per-replica<span class="w"> </span>latency<span class="w"> </span>and<span class="w"> </span>restart<span class="w"> </span>any<span class="w"> </span>unhealthy<span class="w"> </span>replica<span class="w">                                                    </span>│
+│<span class="w">   </span>→<span class="w"> </span>Confirm<span class="w"> </span>newly<span class="w"> </span>added<span class="w"> </span>replicas<span class="w"> </span>are<span class="w"> </span>registered<span class="w"> </span>with<span class="w"> </span>the<span class="w"> </span>load<span class="w"> </span>balancer<span class="w">                                               </span>│
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─<span class="w"> </span>⚠<span class="w"> </span>Queue<span class="w"> </span>pressure<span class="w">  </span><span class="o">[</span>low<span class="w"> </span>confidence<span class="o">]</span><span class="w"> </span>─────────────────────────────────────────────────────────────────────────────────╮
+│<span class="w">   </span>Waiting<span class="w"> </span>requests:<span class="w"> </span><span class="m">7</span><span class="w"> </span><span class="o">(</span>threshold:<span class="w"> </span><span class="m">5</span><span class="o">)</span><span class="w">                                                                                 </span>│
+│<span class="w">                                                                                                                      </span>│
+│<span class="w">   </span>→<span class="w"> </span>Add<span class="w"> </span>replicas<span class="w"> </span>or<span class="w"> </span>increase<span class="w"> </span>concurrency<span class="w"> </span>limits<span class="w">                                                                      </span>│
+│<span class="w">   </span>→<span class="w"> </span>Inspect<span class="w"> </span>autoscaling<span class="w"> </span>thresholds<span class="w">                                                                                   </span>│
+│<span class="w">   </span>→<span class="w"> </span>Separate<span class="w"> </span>long-context<span class="w"> </span>traffic<span class="w"> </span>to<span class="w"> </span>a<span class="w"> </span>dedicated<span class="w"> </span>replica<span class="w">                                                             </span>│
+│<span class="w">   </span>→<span class="w"> </span>Reduce<span class="w"> </span>incoming<span class="w"> </span>request<span class="w"> </span>rate<span class="w">                                                                                     </span>│
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
-<span class="w">  </span>Queue<span class="w"> </span>Pressure<span class="w">       </span>⚠<span class="w"> </span>warning<span class="w">     </span><span class="o">[</span>low<span class="o">]</span>
-<span class="w">  </span>KV<span class="w"> </span>Cache<span class="w"> </span>Pressure<span class="w">    </span>✖<span class="w"> </span>critical<span class="w">    </span><span class="o">[</span>high<span class="o">]</span>
-<span class="w">  </span>Low<span class="w"> </span>Throughput<span class="w">       </span>✓<span class="w"> </span>ok
-<span class="w">  </span>Error<span class="w"> </span>Rate<span class="w">           </span>✓<span class="w"> </span>ok
-<span class="w">  </span>High<span class="w"> </span>TTFT<span class="w">            </span>✓<span class="w"> </span>ok
+<span class="w">  </span>KV<span class="w"> </span>Cache<span class="w"> </span>Pressure<span class="w">          </span>✖<span class="w"> </span>critical<span class="w">    </span><span class="o">[</span>high<span class="o">]</span>
+<span class="w">  </span>High<span class="w"> </span>TTFT<span class="w">                  </span>⚠<span class="w"> </span>warning<span class="w">     </span><span class="o">[</span>high<span class="o">]</span>
+<span class="w">  </span>Replica<span class="w"> </span>Imbalance<span class="w">          </span>⚠<span class="w"> </span>warning<span class="w">     </span><span class="o">[</span>high<span class="o">]</span>
+<span class="w">  </span>Queue<span class="w"> </span>Pressure<span class="w">             </span>⚠<span class="w"> </span>warning<span class="w">     </span><span class="o">[</span>low<span class="o">]</span>
+<span class="w">  </span>Queue<span class="w"> </span>Latency<span class="w">              </span>✓<span class="w"> </span>ok
+<span class="w">  </span>Preemption<span class="w"> </span>Pressure<span class="w">        </span>✓<span class="w"> </span>ok
+<span class="w">  </span>Low<span class="w"> </span>Throughput<span class="w">             </span>✓<span class="w"> </span>ok
+<span class="w">  </span>Error<span class="w"> </span>Rate<span class="w">                 </span>✓<span class="w"> </span>ok
+<span class="w">  </span>High<span class="w"> </span>TPOT<span class="w">                  </span>✓<span class="w"> </span>ok
+<span class="w">  </span>Prefix<span class="w"> </span>Cache<span class="w"> </span>Efficiency<span class="w">    </span>✓<span class="w"> </span>ok
 
-───────────────────────────<span class="w"> </span>Observed<span class="w"> </span>Metrics<span class="w"> </span>───────────────────────────
+───────────────────────────────────────────────────<span class="w"> </span>Observed<span class="w"> </span>Metrics<span class="w"> </span>───────────────────────────────────────────────────
 
-<span class="w">  </span>Requests<span class="w"> </span>Running<span class="w">                             </span><span class="m">12</span>
-<span class="w">  </span>Requests<span class="w"> </span>Waiting<span class="w">                              </span><span class="m">7</span>
-<span class="w">  </span>GPU<span class="w"> </span>Cache<span class="w"> </span>Usage<span class="w">        </span>███████████████████░<span class="w"> </span><span class="m">94</span>%
-<span class="w">  </span>Decode<span class="w"> </span>Tokens/s<span class="w">                            </span><span class="m">42</span>.0
-<span class="w">  </span>TTFT<span class="w"> </span>p95<span class="w"> </span><span class="o">(</span>s<span class="o">)</span><span class="w">                              </span><span class="m">3</span>.200
-<span class="w">  </span>TPOT<span class="w"> </span>p95<span class="w"> </span><span class="o">(</span>s<span class="o">)</span><span class="w">                              </span><span class="m">0</span>.050
+<span class="w">  </span>Summary
+<span class="w">  </span>Requests<span class="w"> </span>Running<span class="w">                               </span><span class="m">12</span>
+<span class="w">  </span>Requests<span class="w"> </span>Waiting<span class="w">                                </span><span class="m">7</span>
+<span class="w">  </span>GPU<span class="w"> </span>Cache<span class="w"> </span>Usage<span class="w">          </span>███████████████████░<span class="w"> </span><span class="m">94</span>%
+<span class="w">  </span>Prefill<span class="w"> </span>Tokens/s<span class="w">                            </span><span class="m">390</span>.0
+<span class="w">  </span>Decode<span class="w"> </span>Tokens/s<span class="w">                             </span><span class="m">252</span>.0
+<span class="w">  </span>Requests<span class="w"> </span>Success<span class="w">                              </span><span class="m">114</span>
+<span class="w">  </span>Requests<span class="w"> </span>Error<span class="w">                                  </span><span class="m">0</span>
+<span class="w">  </span>Requests<span class="w"> </span>Aborted<span class="w">                                </span><span class="m">0</span>
+<span class="w">  </span>TTFT<span class="w"> </span>p95<span class="w"> </span><span class="o">(</span>s<span class="o">)</span><span class="w">                                </span><span class="m">3</span>.200
+<span class="w">  </span>TPOT<span class="w"> </span>p95<span class="w"> </span><span class="o">(</span>s<span class="o">)</span><span class="w">                                </span><span class="m">0</span>.050
+<span class="w">  </span>Queue<span class="w"> </span>Time<span class="w"> </span>p95<span class="w"> </span><span class="o">(</span>s<span class="o">)</span><span class="w">                          </span><span class="m">0</span>.800
+<span class="w">  </span>Preemptions<span class="w"> </span>Total<span class="w">                               </span><span class="m">0</span>
+<span class="w">  </span>Prefix<span class="w"> </span>Cache<span class="w"> </span>Hit<span class="w"> </span>Rate<span class="w">                         </span><span class="m">50</span>%
+
+───────────────────────────────────────────────<span class="w"> </span>Observed<span class="w"> </span>Metrics<span class="w"> </span>per<span class="w"> </span>pod<span class="w"> </span>───────────────────────────────────────────────
+
+<span class="w">                       </span>vllm-1<span class="w">    </span>vllm-0
+<span class="w">  </span>Requests<span class="w"> </span>Running<span class="w">         </span><span class="m">10</span><span class="w">         </span><span class="m">2</span>
+<span class="w">  </span>Requests<span class="w"> </span>Waiting<span class="w">          </span><span class="m">7</span><span class="w">         </span><span class="m">0</span>
+<span class="w">  </span>GPU<span class="w"> </span>Cache<span class="w"> </span>Usage<span class="w">         </span><span class="m">94</span>%<span class="w">       </span><span class="m">41</span>%
+<span class="w">  </span>Prefill<span class="w"> </span>Tokens/s<span class="w">       </span><span class="m">80</span>.0<span class="w">     </span><span class="m">310</span>.0
+<span class="w">  </span>Decode<span class="w"> </span>Tokens/s<span class="w">        </span><span class="m">42</span>.0<span class="w">     </span><span class="m">210</span>.0
+<span class="w">  </span>Requests<span class="w"> </span>Success<span class="w">         </span><span class="m">30</span><span class="w">        </span><span class="m">84</span>
+<span class="w">  </span>Requests<span class="w"> </span>Error<span class="w">            </span><span class="m">0</span><span class="w">         </span><span class="m">0</span>
+<span class="w">  </span>Requests<span class="w"> </span>Aborted<span class="w">          </span><span class="m">0</span><span class="w">         </span><span class="m">0</span>
+<span class="w">  </span>Preemptions<span class="w"> </span>Total<span class="w">         </span><span class="m">0</span><span class="w">         </span><span class="m">0</span>
 </code></pre></div>
 
 

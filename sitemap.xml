@@ -31,10 +31,16 @@
         <loc>https://aminalaee.github.io/vllm-doctor/rules/prefix-cache-efficiency/</loc>
       </url>
       <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/replica-imbalance/</loc>
+      </url>
+      <url>
         <loc>https://aminalaee.github.io/vllm-doctor/configuration/</loc>
       </url>
       <url>
         <loc>https://aminalaee.github.io/vllm-doctor/metrics/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/json-output/</loc>
       </url>
       <url>
         <loc>https://aminalaee.github.io/vllm-doctor/glossary/</loc>

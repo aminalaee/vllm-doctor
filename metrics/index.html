@@ -16,7 +16,7 @@
         <link rel="prev" href="../configuration/">
       
       
-        <link rel="next" href="../glossary/">
+        <link rel="next" href="../json-output/">
       
       
         
@@ -543,6 +543,33 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rules/replica-imbalance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Replica Imbalance
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -678,6 +705,32 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../json-output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  JSON Output
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -920,7 +973,7 @@
 <h2 id="notes">Notes</h2>
 <ul>
 <li>Metric names use colons (e.g. <code>vllm:num_requests_running</code>), not underscores. vLLM Doctor preserves the original names — no normalization.</li>
-<li>All metrics are per model instance. If multiple models are running, values are summed across instances unless filtered by <code>model_name</code> label.</li>
+<li>Metrics preserve labels internally. Reported scalar values use each metric's diagnostic aggregation: counts and throughput are summed, while utilization and percentile-style values use the highest observed value. Use the model filter to scope collection to one <code>model_name</code>.</li>
 <li>Latency histograms (<code>time_to_first_token_seconds</code>, <code>request_time_per_output_token_seconds</code>) require Prometheus mode — direct scrape mode returns <code>None</code> for these fields.</li>
 <li>Request counts by reason (<code>error</code>, <code>abort</code>) are derived from <code>vllm:request_success_total</code> filtered by the <code>finished_reason</code> label.</li>
 <li>Prefix cache hit rate is computed as <code>prefix_cache_hits_total / prefix_cache_queries_total</code>. It is <code>n/a</code> when no queries have been made.</li>
