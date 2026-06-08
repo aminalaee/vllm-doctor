@@ -96,11 +96,10 @@ async def _run(url: str, since: str, output: Format, verbose: bool, watch: bool,
 
 @app.command()
 def main(
-    url: str = typer.Option(
+    url: str = typer.Argument(
         ...,
-        "--url",
-        "-u",
-        help="URL to diagnose (e.g. http://host:8000/metrics or http://host:9090).",
+        metavar="URL",
+        help="vLLM /metrics or Prometheus URL to diagnose (e.g. http://host:8000/metrics or http://host:9090).",
     ),
     since: str = typer.Option("now", "--since", "-s", help="Time window (e.g. '1h', '30m', 'now')."),
     watch: bool = typer.Option(

@@ -46,7 +46,7 @@ class TestCLI:
             return scrape_client
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics"])
+        result = runner.invoke(app, ["http://localhost:8000/metrics"])
         assert result.exit_code == 0
         assert "OK" in result.output
 
@@ -77,7 +77,7 @@ class TestCLI:
             return unreachable
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics"])
+        result = runner.invoke(app, ["http://localhost:8000/metrics"])
         assert result.exit_code == 1
         assert "could not read metrics" in result.output
         assert "Traceback" not in result.output
@@ -96,7 +96,7 @@ class TestCLI:
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
         monkeypatch.setattr("vllm_doctor.cli.asyncio.sleep", fake_sleep)
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--watch"])
+        result = runner.invoke(app, ["http://localhost:8000/metrics", "--watch"])
         assert result.exit_code == 0
         assert "OK" in result.output
 
@@ -114,7 +114,7 @@ class TestCLI:
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
         monkeypatch.setattr("vllm_doctor.cli.asyncio.sleep", fake_sleep)
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "-w"])
+        result = runner.invoke(app, ["http://localhost:8000/metrics", "-w"])
         assert result.exit_code == 0
         assert "OK" in result.output
 
@@ -129,7 +129,7 @@ class TestCLI:
             return scrape_client
 
         monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        result = runner.invoke(app, ["--url", "http://localhost:8000/metrics", "--output", "json"])
+        result = runner.invoke(app, ["http://localhost:8000/metrics", "--output", "json"])
         assert result.exit_code == 0
 
         output = json.loads(result.output)
