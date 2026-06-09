@@ -337,6 +337,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#run-with-docker" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Run with Docker
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -877,6 +888,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#run-with-docker" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Run with Docker
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#options" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -998,6 +1020,11 @@
 </div>
 </div>
 </div>
+<h2 id="run-with-docker">Run with Docker</h2>
+<p>A prebuilt image is published to GitHub Container Registry:</p>
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>ghcr.io/aminalaee/vllm-doctor<span class="w"> </span>&lt;url&gt;
+</code></pre></div>
+<p><code>&lt;url&gt;</code> is your vLLM <code>/metrics</code> or Prometheus endpoint — the same argument the CLI takes — reachable from inside the container.</p>
 <h2 id="options">Options</h2>
 <div class="highlight"><pre><span></span><code>Usage: vllm-doctor [OPTIONS] URL
 
@@ -1006,6 +1033,7 @@ Arguments:
 
 Options:
   -s, --since    TEXT         Time window (e.g. &#39;1h&#39;, &#39;30m&#39;, &#39;now&#39;).  [default: now]
+  -m, --model    TEXT         Filter metrics by model_name label (for a target serving several models).
   -w, --watch                 Refresh continuously every 5s (pipe through `watch -n N` for a different interval).
   -o, --output   [text|json]  Output format.  [default: text]
   -v, --verbose               Show additional diagnostic detail.

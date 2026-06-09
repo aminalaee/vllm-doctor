@@ -1022,7 +1022,6 @@
 <ul>
 <li>Requires per-replica labels in the metrics (e.g. <code>pod</code>, <code>instance</code>, <code>host</code>). In direct scrape mode against a single endpoint there is only one replica, so this rule does not fire — use a Prometheus target that scrapes all replicas.</li>
 <li>Latency imbalance (TTFT, TPOT, queue time) is not detected: those percentiles are returned as a single aggregate value, not per replica.</li>
-<li>Two separate deployments serving the <strong>same</strong> <code>model_name</code> (e.g. canary + prod) are grouped together and may report a false imbalance. Filter to one with a future <code>--model</code> flag or distinguish them by a deployment label.</li>
 </ul>
 
 
