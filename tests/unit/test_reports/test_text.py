@@ -45,6 +45,25 @@ class TestRenderText:
         )
         assert "vLLM Doctor" in buf.getvalue()
 
+    def test_shows_multi_model_notice(self) -> None:
+        buf = io.StringIO()
+        render(
+            DiagnosisResult(
+                context=DiagnosisContext(since="1h", model_name=None),
+                metric_series=MetricSeriesSnapshot(
+                    num_requests_running=MetricSeries(
+                        samples=[
+                            MetricSample(labels={"model_name": "a"}, value=1.0),
+                            MetricSample(labels={"model_name": "b"}, value=2.0),
+                        ]
+                    )
+                ),
+                checks=[],
+            ),
+            console=Console(file=buf, highlight=False),
+        )
+        assert "Pass --model" in buf.getvalue()
+
     def test_ok_health_when_no_findings(self) -> None:
         buf = io.StringIO()
         render(

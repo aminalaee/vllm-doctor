@@ -154,7 +154,7 @@ class TestCLI:
         assert output["metadata"]["target"]["since"] == "now"
         assert output["metadata"]["target"]["client_mode"] == "scrape"
         assert output["health"] == "ok"
-        assert "notice" in output
+        assert "notices" in output
         assert "checks" in output
         assert isinstance(output["checks"], list)
 

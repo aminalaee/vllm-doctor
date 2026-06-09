@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from vllm_doctor.metrics import METRIC_SPECS, MetricSeriesSnapshot, detect_replica_label
 from vllm_doctor.models import ClientMode, DiagnosisResult, Health, RuleResult
-from vllm_doctor.reports import SCRAPE_MODE_NOTICE
+from vllm_doctor.reports.notices import resolve_notices
 
 _SCHEMA_VERSION = "1"
 
@@ -24,7 +24,7 @@ class DiagnosisReport(BaseModel):
     schema_version: str
     metadata: Metadata
     health: Health
-    notice: str | None
+    notices: list[str]
     checks: list[RuleResult]
     metrics: dict[str, dict]
 
@@ -56,7 +56,7 @@ def render(result: DiagnosisResult, verbose: bool = False, compact: bool = False
             ),
         ),
         health=result.health,
-        notice=SCRAPE_MODE_NOTICE if result.context.client_mode == ClientMode.scrape else None,
+        notices=resolve_notices(result),
         checks=result.checks,
         metrics=_structured_metrics(result.metric_series),
     )
