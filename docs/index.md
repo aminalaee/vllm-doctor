@@ -64,6 +64,16 @@ Used together, GuideLLM can create or replay load while vLLM Doctor helps explai
     vllm-doctor http://localhost:9090
     ```
 
+## Run with Docker
+
+A prebuilt image is published to GitHub Container Registry:
+
+```shell
+docker run --rm ghcr.io/aminalaee/vllm-doctor <url>
+```
+
+`<url>` is your vLLM `/metrics` or Prometheus endpoint — the same argument the CLI takes — reachable from inside the container.
+
 ## Options
 
 ```
