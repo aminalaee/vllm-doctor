@@ -20,7 +20,7 @@ Default JSON output:
     }
   },
   "health": "warning",
-  "notice": null,
+  "notices": [],
   "checks": [
     {
       "id": "replica_imbalance",
@@ -70,7 +70,7 @@ Verbose JSON includes observed metrics:
     }
   },
   "health": "warning",
-  "notice": null,
+  "notices": [],
   "checks": [],
   "metrics": {
     "num_requests_running": {
@@ -100,14 +100,14 @@ Verbose JSON includes observed metrics:
 
 ## Top-level fields
 
-| Field            | Description                                           |
-| ---------------- | ----------------------------------------------------- |
-| `schema_version` | JSON schema version. Current value: `1`.              |
-| `metadata`       | Report metadata, including generation time and target |
-| `health`         | Overall health: `ok`, `info`, `warning`, `critical`   |
-| `notice`         | Optional mode-specific notice                         |
-| `checks`         | Rule results, sorted by severity and confidence       |
-| `metrics`        | Observed metrics; included only with `--verbose`      |
+| Field            | Description                                                                                                 |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| `schema_version` | JSON schema version. Current value: `1`.                                                                    |
+| `metadata`       | Report metadata, including generation time and target                                                       |
+| `health`         | Overall health: `ok`, `info`, `warning`, `critical`                                                         |
+| `notices`        | Advisory caveats about reading the report (scrape-mode limits, multi-model blending); empty when none apply |
+| `checks`         | Rule results, sorted by severity and confidence                                                             |
+| `metrics`        | Observed metrics; included only with `--verbose`                                                            |
 
 ## Metrics
 

@@ -15,8 +15,19 @@ from vllm_doctor.models import (
     Severity,
 )
 from vllm_doctor.reports import json as json_report
+from vllm_doctor.reports.notices import MULTI_MODEL_NOTICE
 
 _CTX = DiagnosisContext(since="1h", model_name="meta-llama/Llama-3.1-8B")
+
+
+@pytest.fixture
+def two_model_series() -> MetricSeries:
+    return MetricSeries(
+        samples=[
+            MetricSample(labels={"model_name": "a"}, value=1.0),
+            MetricSample(labels={"model_name": "b"}, value=2.0),
+        ]
+    )
 
 
 @pytest.fixture
@@ -55,7 +66,7 @@ class TestRenderJson:
                 },
             },
             "health": "warning",
-            "notice": None,
+            "notices": [],
             "checks": [
                 {
                     "id": "queue_pressure",
@@ -94,11 +105,27 @@ class TestRenderJson:
                 },
             },
             "health": "ok",
-            "notice": (
+            "notices": [
                 "TTFT, TPOT and Queue Latency rules require Prometheus — connect to Prometheus for full analysis."
-            ),
+            ],
             "checks": [],
         }
+
+    def test_multi_model_notice_when_unfiltered(self, two_model_series: MetricSeries) -> None:
+        result = DiagnosisResult(
+            context=DiagnosisContext(since="1h", model_name=None),
+            metric_series=MetricSeriesSnapshot(num_requests_running=two_model_series),
+            checks=[],
+        )
+        assert json.loads(json_report.render(result))["notices"] == [MULTI_MODEL_NOTICE]
+
+    def test_no_multi_model_notice_when_filtered(self, two_model_series: MetricSeries) -> None:
+        result = DiagnosisResult(
+            context=DiagnosisContext(since="1h", model_name="a"),
+            metric_series=MetricSeriesSnapshot(num_requests_running=two_model_series),
+            checks=[],
+        )
+        assert json.loads(json_report.render(result))["notices"] == []
 
     @freeze_time("2026-06-01 13:44:39 UTC")
     def test_verbose_metrics_shape(self) -> None:

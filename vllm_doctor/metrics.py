@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Annotated, Any, TypeAlias
+from typing import Any, TypeAlias
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -90,9 +90,6 @@ class MetricSeries(BaseModel):
         return MetricSeries(samples=matching, aggregate_by=self.aggregate_by)
 
 
-_SeriesMetric = Annotated[MetricSeries, Field(default_factory=MetricSeries)]
-
-
 class MetricSeriesSnapshot(BaseModel):
     """Raw labeled metric series used internally to derive scalar Metrics.
 
@@ -102,19 +99,19 @@ class MetricSeriesSnapshot(BaseModel):
     (collector output, test fixture, deserialized JSON).
     """
 
-    num_requests_running: _SeriesMetric
-    num_requests_waiting: _SeriesMetric
-    kv_cache_usage_perc: _SeriesMetric
-    prompt_tokens_per_second: _SeriesMetric
-    generation_tokens_per_second: _SeriesMetric
-    request_success_total: _SeriesMetric
-    request_error_total: _SeriesMetric
-    request_abort_total: _SeriesMetric
-    ttft_p95_seconds: _SeriesMetric
-    tpot_p95_seconds: _SeriesMetric
-    prefix_cache_hit_rate: _SeriesMetric
-    queue_time_p95_seconds: _SeriesMetric
-    num_preemptions_total: _SeriesMetric
+    num_requests_running: MetricSeries = Field(default_factory=MetricSeries)
+    num_requests_waiting: MetricSeries = Field(default_factory=MetricSeries)
+    kv_cache_usage_perc: MetricSeries = Field(default_factory=MetricSeries)
+    prompt_tokens_per_second: MetricSeries = Field(default_factory=MetricSeries)
+    generation_tokens_per_second: MetricSeries = Field(default_factory=MetricSeries)
+    request_success_total: MetricSeries = Field(default_factory=MetricSeries)
+    request_error_total: MetricSeries = Field(default_factory=MetricSeries)
+    request_abort_total: MetricSeries = Field(default_factory=MetricSeries)
+    ttft_p95_seconds: MetricSeries = Field(default_factory=MetricSeries)
+    tpot_p95_seconds: MetricSeries = Field(default_factory=MetricSeries)
+    prefix_cache_hit_rate: MetricSeries = Field(default_factory=MetricSeries)
+    queue_time_p95_seconds: MetricSeries = Field(default_factory=MetricSeries)
+    num_preemptions_total: MetricSeries = Field(default_factory=MetricSeries)
 
     @model_validator(mode="after")
     def _apply_spec_aggregation(self) -> "MetricSeriesSnapshot":
@@ -160,6 +157,16 @@ class MetricDisplay:
 
 
 REPLICA_LABELS = ("pod", "pod_name", "kubernetes_pod_name", "instance", "host", "hostname", "server", "endpoint")
+MODEL_LABEL = "model_name"
+
+
+def label_values(snapshot: "MetricSeriesSnapshot", label: str) -> set[str]:
+    """All distinct values of `label` across every sample in the snapshot."""
+    values: set[str] = set()
+    for spec in METRIC_SPECS:
+        series = getattr(snapshot, spec.output)
+        values.update(s.labels[label] for s in series.samples if label in s.labels)
+    return values
 
 
 def detect_replica_label(snapshot: "MetricSeriesSnapshot") -> str | None:
@@ -168,11 +175,7 @@ def detect_replica_label(snapshot: "MetricSeriesSnapshot") -> str | None:
     Returns None when the snapshot looks like a single-replica deployment.
     """
     for label in REPLICA_LABELS:
-        values: set[str] = set()
-        for spec in METRIC_SPECS:
-            series = getattr(snapshot, spec.output)
-            values.update(s.labels[label] for s in series.samples if label in s.labels)
-        if len(values) > 1:
+        if len(label_values(snapshot, label)) > 1:
             return label
     return None
 
