@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -68,6 +68,16 @@ class ReplicaImbalanceConfig(_StrictModel):
     min_total_running: float = 5.0
 
 
+def default_vllm_doctor_db_url() -> str:
+    path = Path.home() / ".vllm-doctor" / "vllm_doctor.db"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return f"sqlite:///{path}"
+
+
+class DatabaseConfig(_StrictModel):
+    url: str = Field(default_factory=default_vllm_doctor_db_url)
+
+
 class RulesConfig(_StrictModel):
     queue_pressure: QueuePressureConfig = QueuePressureConfig()
     queue_latency: QueueLatencyConfig = QueueLatencyConfig()
@@ -82,6 +92,7 @@ class RulesConfig(_StrictModel):
 
 
 class Config(_StrictModel):
+    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     rules: RulesConfig = RulesConfig()
 
 

@@ -1,3 +1,6 @@
+[database]
+url = "sqlite:///:memory:"
+
 [rules.queue_pressure]
 high_waiting = 10
 high_running = 100
