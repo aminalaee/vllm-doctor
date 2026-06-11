@@ -16,7 +16,7 @@ _SEVERITY_COLOR = {
     Severity.info: "blue",
 }
 
-_HEALTH_COLOR = {
+HEALTH_COLOR = {
     Health.ok: "green",
     Health.info: "blue",
     Health.warning: "yellow",
@@ -165,7 +165,7 @@ def _observed_metrics(result: DiagnosisResult) -> list:
 
 def build(result: DiagnosisResult, verbose: bool = False) -> Group:
     h = result.health
-    color = _HEALTH_COLOR[h]
+    color = HEALTH_COLOR[h]
     health = Text.assemble(("Health: ", "bold"), (h.value.upper(), f"bold {color}"))
 
     items: list = [

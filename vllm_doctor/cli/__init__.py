@@ -1,8 +1,15 @@
+from enum import Enum
+
 import typer
 
 from vllm_doctor import __version__
 
 app = typer.Typer(help="Diagnostic tool for vLLM inference servers")
+
+
+class Format(str, Enum):
+    text = "text"
+    json = "json"
 
 
 def _version_callback(value: bool) -> None:

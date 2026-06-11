@@ -1,6 +1,5 @@
 import asyncio
 from collections.abc import Callable
-from enum import Enum
 from pathlib import Path
 
 import httpx
@@ -8,7 +7,7 @@ import typer
 from rich.console import Console
 from rich.live import Live
 
-from vllm_doctor.cli import app
+from vllm_doctor.cli import Format, app
 from vllm_doctor.clients import Client, resolve_client
 from vllm_doctor.clients.exceptions import ClientError
 from vllm_doctor.clients.scrape import ScrapeClient
@@ -21,12 +20,6 @@ from vllm_doctor.reports import text as text_report
 from vllm_doctor.rules.base import Rule
 from vllm_doctor.rules.utils.registry import build_rules
 from vllm_doctor.stores import HistoryStore
-
-
-class Format(str, Enum):
-    text = "text"
-    json = "json"
-
 
 _WATCH_INTERVAL_SECONDS = 5
 
@@ -80,7 +73,7 @@ async def _run(
             if output == Format.json:
                 typer.echo(json_report.render(result, verbose=verbose))
             else:
-                console.print(text_report.build(result, verbose=verbose))
+                text_report.render(result, verbose=verbose)
             if save:
                 with HistoryStore(config.database.url) as store:
                     run_id = store.save(result)

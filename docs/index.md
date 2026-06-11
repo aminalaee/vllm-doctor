@@ -92,6 +92,26 @@ Options:
       --help                  Show this message and exit.
 ```
 
+## History
+
+Save diagnosis runs with `--save`:
+
+```shell
+vllm-doctor diagnose http://localhost:8000/metrics --save
+```
+
+List saved runs:
+
+```shell
+vllm-doctor history list
+```
+
+Show a specific run:
+
+```shell
+vllm-doctor history show <run-id>
+```
+
 ## Example verbose output
 
 ```shell
