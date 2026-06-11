@@ -92,12 +92,6 @@ class TestHistoryStore:
         second = store.save(result)
         assert [m.run_id for m in store.list()] == [second, first]
 
-    def test_delete(self, store: HistoryStore, result: DiagnosisResult) -> None:
-        run_id = store.save(result)
-        assert store.delete(run_id) is True
-        assert store.get(run_id) is None
-        assert store.delete(run_id) is False
-
     def test_null_model_name(self, store: HistoryStore, result_without_model: DiagnosisResult) -> None:
         run_id = store.save(result_without_model)
         assert store.list()[0].model_name is None

@@ -68,14 +68,5 @@ class HistoryStore:
             run = session.get(Run, run_id)
             return DiagnosisResult.model_validate_json(run.report) if run is not None else None
 
-    def delete(self, run_id: str) -> bool:
-        with Session(self._engine) as session:
-            run = session.get(Run, run_id)
-            if run is None:
-                return False
-            session.delete(run)
-            session.commit()
-            return True
-
     def close(self) -> None:
         self._engine.dispose()
