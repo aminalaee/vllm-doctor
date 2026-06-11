@@ -20,6 +20,7 @@ from vllm_doctor.reports import json as json_report
 from vllm_doctor.reports import text as text_report
 from vllm_doctor.rules.base import Rule
 from vllm_doctor.rules.utils.registry import build_rules
+from vllm_doctor.stores import HistoryStore
 
 app = typer.Typer(help="Diagnostic tool for vLLM inference servers")
 
@@ -69,7 +70,14 @@ async def _watch_loop(
 
 
 async def _run(
-    url: str, since: str, output: Format, verbose: bool, watch: bool, config: Config, model: str | None = None
+    url: str,
+    since: str,
+    output: Format,
+    verbose: bool,
+    watch: bool,
+    save: bool,
+    config: Config,
+    model: str | None = None,
 ) -> None:
     rules = build_rules(config.rules)
     console = Console()
@@ -81,6 +89,10 @@ async def _run(
                 typer.echo(json_report.render(result, verbose=verbose))
             else:
                 console.print(text_report.build(result, verbose=verbose))
+            if save:
+                with HistoryStore(config.database.url) as store:
+                    run_id = store.save(result)
+                typer.echo(f"Saved run: {run_id}", err=True)
         elif output == Format.json:
 
             def render_json(r: DiagnosisResult) -> None:
@@ -115,6 +127,7 @@ def main(
         help="Refresh continuously every 5s (pipe through `watch -n N` for a different interval).",
     ),
     output: Format = typer.Option(Format.text, "--output", "-o", help="Output format (text or json)."),
+    save: bool = typer.Option(False, "--save", help="Persist this diagnosis run to the local database."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show additional diagnostic detail."),
     config_path: Path | None = typer.Option(
         None, "--config", "-c", help="Path to config file (default: vllm-doctor.toml)."
@@ -128,8 +141,11 @@ def main(
     ),
 ) -> None:
     try:
+        if save and watch:
+            typer.secho("Error: --save with --watch is not supported yet", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=2)
         config = load_config(config_path)
-        asyncio.run(_run(url, since, output, verbose, watch, config, model))
+        asyncio.run(_run(url, since, output, verbose, watch, save, config, model))
     except KeyboardInterrupt:
         pass
     except (ClientError, httpx.HTTPError) as e:

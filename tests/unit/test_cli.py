@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 from vllm_doctor import __version__
 from vllm_doctor.cli import _diagnose, app
 from vllm_doctor.clients.scrape import ScrapeClient
+from vllm_doctor.stores import HistoryStore
 
 _HEALTHY_FIXTURE = (Path(__file__).parent.parent / "fixtures" / "scrape" / "healthy.txt").read_text()
 
@@ -16,6 +17,11 @@ _HEALTHY_FIXTURE = (Path(__file__).parent.parent / "fixtures" / "scrape" / "heal
 @pytest.fixture
 def runner() -> CliRunner:
     return CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
 
 @pytest.fixture
@@ -49,6 +55,62 @@ class TestCLI:
         result = runner.invoke(app, ["http://localhost:8000/metrics"])
         assert result.exit_code == 0
         assert "OK" in result.output
+
+    def test_save_persists_one_shot_run(
+        self,
+        runner: CliRunner,
+        scrape_client: ScrapeClient,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        async def fake_resolve(url: str, **_: object) -> ScrapeClient:
+            return scrape_client
+
+        db = tmp_path / "history.db"
+        config = tmp_path / "vllm-doctor.toml"
+        config.write_text(f'[database]\nurl = "sqlite:///{db}"\n')
+
+        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
+        result = runner.invoke(app, ["http://localhost:8000/metrics", "--save", "--config", str(config)])
+
+        assert result.exit_code == 0
+        assert "OK" in result.output
+        assert "Saved run:" in result.stderr
+        run_id = result.stderr.strip().removeprefix("Saved run: ")
+
+        with HistoryStore(f"sqlite:///{db}") as store:
+            saved = store.get(run_id)
+
+        assert saved is not None
+        assert saved.context.client_mode.value == "scrape"
+
+    def test_save_with_json_keeps_stdout_json(
+        self,
+        runner: CliRunner,
+        scrape_client: ScrapeClient,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        async def fake_resolve(url: str, **_: object) -> ScrapeClient:
+            return scrape_client
+
+        db = tmp_path / "history.db"
+        config = tmp_path / "vllm-doctor.toml"
+        config.write_text(f'[database]\nurl = "sqlite:///{db}"\n')
+
+        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
+        result = runner.invoke(
+            app, ["http://localhost:8000/metrics", "--save", "--output", "json", "--config", str(config)]
+        )
+
+        assert result.exit_code == 0
+        assert json.loads(result.stdout)["health"] == "ok"
+        assert "Saved run:" in result.stderr
+
+    def test_save_with_watch_is_deferred(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["http://localhost:8000/metrics", "--save", "--watch"])
+        assert result.exit_code == 2
+        assert "--save with --watch is not supported yet" in result.output
 
     def test_missing_url_exits_nonzero(self, runner: CliRunner) -> None:
         result = runner.invoke(app, [])
