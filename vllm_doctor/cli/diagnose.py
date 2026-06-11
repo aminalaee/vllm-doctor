@@ -41,17 +41,48 @@ async def _diagnose(
     )
 
 
+def _firing_ids(result: DiagnosisResult) -> set[str]:
+    return {check.id for check in result.checks if check.finding is not None}
+
+
+def _transition_label(prev: DiagnosisResult | None, curr: DiagnosisResult) -> str:
+    if prev is None:
+        return "initial"
+    if prev.health != curr.health:
+        return f"{prev.health.value} → {curr.health.value}"
+    if _firing_ids(prev) != _firing_ids(curr):
+        return "rules changed"
+    return ""
+
+
 async def _watch_loop(
     client: Client,
     rules: list[Rule],
     since: str,
     render: Callable[[DiagnosisResult], None],
     model: str | None = None,
+    *,
+    save: bool = False,
+    db_url: str | None = None,
 ) -> None:
-    while True:
-        result = await _diagnose(client, rules, since, model)
-        render(result)
-        await asyncio.sleep(_WATCH_INTERVAL_SECONDS)
+    store: HistoryStore | None = None
+    if save and db_url:
+        store = HistoryStore(db_url)
+    previous: DiagnosisResult | None = None
+    try:
+        while True:
+            result = await _diagnose(client, rules, since, model)
+            render(result)
+            if save and store is not None:
+                label = _transition_label(previous, result)
+                if label:
+                    run_id = store.save(result)
+                    typer.echo(f"Saved run: {run_id} ({label})", err=True)
+            previous = result
+            await asyncio.sleep(_WATCH_INTERVAL_SECONDS)
+    finally:
+        if store is not None:
+            store.close()
 
 
 async def _run(
@@ -83,7 +114,7 @@ async def _run(
             def render_json(r: DiagnosisResult) -> None:
                 typer.echo(json_report.render(r, verbose=verbose, compact=True))
 
-            await _watch_loop(client, rules, since, render_json, model)
+            await _watch_loop(client, rules, since, render_json, model, save=save, db_url=config.database.url)
         else:
             with Live("", console=console, auto_refresh=False) as live_display:
 
@@ -91,7 +122,7 @@ async def _run(
                     live_display.update(text_report.build(r, verbose=verbose))
                     live_display.refresh()
 
-                await _watch_loop(client, rules, since, render_text, model)
+                await _watch_loop(client, rules, since, render_text, model, save=save, db_url=config.database.url)
 
 
 @app.command()
@@ -119,9 +150,6 @@ def diagnose(
     ),
 ) -> None:
     try:
-        if save and watch:
-            typer.secho("Error: --save with --watch is not supported yet", fg=typer.colors.RED, err=True)
-            raise typer.Exit(code=2)
         config = load_config(config_path)
         asyncio.run(_run(url, since, output, verbose, watch, save, config, model))
     except KeyboardInterrupt:

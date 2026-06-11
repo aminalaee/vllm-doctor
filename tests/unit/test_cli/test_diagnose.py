@@ -10,6 +10,16 @@ from vllm_doctor import __version__
 from vllm_doctor.cli import app
 from vllm_doctor.cli.diagnose import _diagnose
 from vllm_doctor.clients.scrape import ScrapeClient
+from vllm_doctor.metrics import MetricSeriesSnapshot
+from vllm_doctor.models import (
+    ClientMode,
+    Confidence,
+    DiagnosisContext,
+    DiagnosisResult,
+    Finding,
+    RuleResult,
+    Severity,
+)
 from vllm_doctor.stores import HistoryStore
 
 _HEALTHY_FIXTURE = (Path(__file__).parent.parent.parent / "fixtures" / "scrape" / "healthy.txt").read_text()
@@ -108,10 +118,265 @@ class TestDiagnose:
         assert json.loads(result.stdout)["health"] == "ok"
         assert "Saved run:" in result.stderr
 
-    def test_save_with_watch_is_deferred(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["diagnose", "http://localhost:8000/metrics", "--save", "--watch"])
-        assert result.exit_code == 2
-        assert "--save with --watch is not supported yet" in result.output
+    def test_watch_saves_first_tick(
+        self,
+        runner: CliRunner,
+        scrape_client: ScrapeClient,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        async def fake_resolve(url: str, **_: object) -> ScrapeClient:
+            return scrape_client
+
+        async def fake_sleep(_: float) -> None:
+            raise KeyboardInterrupt
+
+        db = tmp_path / "history.db"
+        config = tmp_path / "vllm-doctor.toml"
+        config.write_text(f'[database]\nurl = "sqlite:///{db}"\n')
+
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.asyncio.sleep", fake_sleep)
+        result = runner.invoke(
+            app, ["diagnose", "http://localhost:8000/metrics", "--save", "--watch", "--config", str(config)]
+        )
+
+        assert result.exit_code == 0
+        assert "Saved run:" in result.stderr
+        assert "(initial)" in result.stderr
+
+        run_id = result.stderr.strip().split("Saved run: ")[1].split()[0]
+        with HistoryStore(f"sqlite:///{db}") as store:
+            saved = store.get(run_id)
+        assert saved is not None
+
+    def test_watch_no_save_when_unchanged(
+        self,
+        runner: CliRunner,
+        scrape_client: ScrapeClient,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        call_count = 0
+
+        async def fake_sleep(_: float) -> None:
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 2:
+                raise KeyboardInterrupt
+
+        diagnosis_result = DiagnosisResult(
+            context=DiagnosisContext(since="now", client_mode=ClientMode.scrape),
+            metric_series=MetricSeriesSnapshot(),
+            checks=[],
+        )
+
+        async def fake_diagnose(*args: object, **kwargs: object) -> DiagnosisResult:
+            return diagnosis_result
+
+        db = tmp_path / "history.db"
+        config = tmp_path / "vllm-doctor.toml"
+        config.write_text(f'[database]\nurl = "sqlite:///{db}"\n')
+
+        async def fake_resolve(url: str, **_: object) -> ScrapeClient:
+            return scrape_client
+
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose._diagnose", fake_diagnose)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.asyncio.sleep", fake_sleep)
+        result = runner.invoke(
+            app, ["diagnose", "http://localhost:8000/metrics", "--save", "--watch", "--config", str(config)]
+        )
+
+        assert result.exit_code == 0
+        # First tick saves; second identical tick does not
+        assert result.stderr.count("Saved run:") == 1
+        assert "(initial)" in result.stderr
+        with HistoryStore(f"sqlite:///{db}") as store:
+            runs = store.list()
+        assert len(runs) == 1
+
+    def test_watch_saves_on_health_transition(
+        self,
+        runner: CliRunner,
+        scrape_client: ScrapeClient,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        call_count = 0
+
+        async def fake_sleep(_: float) -> None:
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 3:
+                raise KeyboardInterrupt
+
+        finding = Finding(
+            severity=Severity.warning,
+            confidence=Confidence.low,
+            title="Queue pressure",
+            summary="Requests are queuing.",
+            evidence=["Waiting: 7"],
+        )
+        results = [
+            DiagnosisResult(
+                context=DiagnosisContext(since="now", client_mode=ClientMode.scrape),
+                metric_series=MetricSeriesSnapshot(),
+                checks=[],
+            ),
+            DiagnosisResult(
+                context=DiagnosisContext(since="now", client_mode=ClientMode.scrape),
+                metric_series=MetricSeriesSnapshot(),
+                checks=[],
+            ),
+            DiagnosisResult(
+                context=DiagnosisContext(since="now", client_mode=ClientMode.scrape),
+                metric_series=MetricSeriesSnapshot(),
+                checks=[RuleResult(id="queue_pressure", name="Queue Pressure", finding=finding)],
+            ),
+        ]
+        it = iter(results)
+
+        async def fake_diagnose(*args: object, **kwargs: object) -> DiagnosisResult:
+            return next(it)
+
+        db = tmp_path / "history.db"
+        config = tmp_path / "vllm-doctor.toml"
+        config.write_text(f'[database]\nurl = "sqlite:///{db}"\n')
+
+        async def fake_resolve(url: str, **_: object) -> ScrapeClient:
+            return scrape_client
+
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose._diagnose", fake_diagnose)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.asyncio.sleep", fake_sleep)
+        result = runner.invoke(
+            app, ["diagnose", "http://localhost:8000/metrics", "--save", "--watch", "--config", str(config)]
+        )
+
+        assert result.exit_code == 0
+        # First tick + health transition = 2 saves
+        assert result.stderr.count("Saved run:") == 2
+        assert "(initial)" in result.stderr
+        assert "→ warning" in result.stderr
+
+        with HistoryStore(f"sqlite:///{db}") as store:
+            runs = store.list()
+        assert len(runs) == 2
+
+    def test_watch_saves_on_rule_transition(
+        self,
+        runner: CliRunner,
+        scrape_client: ScrapeClient,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        call_count = 0
+
+        async def fake_sleep(_: float) -> None:
+            nonlocal call_count
+            call_count += 1
+            if call_count >= 3:
+                raise KeyboardInterrupt
+
+        finding_a = Finding(
+            severity=Severity.warning,
+            confidence=Confidence.low,
+            title="Queue pressure",
+            summary="Requests are queuing.",
+            evidence=["Waiting: 7"],
+        )
+        finding_b = Finding(
+            severity=Severity.warning,
+            confidence=Confidence.low,
+            title="KV cache pressure",
+            summary="Cache is full.",
+            evidence=["Usage: 95%"],
+        )
+        results = [
+            DiagnosisResult(
+                context=DiagnosisContext(since="now", client_mode=ClientMode.scrape),
+                metric_series=MetricSeriesSnapshot(),
+                checks=[RuleResult(id="queue_pressure", name="Queue Pressure", finding=finding_a)],
+            ),
+            DiagnosisResult(
+                context=DiagnosisContext(since="now", client_mode=ClientMode.scrape),
+                metric_series=MetricSeriesSnapshot(),
+                checks=[RuleResult(id="queue_pressure", name="Queue Pressure", finding=finding_a)],
+            ),
+            DiagnosisResult(
+                context=DiagnosisContext(since="now", client_mode=ClientMode.scrape),
+                metric_series=MetricSeriesSnapshot(),
+                checks=[RuleResult(id="kv_cache_pressure", name="KV Cache Pressure", finding=finding_b)],
+            ),
+        ]
+        it = iter(results)
+
+        async def fake_diagnose(*args: object, **kwargs: object) -> DiagnosisResult:
+            return next(it)
+
+        db = tmp_path / "history.db"
+        config = tmp_path / "vllm-doctor.toml"
+        config.write_text(f'[database]\nurl = "sqlite:///{db}"\n')
+
+        async def fake_resolve(url: str, **_: object) -> ScrapeClient:
+            return scrape_client
+
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose._diagnose", fake_diagnose)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.asyncio.sleep", fake_sleep)
+        result = runner.invoke(
+            app, ["diagnose", "http://localhost:8000/metrics", "--save", "--watch", "--config", str(config)]
+        )
+
+        assert result.exit_code == 0
+        # First tick + rule transition = 2 saves
+        assert result.stderr.count("Saved run:") == 2
+        assert "(initial)" in result.stderr
+        assert "(rules changed)" in result.stderr
+
+        with HistoryStore(f"sqlite:///{db}") as store:
+            runs = store.list()
+        assert len(runs) == 2
+
+    def test_watch_json_with_save(
+        self,
+        runner: CliRunner,
+        scrape_client: ScrapeClient,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path,
+    ) -> None:
+        async def fake_resolve(url: str, **_: object) -> ScrapeClient:
+            return scrape_client
+
+        async def fake_sleep(_: float) -> None:
+            raise KeyboardInterrupt
+
+        db = tmp_path / "history.db"
+        config = tmp_path / "vllm-doctor.toml"
+        config.write_text(f'[database]\nurl = "sqlite:///{db}"\n')
+
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.asyncio.sleep", fake_sleep)
+        result = runner.invoke(
+            app,
+            [
+                "diagnose",
+                "http://localhost:8000/metrics",
+                "--save",
+                "--watch",
+                "--output",
+                "json",
+                "--config",
+                str(config),
+            ],
+        )
+
+        assert result.exit_code == 0
+        lines = [line for line in result.stdout.splitlines() if line.strip()]
+        assert len(lines) == 1
+        assert json.loads(lines[0])["health"] == "ok"
+        assert "Saved run:" in result.stderr
 
     def test_missing_url_exits_nonzero(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["diagnose"])

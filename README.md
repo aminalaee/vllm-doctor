@@ -77,44 +77,6 @@ docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
 
 `<url>` is your vLLM `/metrics` or Prometheus endpoint — the same argument the CLI takes — reachable from inside the container.
 
-Options:
-
-```
-Usage: vllm-doctor diagnose [OPTIONS] URL
-
-Arguments:
-  URL                         vLLM /metrics or Prometheus URL to diagnose.  [required]
-
-Options:
-  -s, --since    TEXT         Time window (e.g. '1h', '30m', 'now').  [default: now]
-  -m, --model    TEXT         Filter metrics by model_name label (for a target serving several models).
-  -w, --watch                 Refresh continuously every 5s (pipe through `watch -n N` for a different interval).
-  -o, --output   [text|json]  Output format.  [default: text]
-  -v, --verbose               Show additional diagnostic detail.
-  -c, --config   PATH         Path to config file (default: vllm-doctor.toml).
-      --help                  Show this message and exit.
-```
-
-## History
-
-Save diagnosis runs with `--save`:
-
-```shell
-vllm-doctor diagnose http://localhost:8000/metrics --save
-```
-
-List saved runs:
-
-```shell
-vllm-doctor history list
-```
-
-Show a specific run:
-
-```shell
-vllm-doctor history show <run-id>
-```
-
 ## Example verbose output
 
 ```shell
