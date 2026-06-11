@@ -1,4 +1,7 @@
-from sqlalchemy import Text
+import uuid
+from datetime import datetime
+
+from sqlalchemy import DateTime, Text, Uuid
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -11,8 +14,8 @@ class Run(Base):
 
     __tablename__ = "runs"
 
-    id: Mapped[str] = mapped_column(primary_key=True)
-    saved_at: Mapped[str]
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(), primary_key=True)
+    saved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     model_name: Mapped[str | None]
     client_mode: Mapped[str]
     health: Mapped[str]

@@ -1,12 +1,16 @@
+import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 import uuid_utils
+from alembic import command
+from alembic.config import Config as AlembicConfig
 from pydantic import BaseModel
 from sqlalchemy import URL, create_engine, select
 from sqlalchemy.orm import Session
 
 from vllm_doctor.models import ClientMode, DiagnosisResult, Health
-from vllm_doctor.stores.models import Base, Run
+from vllm_doctor.stores.models import Run
 
 
 class RunSummary(BaseModel):
@@ -25,7 +29,15 @@ class HistoryStore:
 
     def __init__(self, url: str | URL) -> None:
         self._engine = create_engine(url)
-        Base.metadata.create_all(self._engine)
+        self._migrate(str(url))
+
+    def _migrate(self, url: str) -> None:
+        migrations_dir = Path(__file__).parent / "migrations"
+        cfg = AlembicConfig()
+        cfg.set_main_option("script_location", str(migrations_dir))
+        with self._engine.begin() as connection:
+            cfg.attributes["connection"] = connection
+            command.upgrade(cfg, "head")
 
     def __enter__(self) -> "HistoryStore":
         return self
@@ -35,8 +47,8 @@ class HistoryStore:
 
     def save(self, result: DiagnosisResult) -> str:
         run = Run(
-            id=str(uuid_utils.uuid7()),
-            saved_at=datetime.now(timezone.utc).isoformat(),
+            id=uuid_utils.uuid7(),
+            saved_at=datetime.now(timezone.utc),
             model_name=result.context.model_name,
             client_mode=result.context.client_mode.value,
             health=result.health.value,
@@ -46,15 +58,15 @@ class HistoryStore:
         with Session(self._engine) as session:
             session.add(run)
             session.commit()
-            return run.id
+            return str(run.id)
 
     def list(self) -> list[RunSummary]:
         with Session(self._engine) as session:
             runs = session.scalars(select(Run).order_by(Run.saved_at.desc(), Run.id.desc())).all()
             return [
                 RunSummary(
-                    run_id=run.id,
-                    saved_at=run.saved_at,
+                    run_id=str(run.id),
+                    saved_at=run.saved_at.isoformat(),
                     model_name=run.model_name,
                     client_mode=ClientMode(run.client_mode),
                     health=Health(run.health),
@@ -65,7 +77,11 @@ class HistoryStore:
 
     def get(self, run_id: str) -> DiagnosisResult | None:
         with Session(self._engine) as session:
-            run = session.get(Run, run_id)
+            try:
+                pk = uuid.UUID(run_id)
+            except ValueError:
+                return None
+            run = session.get(Run, pk)
             return DiagnosisResult.model_validate_json(run.report) if run is not None else None
 
     def close(self) -> None:
