@@ -9,7 +9,7 @@ Diagnose vLLM server bottlenecks from live metrics.
 vLLM Doctor reads vLLM server metrics and turns them into diagnostic findings: what looks unhealthy, why it may be happening, and which vLLM settings are worth checking first.
 
 ```shell
-vllm-doctor http://localhost:8000/metrics
+vllm-doctor diagnose http://localhost:8000/metrics
 ```
 
 !!! note "Built for incident context"
@@ -52,7 +52,7 @@ Used together, GuideLLM can create or replay load while vLLM Doctor helps explai
 === "Direct scrape"
 
     ```shell
-    vllm-doctor http://localhost:8000/metrics
+    vllm-doctor diagnose http://localhost:8000/metrics
     ```
 
     !!! note
@@ -61,7 +61,7 @@ Used together, GuideLLM can create or replay load while vLLM Doctor helps explai
 === "Prometheus"
 
     ```shell
-    vllm-doctor http://localhost:9090
+    vllm-doctor diagnose http://localhost:9090
     ```
 
 ## Run with Docker
@@ -69,7 +69,7 @@ Used together, GuideLLM can create or replay load while vLLM Doctor helps explai
 A prebuilt image is published to GitHub Container Registry:
 
 ```shell
-docker run --rm ghcr.io/aminalaee/vllm-doctor <url>
+docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
 ```
 
 `<url>` is your vLLM `/metrics` or Prometheus endpoint — the same argument the CLI takes — reachable from inside the container.
@@ -77,7 +77,7 @@ docker run --rm ghcr.io/aminalaee/vllm-doctor <url>
 ## Options
 
 ```
-Usage: vllm-doctor [OPTIONS] URL
+Usage: vllm-doctor diagnose [OPTIONS] URL
 
 Arguments:
   URL                         vLLM /metrics or Prometheus URL to diagnose.  [required]
@@ -89,7 +89,6 @@ Options:
   -o, --output   [text|json]  Output format.  [default: text]
   -v, --verbose               Show additional diagnostic detail.
   -c, --config   PATH         Path to config file (default: vllm-doctor.toml).
-      --version               Show version and exit.
       --help                  Show this message and exit.
 ```
 

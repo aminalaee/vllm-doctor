@@ -62,6 +62,6 @@ jobs:
           uv sync --all-groups
           uv run python scripts/serve_metrics.py tests/fixtures/prometheus/demo.json > /dev/null 2>&1 &
           sleep 2
-          docker run --rm --network host vllm-doctor:ci http://localhost:8000 --output json | tee /tmp/out.json
+          docker run --rm --network host vllm-doctor:ci diagnose http://localhost:8000 --output json | tee /tmp/out.json
           grep -q '"schema_version"' /tmp/out.json
           grep -q '"replica_imbalance"' /tmp/out.json

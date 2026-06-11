@@ -68,5 +68,5 @@ All other rules use their defaults.
 ## Usage
 
 ```bash
-vllm-doctor http://localhost:9090 --config ./vllm-doctor.toml
+vllm-doctor diagnose http://localhost:9090 --config ./vllm-doctor.toml
 ```

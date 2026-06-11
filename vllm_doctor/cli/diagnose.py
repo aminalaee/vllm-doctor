@@ -8,7 +8,7 @@ import typer
 from rich.console import Console
 from rich.live import Live
 
-from vllm_doctor import __version__
+from vllm_doctor.cli import app
 from vllm_doctor.clients import Client, resolve_client
 from vllm_doctor.clients.exceptions import ClientError
 from vllm_doctor.clients.scrape import ScrapeClient
@@ -21,14 +21,6 @@ from vllm_doctor.reports import text as text_report
 from vllm_doctor.rules.base import Rule
 from vllm_doctor.rules.utils.registry import build_rules
 from vllm_doctor.stores import HistoryStore
-
-app = typer.Typer(help="Diagnostic tool for vLLM inference servers")
-
-
-def _version_callback(value: bool) -> None:
-    if value:
-        typer.echo(f"vllm-doctor {__version__}")
-        raise typer.Exit()
 
 
 class Format(str, Enum):
@@ -110,7 +102,7 @@ async def _run(
 
 
 @app.command()
-def main(
+def diagnose(
     url: str = typer.Argument(
         ...,
         metavar="URL",
@@ -131,13 +123,6 @@ def main(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show additional diagnostic detail."),
     config_path: Path | None = typer.Option(
         None, "--config", "-c", help="Path to config file (default: vllm-doctor.toml)."
-    ),
-    version: bool = typer.Option(
-        False,
-        "--version",
-        help="Show version and exit.",
-        callback=_version_callback,
-        is_eager=True,
     ),
 ) -> None:
     try:

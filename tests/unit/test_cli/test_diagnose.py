@@ -7,11 +7,12 @@ from freezegun import freeze_time
 from typer.testing import CliRunner
 
 from vllm_doctor import __version__
-from vllm_doctor.cli import _diagnose, app
+from vllm_doctor.cli import app
+from vllm_doctor.cli.diagnose import _diagnose
 from vllm_doctor.clients.scrape import ScrapeClient
 from vllm_doctor.stores import HistoryStore
 
-_HEALTHY_FIXTURE = (Path(__file__).parent.parent / "fixtures" / "scrape" / "healthy.txt").read_text()
+_HEALTHY_FIXTURE = (Path(__file__).parent.parent.parent / "fixtures" / "scrape" / "healthy.txt").read_text()
 
 
 @pytest.fixture
@@ -35,7 +36,7 @@ def scrape_client() -> ScrapeClient:
     )
 
 
-class TestCLI:
+class TestDiagnose:
     async def test_diagnosis_uses_metric_series(self, scrape_client: ScrapeClient) -> None:
         result = await _diagnose(scrape_client, rules=[], since="now")
 
@@ -51,8 +52,8 @@ class TestCLI:
         async def fake_resolve(url: str, **_: object) -> ScrapeClient:
             return scrape_client
 
-        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        result = runner.invoke(app, ["http://localhost:8000/metrics"])
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        result = runner.invoke(app, ["diagnose", "http://localhost:8000/metrics"])
         assert result.exit_code == 0
         assert "OK" in result.output
 
@@ -70,8 +71,8 @@ class TestCLI:
         config = tmp_path / "vllm-doctor.toml"
         config.write_text(f'[database]\nurl = "sqlite:///{db}"\n')
 
-        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        result = runner.invoke(app, ["http://localhost:8000/metrics", "--save", "--config", str(config)])
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        result = runner.invoke(app, ["diagnose", "http://localhost:8000/metrics", "--save", "--config", str(config)])
 
         assert result.exit_code == 0
         assert "OK" in result.output
@@ -98,9 +99,9 @@ class TestCLI:
         config = tmp_path / "vllm-doctor.toml"
         config.write_text(f'[database]\nurl = "sqlite:///{db}"\n')
 
-        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
         result = runner.invoke(
-            app, ["http://localhost:8000/metrics", "--save", "--output", "json", "--config", str(config)]
+            app, ["diagnose", "http://localhost:8000/metrics", "--save", "--output", "json", "--config", str(config)]
         )
 
         assert result.exit_code == 0
@@ -108,12 +109,12 @@ class TestCLI:
         assert "Saved run:" in result.stderr
 
     def test_save_with_watch_is_deferred(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["http://localhost:8000/metrics", "--save", "--watch"])
+        result = runner.invoke(app, ["diagnose", "http://localhost:8000/metrics", "--save", "--watch"])
         assert result.exit_code == 2
         assert "--save with --watch is not supported yet" in result.output
 
     def test_missing_url_exits_nonzero(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, [])
+        result = runner.invoke(app, ["diagnose"])
         assert result.exit_code != 0
 
     def test_version_flag(self, runner: CliRunner) -> None:
@@ -138,8 +139,8 @@ class TestCLI:
         async def fake_resolve(url: str, **_: object) -> ScrapeClient:
             return unreachable
 
-        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        result = runner.invoke(app, ["http://localhost:8000/metrics"])
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        result = runner.invoke(app, ["diagnose", "http://localhost:8000/metrics"])
         assert result.exit_code == 1
         assert "could not read metrics" in result.output
         assert "Traceback" not in result.output
@@ -153,8 +154,10 @@ class TestCLI:
         async def fake_resolve(url: str, **_: object) -> ScrapeClient:
             return scrape_client
 
-        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        result = runner.invoke(app, ["http://localhost:8000/metrics", "--model", "llama-70b", "--output", "json"])
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        result = runner.invoke(
+            app, ["diagnose", "http://localhost:8000/metrics", "--model", "llama-70b", "--output", "json"]
+        )
         assert result.exit_code == 0
         assert json.loads(result.output)["metadata"]["target"]["model_name"] == "llama-70b"
 
@@ -170,9 +173,9 @@ class TestCLI:
         async def fake_sleep(_: float) -> None:
             raise KeyboardInterrupt
 
-        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        monkeypatch.setattr("vllm_doctor.cli.asyncio.sleep", fake_sleep)
-        result = runner.invoke(app, ["http://localhost:8000/metrics", "--watch"])
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.asyncio.sleep", fake_sleep)
+        result = runner.invoke(app, ["diagnose", "http://localhost:8000/metrics", "--watch"])
         assert result.exit_code == 0
         assert "OK" in result.output
 
@@ -188,9 +191,9 @@ class TestCLI:
         async def fake_sleep(_: float) -> None:
             raise KeyboardInterrupt
 
-        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        monkeypatch.setattr("vllm_doctor.cli.asyncio.sleep", fake_sleep)
-        result = runner.invoke(app, ["http://localhost:8000/metrics", "-w"])
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.asyncio.sleep", fake_sleep)
+        result = runner.invoke(app, ["diagnose", "http://localhost:8000/metrics", "-w"])
         assert result.exit_code == 0
         assert "OK" in result.output
 
@@ -204,8 +207,8 @@ class TestCLI:
         async def fake_resolve(url: str, **_: object) -> ScrapeClient:
             return scrape_client
 
-        monkeypatch.setattr("vllm_doctor.cli.resolve_client", fake_resolve)
-        result = runner.invoke(app, ["http://localhost:8000/metrics", "--output", "json"])
+        monkeypatch.setattr("vllm_doctor.cli.diagnose.resolve_client", fake_resolve)
+        result = runner.invoke(app, ["diagnose", "http://localhost:8000/metrics", "--output", "json"])
         assert result.exit_code == 0
 
         output = json.loads(result.output)
