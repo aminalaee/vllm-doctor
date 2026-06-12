@@ -1,5 +1,5 @@
 import json
-from collections.abc import Iterator
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -19,6 +19,19 @@ from vllm_doctor.models import (
     Severity,
 )
 from vllm_doctor.stores import HistoryStore
+from vllm_doctor.stores.migrate import run_migrations
+
+
+@pytest.fixture(autouse=True)
+def config(monkeypatch: pytest.MonkeyPatch, db_url: str) -> Generator[Config, None, None]:
+    cfg = Config(database=DatabaseConfig(url=db_url))
+
+    def _load_config(_path: Path | None = None) -> Config:
+        return cfg
+
+    monkeypatch.setattr("vllm_doctor.cli.history.load_config", _load_config)
+    monkeypatch.setattr("vllm_doctor.cli.diagnose.load_config", _load_config)
+    return cfg
 
 
 @pytest.fixture
@@ -27,30 +40,7 @@ def runner() -> CliRunner:
 
 
 @pytest.fixture
-def config_with_memory_db(monkeypatch: pytest.MonkeyPatch) -> Config:
-    config = Config(database=DatabaseConfig(url="sqlite:///:memory:"))
-
-    def _load_config(_path: Path | None = None) -> Config:
-        return config
-
-    monkeypatch.setattr("vllm_doctor.cli.history.load_config", _load_config)
-    monkeypatch.setattr("vllm_doctor.cli.diagnose.load_config", _load_config)
-    return config
-
-
-@pytest.fixture
-def store(config_with_memory_db: Config, monkeypatch: pytest.MonkeyPatch) -> Iterator[HistoryStore]:
-    with HistoryStore(config_with_memory_db.database.url) as store:
-        # Patch HistoryStore so the CLI uses the same engine/session
-        def _fake_init(_self: HistoryStore, _url: str) -> None:
-            _self._engine = store._engine
-
-        monkeypatch.setattr(HistoryStore, "__init__", _fake_init)
-        yield store
-
-
-@pytest.fixture
-def saved_run(store: HistoryStore) -> str:
+def saved_run(db_url: str) -> str:
     finding = Finding(
         severity=Severity.warning,
         confidence=Confidence.low,
@@ -69,11 +59,13 @@ def saved_run(store: HistoryStore) -> str:
             RuleResult(id="kv_cache_pressure", name="KV Cache Pressure"),
         ],
     )
-    return store.save(result)
+    run_migrations(db_url)
+    with HistoryStore(db_url) as store:
+        return store.save(result)
 
 
 class TestHistoryList:
-    def test_list_empty(self, runner: CliRunner, config_with_memory_db: Config) -> None:
+    def test_list_empty(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["history", "list"])
         assert result.exit_code == 0
         assert "No saved diagnosis runs found." in result.output
@@ -98,7 +90,7 @@ class TestHistoryList:
         assert "warn" in result.output
         assert "1" in result.output
 
-    def test_list_json_empty(self, runner: CliRunner, config_with_memory_db: Config) -> None:
+    def test_list_json_empty(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["history", "list", "--output", "json"])
         assert result.exit_code == 0
         assert json.loads(result.output) == []
@@ -121,7 +113,7 @@ class TestHistoryShow:
         assert "Queue pressure" in result.output
         assert "Waiting requests: 7" in result.output
 
-    def test_show_not_found(self, runner: CliRunner, config_with_memory_db: Config) -> None:
+    def test_show_not_found(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["history", "show", "does-not-exist"])
         assert result.exit_code == 1
         assert "not found" in result.output

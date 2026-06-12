@@ -17,6 +17,7 @@ from vllm_doctor.models import (
     Severity,
 )
 from vllm_doctor.stores import HistoryStore
+from vllm_doctor.stores.migrate import run_migrations
 
 
 @pytest.fixture
@@ -47,9 +48,11 @@ def result_without_model(result: DiagnosisResult) -> DiagnosisResult:
 
 
 @pytest.fixture
-def store() -> Iterator[HistoryStore]:
-    with HistoryStore("sqlite:///:memory:") as store:
-        yield store
+def store(db_url: str) -> Iterator[HistoryStore]:
+    run_migrations(db_url)
+    s = HistoryStore(db_url)
+    yield s
+    s.close()
 
 
 class TestHistoryStore:
@@ -97,20 +100,18 @@ class TestHistoryStore:
         assert store.list()[0].model_name is None
         assert store.get(run_id).context.model_name is None
 
-    def test_file_backed_store_persists(self, tmp_path, result: DiagnosisResult) -> None:
-        db = tmp_path / "nested" / "vllm_doctor.db"
-        db.parent.mkdir()
-        url = f"sqlite:///{db}"
-        with HistoryStore(url) as store:
+    def test_store_persists_across_reopen(self, db_url: str, result: DiagnosisResult) -> None:
+        run_migrations(db_url)
+        with HistoryStore(db_url) as store:
             run_id = store.save(result)
 
-        assert db.exists()
-        with HistoryStore(url) as reopened:
+        with HistoryStore(db_url) as reopened:
             assert reopened.get(run_id) is not None
 
     def test_file_backed_url_with_query_character(self, tmp_path, result: DiagnosisResult) -> None:
         db = tmp_path / "a?b.db"
         url = URL.create("sqlite", database=str(db))
+        run_migrations(url)
         with HistoryStore(url) as store:
             run_id = store.save(result)
 
@@ -125,6 +126,7 @@ class TestHistoryStore:
         monkeypatch.setenv("HOME", str(home))
         db = home / ".vllm-doctor" / "vllm_doctor.db"
 
+        run_migrations(Config().database.url)
         with HistoryStore(Config().database.url) as store:
             run_id = store.save(result)
 

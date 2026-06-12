@@ -20,6 +20,7 @@ from vllm_doctor.reports import text as text_report
 from vllm_doctor.rules.base import Rule
 from vllm_doctor.rules.utils.registry import build_rules
 from vllm_doctor.stores import HistoryStore
+from vllm_doctor.stores.migrate import run_migrations
 
 _WATCH_INTERVAL_SECONDS = 5
 
@@ -67,6 +68,7 @@ async def _watch_loop(
 ) -> None:
     store: HistoryStore | None = None
     if save and db_url:
+        run_migrations(db_url)
         store = HistoryStore(db_url)
     previous: DiagnosisResult | None = None
     try:
@@ -106,6 +108,7 @@ async def _run(
             else:
                 text_report.render(result, verbose=verbose)
             if save:
+                run_migrations(config.database.url)
                 with HistoryStore(config.database.url) as store:
                     run_id = store.save(result)
                 typer.echo(f"Saved run: {run_id}", err=True)

@@ -14,6 +14,7 @@ from vllm_doctor.reports import json as json_report
 from vllm_doctor.reports import text as text_report
 from vllm_doctor.reports.text import HEALTH_COLOR
 from vllm_doctor.stores import HistoryStore
+from vllm_doctor.stores.migrate import run_migrations
 
 history_app = typer.Typer(help="Local diagnosis history commands")
 app.add_typer(history_app, name="history")
@@ -28,6 +29,7 @@ def list(
     ),
 ) -> None:
     config = load_config(config_path)
+    run_migrations(config.database.url)
     with HistoryStore(config.database.url) as store:
         runs = store.list()
 
@@ -79,6 +81,7 @@ def show(
     ),
 ) -> None:
     config = load_config(config_path)
+    run_migrations(config.database.url)
     with HistoryStore(config.database.url) as store:
         result = store.get(run_id)
 

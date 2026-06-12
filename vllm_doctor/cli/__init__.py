@@ -31,4 +31,4 @@ def _root(
     pass
 
 
-from . import diagnose, history  # noqa: E402, F401
+from . import diagnose, history, migrate  # noqa: E402, F401

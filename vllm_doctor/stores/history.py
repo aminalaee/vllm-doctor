@@ -1,13 +1,10 @@
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 
-import uuid_utils
-from alembic import command
-from alembic.config import Config as AlembicConfig
 from pydantic import BaseModel
 from sqlalchemy import URL, create_engine, select
 from sqlalchemy.orm import Session
+from uuid_utils.compat import uuid7
 
 from vllm_doctor.models import ClientMode, DiagnosisResult, Health
 from vllm_doctor.stores.models import Run
@@ -29,15 +26,6 @@ class HistoryStore:
 
     def __init__(self, url: str | URL) -> None:
         self._engine = create_engine(url)
-        self._migrate(str(url))
-
-    def _migrate(self, url: str) -> None:
-        migrations_dir = Path(__file__).parent / "migrations"
-        cfg = AlembicConfig()
-        cfg.set_main_option("script_location", str(migrations_dir))
-        with self._engine.begin() as connection:
-            cfg.attributes["connection"] = connection
-            command.upgrade(cfg, "head")
 
     def __enter__(self) -> "HistoryStore":
         return self
@@ -47,7 +35,7 @@ class HistoryStore:
 
     def save(self, result: DiagnosisResult) -> str:
         run = Run(
-            id=uuid_utils.uuid7(),
+            id=uuid7(),
             saved_at=datetime.now(timezone.utc),
             model_name=result.context.model_name,
             client_mode=result.context.client_mode.value,

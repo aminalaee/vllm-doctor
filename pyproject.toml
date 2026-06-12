@@ -37,6 +37,7 @@ dependencies = [
   "alembic>=1.13",
   "httpx>=0.27",
   "prometheus-client>=0.20",
+  "psycopg[binary]>=3",
   "pydantic>=2",
   "rich>=13",
   "sqlalchemy>=2",

@@ -16,6 +16,21 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: vllm-doctor
+          POSTGRES_PASSWORD: vllm-doctor
+          POSTGRES_DB: vllm-doctor
+        ports:
+          - 54322:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: "actions/checkout@v4"
       - name: Install uv
@@ -30,7 +45,11 @@ jobs:
         run: |
           make build
           make docs-build
-      - name: "Run tests"
+      - name: "Run tests with SQLite"
+        run: make test
+      - name: "Run tests with PostgreSQL"
+        env:
+          TEST_DATABASE_URI: "postgresql+psycopg://vllm-doctor:vllm-doctor@localhost:54322/vllm-doctor"
         run: make test
 
   docker:
