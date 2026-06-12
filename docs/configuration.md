@@ -54,6 +54,23 @@ cache_gap = 0.30            # kv cache usage max − min (fraction)
 min_total_running = 5.0     # minimum total running load before the running signal fires
 ```
 
+## Database
+
+History persistence is configured under a `[database]` section. The single setting is `url`, a SQLAlchemy database URL.
+
+```toml
+[database]
+url = "sqlite:///~/.vllm-doctor/vllm_doctor.db"
+```
+
+| Key   | Default                                   | Description                                                                                |
+| ----- | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `url` | `sqlite:///~/.vllm-doctor/vllm_doctor.db` | SQLAlchemy URL — SQLite (local file) or PostgreSQL. The directory is created on first run. |
+
+After changing `url` (or after installing vllm-doctor for the first time), run [`vllm-doctor migrate`](../commands/migrate.md) once to create or update the schema. The command is idempotent.
+
+See the [history guide](../commands/history.md) for the full save / watch change-log / list / show loop.
+
 ## Partial config
 
 Only the sections you care about need to be present. For example, to tighten only the KV cache threshold:

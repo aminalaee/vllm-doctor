@@ -20,7 +20,8 @@ vllm-doctor diagnose [OPTIONS] URL
 | `-o`, `--output`  | `text`  | Output format: `text` or `json`.                                                       |
 | `-v`, `--verbose` | False   | Show observed metrics and per-replica breakdown.                                       |
 | `-c`, `--config`  | —       | Path to config file (default: `vllm-doctor.toml`).                                     |
-| `--save`          | False   | Persist the run to the local database.                                                 |
+
+For persistence and the watch change-log, see the [history guide](history.md).
 
 ## One-shot diagnosis
 
@@ -41,24 +42,6 @@ Refresh every 5 seconds until interrupted:
 ```shell
 vllm-doctor diagnose http://localhost:8000/metrics --watch
 ```
-
-## Save a run
-
-Persist a one-shot diagnosis to the local database:
-
-```shell
-vllm-doctor diagnose http://localhost:8000/metrics --save
-```
-
-## Watch with change-log
-
-Combine `--save` and `--watch` to produce a change-log: a new run is saved only when the diagnosis state transitions (health changes or the set of firing rules changes).
-
-```shell
-vllm-doctor diagnose http://localhost:8000/metrics --save --watch
-```
-
-Save messages are printed to stderr so they do not corrupt text or JSON output.
 
 ## Filter by model
 

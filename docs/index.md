@@ -15,6 +15,15 @@ vllm-doctor diagnose http://localhost:8000/metrics
 !!! note "Built for incident context"
     vLLM Doctor is not a dashboard replacement or benchmark runner. It is a fast server-side diagnostic snapshot for a single vLLM server or Prometheus target.
 
+## Features
+
+- **Built-in diagnosis rules** — queue pressure, TTFT/TPOT bottlenecks, KV cache pressure, low throughput, error rate, replica imbalance, prefix cache efficiency, preemption pressure, queue latency
+- **Local history** — persist runs with `--save`, review with `history list` and `history show`
+- **Watch change-log** — `--save --watch` only persists when state changes (health or firing rules)
+- **Dual input** — Prometheus or direct `/metrics` scrape
+- **Structured output** — rich text tables or JSON for automation
+- **Configurable thresholds** — per-rule tuning via TOML
+
 ## Why not just a dashboard?
 
 Dashboards show metrics. vLLM Doctor explains server-side inference behavior.
