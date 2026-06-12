@@ -4,6 +4,15 @@
         <loc>https://aminalaee.github.io/vllm-doctor/</loc>
       </url>
       <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/commands/diagnose/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/commands/history/</loc>
+      </url>
+      <url>
+        <loc>https://aminalaee.github.io/vllm-doctor/commands/migrate/</loc>
+      </url>
+      <url>
         <loc>https://aminalaee.github.io/vllm-doctor/rules/queue-pressure/</loc>
       </url>
       <url>

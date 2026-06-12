@@ -280,7 +280,7 @@
   <span class="md-ellipsis">
     
   
-  Rules
+  Commands
 
     
   </span>
@@ -292,6 +292,139 @@
         
         <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Commands
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/diagnose/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  diagnose
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/history/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  history
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/migrate/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  migrate
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Rules
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -665,6 +798,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#database" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Database
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#partial-config" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -835,6 +979,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#database" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Database
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#partial-config" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -923,6 +1078,29 @@
 <span class="n">cache_gap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.30</span><span class="w">            </span><span class="c1"># kv cache usage max − min (fraction)</span>
 <span class="n">min_total_running</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">5.0</span><span class="w">     </span><span class="c1"># minimum total running load before the running signal fires</span>
 </code></pre></div>
+<h2 id="database">Database</h2>
+<p>History persistence is configured under a <code>[database]</code> section. The single setting is <code>url</code>, a SQLAlchemy database URL.</p>
+<div class="highlight"><pre><span></span><code><span class="k">[database]</span>
+<span class="n">url</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;sqlite:///~/.vllm-doctor/vllm_doctor.db&quot;</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>url</code></td>
+<td><code>sqlite:///~/.vllm-doctor/vllm_doctor.db</code></td>
+<td>SQLAlchemy URL — SQLite (local file) or PostgreSQL. The directory is created on first run.</td>
+</tr>
+</tbody>
+</table>
+<p>After changing <code>url</code> (or after installing vllm-doctor for the first time), run <a href="../../commands/migrate/"><code>vllm-doctor migrate</code></a> once to create or update the schema. The command is idempotent.</p>
+<p>See the <a href="../../commands/history/">history guide</a> for the full save / watch change-log / list / show loop.</p>
 <h2 id="partial-config">Partial config</h2>
 <p>Only the sections you care about need to be present. For example, to tighten only the KV cache threshold:</p>
 <div class="highlight"><pre><span></span><code><span class="k">[rules.kv_cache_pressure]</span>
@@ -930,7 +1108,7 @@
 </code></pre></div>
 <p>All other rules use their defaults.</p>
 <h2 id="usage">Usage</h2>
-<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>http://localhost:9090<span class="w"> </span>--config<span class="w"> </span>./vllm-doctor.toml
+<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:9090<span class="w"> </span>--config<span class="w"> </span>./vllm-doctor.toml
 </code></pre></div>
 
 
