@@ -5,6 +5,7 @@ pub mod config;
 pub mod metrics;
 pub mod models;
 pub mod probes;
+pub mod rules;
 
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
