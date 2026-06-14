@@ -105,7 +105,7 @@ impl Client for PrometheusClient {
         model: Option<&str>,
         since: &str,
     ) -> Result<Option<f64>, ClientError> {
-        let sel = label_selector(model);
+        let sel = label_selector(model, &[]);
         let expr = format!(
             "histogram_quantile({quantile}, sum by (le) (rate({metric}_bucket{sel}[{since}])))"
         );
