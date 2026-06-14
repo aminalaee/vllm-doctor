@@ -7,7 +7,9 @@ dist/
 *.egg-info
 .coverage
 site/
+vllm_doctor.db
 
+# Rust
 rust/*/target/
 **/Cargo.lock
 !rust/vllm-doctor/Cargo.lock
