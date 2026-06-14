@@ -1,0 +1,24 @@
+[package]
+name = "vllm-doctor"
+version = "0.6.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Diagnostic tool for vLLM inference servers"
+repository = "https://github.com/aminalaee/vllm-doctor"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[[bin]]
+name = "vllm-doctor"
+path = "src/main.rs"
+
+[lib]
+name = "vllm_doctor"
+path = "src/lib.rs"
+
+[profile.release]
+strip = true
+lto = true

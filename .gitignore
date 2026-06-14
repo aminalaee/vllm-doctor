@@ -7,3 +7,7 @@ dist/
 *.egg-info
 .coverage
 site/
+
+rust/*/target/
+**/Cargo.lock
+!rust/vllm-doctor/Cargo.lock
