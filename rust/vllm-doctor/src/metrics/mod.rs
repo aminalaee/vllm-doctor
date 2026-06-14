@@ -155,6 +155,7 @@ mod tests {
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect(),
             value,
+            timestamp: None,
         }
     }
 

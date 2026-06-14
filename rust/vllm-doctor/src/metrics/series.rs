@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct MetricSample {
     pub labels: HashMap<String, String>,
     pub value: f64,
+    pub timestamp: Option<f64>,
 }
 
 impl MetricSample {
@@ -14,11 +15,17 @@ impl MetricSample {
         Self {
             labels: HashMap::new(),
             value,
+            timestamp: None,
         }
     }
 
     pub fn with_label(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.labels.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn with_timestamp(mut self, timestamp: f64) -> Self {
+        self.timestamp = Some(timestamp);
         self
     }
 }
@@ -136,6 +143,7 @@ mod tests {
                 .map(|(k, v)| (k.to_string(), v.to_string()))
                 .collect(),
             value,
+            timestamp: None,
         }
     }
 
