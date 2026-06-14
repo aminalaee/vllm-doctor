@@ -19,6 +19,10 @@ impl MetricSample {
         }
     }
 
+    pub fn scalar(value: f64) -> Self {
+        Self::new(value)
+    }
+
     pub fn with_label(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.labels.insert(key.into(), value.into());
         self
@@ -91,6 +95,13 @@ impl MetricSeries {
     pub fn scalar(value: f64) -> Self {
         Self {
             samples: vec![MetricSample::new(value)],
+            aggregate_by: Aggregate::Sum,
+        }
+    }
+
+    pub fn from_samples(samples: Vec<MetricSample>) -> Self {
+        Self {
+            samples,
             aggregate_by: Aggregate::Sum,
         }
     }

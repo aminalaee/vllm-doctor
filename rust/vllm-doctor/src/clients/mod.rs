@@ -83,8 +83,20 @@ pub async fn resolve_client(
 }
 
 /// Build a Prometheus label selector such as `{model_name="llama"}`.
-pub fn label_selector(model: Option<&str>) -> String {
-    model.map_or_else(String::new, |m| format!("{{model_name=\"{}\"}}", m))
+pub fn label_selector(model: Option<&str>, extra: &[(&str, &str)]) -> String {
+    let mut labels: Vec<(&str, &str)> = Vec::new();
+    if let Some(m) = model {
+        labels.push(("model_name", m));
+    }
+    labels.extend_from_slice(extra);
+    if labels.is_empty() {
+        return String::new();
+    }
+    let parts: Vec<String> = labels
+        .into_iter()
+        .map(|(k, v)| format!("{k}=\"{}\"", v.replace('\\', "\\\\").replace('\"', "\\\"")))
+        .collect();
+    format!("{{{}}}", parts.join(","))
 }
 
 #[cfg(test)]
@@ -99,12 +111,28 @@ mod tests {
 
     #[test]
     fn label_selector_empty_when_no_model() {
-        assert_eq!(label_selector(None), "");
+        assert_eq!(label_selector(None, &[]), "");
     }
 
     #[test]
-    fn label_selector_with_model() {
-        assert_eq!(label_selector(Some("llama")), "{model_name=\"llama\"}");
+    fn label_selector_includes_model_name() {
+        assert_eq!(label_selector(Some("llama"), &[]), "{model_name=\"llama\"}");
+    }
+
+    #[test]
+    fn label_selector_includes_extra_labels() {
+        assert_eq!(
+            label_selector(None, &[("finished_reason", "stop")]),
+            "{finished_reason=\"stop\"}"
+        );
+    }
+
+    #[test]
+    fn label_selector_escapes_special_characters() {
+        assert_eq!(
+            label_selector(Some("a\\\"b"), &[("k", "v")]),
+            r#"{model_name="a\\\"b",k="v"}"#
+        );
     }
 
     #[tokio::test]
