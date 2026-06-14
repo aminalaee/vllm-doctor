@@ -34,4 +34,20 @@ build:
 publish:
 	uv publish
 
-.PHONY: all setup test lint format demo docs docs-build build publish
+RUST_DIR = rust/vllm-doctor
+
+rust-format:
+	cd $(RUST_DIR) && cargo fmt
+
+rust-lint:
+	cd $(RUST_DIR) && cargo clippy --all-targets -- -D warnings
+
+rust-test:
+	cd $(RUST_DIR) && cargo test
+
+rust-build:
+	cd $(RUST_DIR) && cargo build --release
+
+rust: rust-format rust-lint rust-test rust-build
+
+.PHONY: all setup test lint format demo docs docs-build build publish rust rust-format rust-lint rust-test rust-build
