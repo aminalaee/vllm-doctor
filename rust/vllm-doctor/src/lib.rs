@@ -5,6 +5,7 @@ pub mod config;
 pub mod metrics;
 pub mod models;
 pub mod probes;
+pub mod providers;
 pub mod rules;
 pub mod signals;
 
