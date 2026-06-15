@@ -3,6 +3,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::metrics::{MetricSeriesSnapshot, Metrics};
+use crate::signals::Signal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ClientMode {
@@ -132,6 +133,20 @@ impl FromStr for Confidence {
             "low" => Ok(Self::Low),
             _ => Err(format!("unknown confidence: {s}")),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DiagnosisState {
+    Healthy,
+    Stressed(Signal, f64),
+    Saturated(Signal, f64),
+    Unknown(String),
+}
+
+impl DiagnosisState {
+    pub fn unknown_signal(signal: Signal) -> Self {
+        Self::Unknown(format!("{signal} signal is missing or non-finite"))
     }
 }
 

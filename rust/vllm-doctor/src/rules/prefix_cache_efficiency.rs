@@ -11,11 +11,9 @@
 //!   large sample + very low rate  → high
 //!   otherwise                     → medium
 use crate::config::PrefixCacheEfficiencyConfig;
-use crate::models::{Confidence, FindingData};
+use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::signals::{Signal, SignalGraph};
-
-const HIGH_CONFIDENCE_MAX_RATE: f64 = 0.2;
 
 pub struct PrefixCacheEfficiencyRule {
     cfg: PrefixCacheEfficiencyConfig,
@@ -40,8 +38,8 @@ impl Rule for PrefixCacheEfficiencyRule {
         "Low prefix cache hit rate"
     }
 
-    fn severity(&self) -> crate::models::Severity {
-        crate::models::Severity::Warning
+    fn severity(&self) -> Severity {
+        Severity::Warning
     }
 
     fn likely_causes(&self) -> &'static [&'static str] {
@@ -67,26 +65,16 @@ impl Rule for PrefixCacheEfficiencyRule {
         ]
     }
 
-    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
-        let hit_rate = signals.evaluate(Signal::PrefixCacheHitRate)?;
+    fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
+        let Some(hit_rate) = signals.evaluate(Signal::PrefixCacheHitRate) else {
+            return DiagnosisState::unknown_signal(Signal::PrefixCacheHitRate);
+        };
+
         if hit_rate >= self.cfg.min_hit_rate {
-            return None;
+            return DiagnosisState::Healthy;
         }
 
-        Some(FindingData {
-            confidence: if hit_rate < HIGH_CONFIDENCE_MAX_RATE {
-                Confidence::High
-            } else {
-                Confidence::Medium
-            },
-            summary: format!(
-                "Prefix cache hit rate is {:.0}% — repeated prompt prefixes are not being reused, causing redundant prefill computation.",
-                hit_rate * 100.0
-            ),
-            signals: Vec::new(),
-            evidence: vec![format!("Prefix cache hit rate: {:.0}%", hit_rate * 100.0)],
-            severity: None,
-        })
+        DiagnosisState::Stressed(Signal::PrefixCacheHitRate, hit_rate)
     }
 }
 
@@ -95,6 +83,8 @@ mod tests {
     use super::*;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
+    use crate::models::DiagnosisState;
+    use crate::signals::{Signal, SignalGraph};
 
     fn rule() -> PrefixCacheEfficiencyRule {
         PrefixCacheEfficiencyRule::new(PrefixCacheEfficiencyConfig { min_hit_rate: 0.50 })
@@ -108,19 +98,18 @@ mod tests {
     }
 
     #[test]
-    fn no_finding_when_hit_rate_high() {
-        assert!(rule().run(&SignalGraph::new(&snapshot(0.80))).is_none());
+    fn healthy_when_hit_rate_high() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.80))),
+            DiagnosisState::Healthy
+        );
     }
 
     #[test]
-    fn medium_confidence_when_hit_rate_moderately_low() {
-        let finding = rule().run(&SignalGraph::new(&snapshot(0.30))).unwrap();
-        assert_eq!(finding.confidence, Confidence::Medium);
-    }
-
-    #[test]
-    fn high_confidence_when_hit_rate_very_low() {
-        let finding = rule().run(&SignalGraph::new(&snapshot(0.10))).unwrap();
-        assert_eq!(finding.confidence, Confidence::High);
+    fn stressed_when_hit_rate_low() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.30))),
+            DiagnosisState::Stressed(Signal::PrefixCacheHitRate, 0.30)
+        );
     }
 }

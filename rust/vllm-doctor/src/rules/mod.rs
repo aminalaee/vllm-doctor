@@ -1,7 +1,7 @@
 //! Diagnostic rules.
 use crate::config::Config;
 use crate::metrics::MetricSeriesSnapshot;
-use crate::models::{FindingData, Severity};
+use crate::models::{Confidence, DiagnosisState, Finding, Severity};
 use crate::signals::SignalGraph;
 
 pub mod error_rate;
@@ -24,7 +24,7 @@ pub trait Rule {
     fn recommendations(&self) -> &'static [&'static str];
     fn related_metrics(&self) -> &'static [&'static str];
 
-    fn run(&self, signals: &SignalGraph) -> Option<FindingData>;
+    fn run(&self, signals: &SignalGraph) -> DiagnosisState;
 }
 
 /// The result of running a single rule against a snapshot.
@@ -34,13 +34,77 @@ pub struct RuleResult {
     pub name: &'static str,
     pub title: &'static str,
     pub severity: Severity,
-    pub finding: Option<FindingData>,
+    pub finding: Option<Finding>,
 }
 
 impl RuleResult {
     pub fn is_significant(&self) -> bool {
         self.finding.is_some()
     }
+}
+
+/// Map a rule's judgment state to the final presentation finding.
+fn finding_for(rule: &dyn Rule, state: DiagnosisState) -> Option<Finding> {
+    let (severity, value, signal) = match state {
+        DiagnosisState::Healthy => return None,
+        DiagnosisState::Stressed(signal, value) => (Severity::Warning, value, signal),
+        DiagnosisState::Saturated(signal, value) => (Severity::Critical, value, signal),
+        DiagnosisState::Unknown(ref reason) => {
+            return Some(Finding {
+                severity: Severity::Info,
+                confidence: Confidence::Low,
+                title: rule.title().to_string(),
+                summary: "Check could not be evaluated".to_string(),
+                signals: vec![reason.clone()],
+                evidence: vec![reason.clone()],
+                likely_causes: rule
+                    .likely_causes()
+                    .iter()
+                    .map(|s| (*s).to_string())
+                    .collect(),
+                recommendations: rule
+                    .recommendations()
+                    .iter()
+                    .map(|s| (*s).to_string())
+                    .collect(),
+                related_metrics: rule
+                    .related_metrics()
+                    .iter()
+                    .map(|s| (*s).to_string())
+                    .collect(),
+            });
+        }
+    };
+
+    let confidence = match severity {
+        Severity::Critical => Confidence::High,
+        Severity::Warning => Confidence::Medium,
+        Severity::Info => Confidence::Low,
+    };
+
+    Some(Finding {
+        severity,
+        confidence,
+        title: rule.title().to_string(),
+        summary: format!("{signal} is elevated"),
+        signals: vec![signal.to_string()],
+        evidence: vec![format!("{signal} = {value:.4}")],
+        likely_causes: rule
+            .likely_causes()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect(),
+        recommendations: rule
+            .recommendations()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect(),
+        related_metrics: rule
+            .related_metrics()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect(),
+    })
 }
 
 /// Build the default rule set from configuration thresholds.
@@ -89,7 +153,7 @@ pub fn run_all(rules: &[Box<dyn Rule>], metrics: &MetricSeriesSnapshot) -> Vec<R
             name: rule.name(),
             title: rule.title(),
             severity: rule.severity(),
-            finding: rule.run(&signals),
+            finding: finding_for(rule.as_ref(), rule.run(&signals)),
         })
         .collect()
 }
@@ -125,8 +189,7 @@ mod tests {
         let snapshot = snapshot_with_queue(10.0, 60.0);
         let results = run_all(&rules, &snapshot);
         assert_eq!(results.len(), 10);
-        let significant: Vec<&RuleResult> = results.iter().filter(|r| r.is_significant()).collect();
-        assert_eq!(significant.len(), 1);
-        assert_eq!(significant[0].id, "queue_pressure");
+        let queue_result = results.iter().find(|r| r.id == "queue_pressure").unwrap();
+        assert!(queue_result.is_significant());
     }
 }

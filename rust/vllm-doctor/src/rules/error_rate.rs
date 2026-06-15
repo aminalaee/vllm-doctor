@@ -19,7 +19,7 @@
 //!
 //! Severity is overridden to `Critical` when server-side errors are high.
 use crate::config::ErrorRateConfig;
-use crate::models::{Confidence, FindingData, Severity};
+use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::signals::{Signal, SignalGraph};
 
@@ -72,18 +72,24 @@ impl Rule for ErrorRateRule {
         &["vllm:request_success_total"]
     }
 
-    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
-        let errors = signals.evaluate(Signal::RequestErrorTotal)?;
-        let aborts = signals.evaluate(Signal::RequestAbortTotal)?;
-        let success = signals.evaluate(Signal::RequestSuccessTotal)?;
+    fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
+        let Some(errors) = signals.evaluate(Signal::RequestErrorTotal) else {
+            return DiagnosisState::unknown_signal(Signal::RequestErrorTotal);
+        };
+        let Some(aborts) = signals.evaluate(Signal::RequestAbortTotal) else {
+            return DiagnosisState::unknown_signal(Signal::RequestAbortTotal);
+        };
+        let Some(success) = signals.evaluate(Signal::RequestSuccessTotal) else {
+            return DiagnosisState::unknown_signal(Signal::RequestSuccessTotal);
+        };
 
         if errors == 0.0 && aborts == 0.0 {
-            return None;
+            return DiagnosisState::Healthy;
         }
 
         let total = success + errors + aborts;
         if total == 0.0 {
-            return None;
+            return DiagnosisState::Healthy;
         }
 
         let error_rate = errors / total;
@@ -93,51 +99,16 @@ impl Rule for ErrorRateRule {
         let aborts_high = abort_rate >= self.cfg.high_abort_rate;
 
         if !errors_high && !aborts_high {
-            return None;
+            return DiagnosisState::Healthy;
         }
-
-        let mut signals_list = Vec::new();
-        let mut evidence = Vec::new();
 
         if errors_high {
-            signals_list.push("Elevated server-side error rate".to_string());
-            evidence.push(format!(
-                "Error rate: {:.1}% ({:.0} errors out of {:.0} requests, threshold: {:.1}%)",
-                error_rate * 100.0,
-                errors,
-                total,
-                self.cfg.high_error_rate * 100.0
-            ));
+            DiagnosisState::Saturated(Signal::ErrorRate, error_rate)
+        } else if aborts_high {
+            DiagnosisState::Stressed(Signal::AbortRate, abort_rate)
+        } else {
+            DiagnosisState::Healthy
         }
-        if aborts_high {
-            signals_list.push(
-                "Elevated client abort rate — clients disconnecting before response".to_string(),
-            );
-            evidence.push(format!(
-                "Abort rate: {:.1}% ({:.0} aborts out of {:.0} requests, threshold: {:.1}%)",
-                abort_rate * 100.0,
-                aborts,
-                total,
-                self.cfg.high_abort_rate * 100.0
-            ));
-        }
-
-        Some(FindingData {
-            confidence: if errors_high && aborts_high {
-                Confidence::High
-            } else {
-                Confidence::Low
-            },
-            severity: if errors_high {
-                Some(Severity::Critical)
-            } else {
-                None
-            },
-            summary: "Server is returning errors or clients are aborting at an elevated rate."
-                .to_string(),
-            signals: signals_list,
-            evidence,
-        })
     }
 }
 
@@ -146,6 +117,8 @@ mod tests {
     use super::*;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
+    use crate::models::DiagnosisState;
+    use crate::signals::{Signal, SignalGraph};
 
     fn rule() -> ErrorRateRule {
         ErrorRateRule::new(ErrorRateConfig {
@@ -164,36 +137,26 @@ mod tests {
     }
 
     #[test]
-    fn no_finding_when_rates_low() {
-        assert!(
-            rule()
-                .run(&SignalGraph::new(&snapshot(1.0, 1.0, 100.0)))
-                .is_none()
+    fn healthy_when_rates_low() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(1.0, 1.0, 100.0))),
+            DiagnosisState::Healthy
         );
     }
 
     #[test]
-    fn low_confidence_when_only_errors_high() {
-        let finding = rule()
-            .run(&SignalGraph::new(&snapshot(10.0, 0.0, 100.0)))
-            .unwrap();
-        assert_eq!(finding.confidence, Confidence::Low);
-        assert_eq!(finding.severity, Some(Severity::Critical));
+    fn saturated_when_errors_high() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(10.0, 0.0, 100.0))),
+            DiagnosisState::Saturated(Signal::ErrorRate, 10.0 / 110.0)
+        );
     }
 
     #[test]
-    fn high_confidence_when_both_high() {
-        let finding = rule()
-            .run(&SignalGraph::new(&snapshot(10.0, 15.0, 100.0)))
-            .unwrap();
-        assert_eq!(finding.confidence, Confidence::High);
-    }
-
-    #[test]
-    fn severity_warning_when_only_aborts_high() {
-        let finding = rule()
-            .run(&SignalGraph::new(&snapshot(0.0, 15.0, 100.0)))
-            .unwrap();
-        assert_eq!(finding.severity, None);
+    fn stressed_when_aborts_high() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.0, 15.0, 100.0))),
+            DiagnosisState::Stressed(Signal::AbortRate, 15.0 / 115.0)
+        );
     }
 }

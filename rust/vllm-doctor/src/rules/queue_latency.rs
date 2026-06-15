@@ -14,7 +14,7 @@
 //!   high queue time only      → low  (spike may be transient)
 //!   high queue time + waiting → high (active backlog confirmed)
 use crate::config::QueueLatencyConfig;
-use crate::models::{Confidence, FindingData};
+use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::signals::{Signal, SignalGraph};
 
@@ -41,8 +41,8 @@ impl Rule for QueueLatencyRule {
         "High queue latency"
     }
 
-    fn severity(&self) -> crate::models::Severity {
-        crate::models::Severity::Warning
+    fn severity(&self) -> Severity {
+        Severity::Warning
     }
 
     fn likely_causes(&self) -> &'static [&'static str] {
@@ -70,44 +70,16 @@ impl Rule for QueueLatencyRule {
         ]
     }
 
-    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
-        let queue_time = signals.evaluate(Signal::QueueTimeP95Seconds)?;
+    fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
+        let Some(queue_time) = signals.evaluate(Signal::QueueTimeP95Seconds) else {
+            return DiagnosisState::unknown_signal(Signal::QueueTimeP95Seconds);
+        };
+
         if queue_time < self.cfg.high_queue_time_p95 {
-            return None;
+            return DiagnosisState::Healthy;
         }
 
-        let mut evidence = vec![format!(
-            "Queue time p95: {:.3}s (threshold: {}s)",
-            queue_time, self.cfg.high_queue_time_p95
-        )];
-        let mut signals_list = Vec::new();
-
-        let waiting = signals.evaluate(Signal::NumRequestsWaiting);
-        let waiting_confirmed = waiting.is_some_and(|v| v > 0.0);
-        if let Some(w) = waiting {
-            if w > 0.0 {
-                signals_list.push(format!(
-                    "{} requests queued — active backlog confirmed",
-                    w as i64
-                ));
-            }
-            evidence.push(format!("Waiting requests: {}", w as i64));
-        }
-
-        Some(FindingData {
-            confidence: if waiting_confirmed {
-                Confidence::High
-            } else {
-                Confidence::Low
-            },
-            summary: format!(
-                "Requests are waiting {:.2}s (p95) in the queue before prefill begins — the server cannot admit requests fast enough.",
-                queue_time
-            ),
-            signals: signals_list,
-            evidence,
-            severity: None,
-        })
+        DiagnosisState::Stressed(Signal::QueueTimeP95Seconds, queue_time)
     }
 }
 
@@ -116,6 +88,8 @@ mod tests {
     use super::*;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
+    use crate::models::DiagnosisState;
+    use crate::signals::{Signal, SignalGraph};
 
     fn rule() -> QueueLatencyRule {
         QueueLatencyRule::new(QueueLatencyConfig {
@@ -132,20 +106,18 @@ mod tests {
     }
 
     #[test]
-    fn no_finding_when_queue_time_low() {
-        assert!(rule().run(&SignalGraph::new(&snapshot(0.5, 5.0))).is_none());
+    fn healthy_when_queue_time_low() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.5, 5.0))),
+            DiagnosisState::Healthy
+        );
     }
 
     #[test]
-    fn low_confidence_when_queue_time_high_but_no_waiting() {
-        let finding = rule().run(&SignalGraph::new(&snapshot(2.0, 0.0))).unwrap();
-        assert_eq!(finding.confidence, Confidence::Low);
-    }
-
-    #[test]
-    fn high_confidence_when_queue_time_high_and_waiting_exists() {
-        let finding = rule().run(&SignalGraph::new(&snapshot(2.0, 3.0))).unwrap();
-        assert_eq!(finding.confidence, Confidence::High);
-        assert!(finding.signals[0].contains("3"));
+    fn stressed_when_queue_time_high() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(2.0, 3.0))),
+            DiagnosisState::Stressed(Signal::QueueTimeP95Seconds, 2.0)
+        );
     }
 }

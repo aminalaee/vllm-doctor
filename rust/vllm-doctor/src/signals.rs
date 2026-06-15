@@ -22,6 +22,32 @@ pub enum Signal {
     TotalRequests,
     ErrorRate,
     AbortRate,
+    ReplicaRunningImbalance,
+}
+
+impl std::fmt::Display for Signal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::NumRequestsRunning => "num_requests_running",
+            Self::NumRequestsWaiting => "num_requests_waiting",
+            Self::KvCacheUsagePerc => "kv_cache_usage_perc",
+            Self::PromptTokensPerSecond => "prompt_tokens_per_second",
+            Self::GenerationTokensPerSecond => "generation_tokens_per_second",
+            Self::RequestSuccessTotal => "request_success_total",
+            Self::RequestErrorTotal => "request_error_total",
+            Self::RequestAbortTotal => "request_abort_total",
+            Self::TtftP95Seconds => "ttft_p95_seconds",
+            Self::TpotP95Seconds => "tpot_p95_seconds",
+            Self::PrefixCacheHitRate => "prefix_cache_hit_rate",
+            Self::QueueTimeP95Seconds => "queue_time_p95_seconds",
+            Self::NumPreemptionsTotal => "num_preemptions_total",
+            Self::TotalRequests => "total_requests",
+            Self::ErrorRate => "error_rate",
+            Self::AbortRate => "abort_rate",
+            Self::ReplicaRunningImbalance => "replica_running_imbalance",
+        };
+        write!(f, "{s}")
+    }
 }
 
 pub struct SignalGraph<'a> {
@@ -74,6 +100,25 @@ impl<'a> SignalGraph<'a> {
                 } else {
                     Some(self.evaluate(Signal::RequestAbortTotal)? / total)
                 }
+            }
+            Signal::ReplicaRunningImbalance => {
+                let _label = self.replica_label()?;
+                let mut worst: Option<f64> = None;
+                for model in self.models() {
+                    let values = self.per_replica(Signal::NumRequestsRunning, model.as_deref());
+                    if values.len() < 2 {
+                        continue;
+                    }
+                    let _total: f64 = values.values().sum();
+                    let hi = values.values().cloned().max_by(|a, b| a.total_cmp(b))?;
+                    let lo = values.values().cloned().min_by(|a, b| a.total_cmp(b))?;
+                    if hi == lo {
+                        continue;
+                    }
+                    let imbalance = if lo == 0.0 { hi } else { hi / lo };
+                    worst = worst.map(|w| w.max(imbalance)).or(Some(imbalance));
+                }
+                worst
             }
         }
     }

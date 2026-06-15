@@ -36,5 +36,4 @@ min_hit_rate = 0.70
 
 [rules.replica_imbalance]
 imbalance_factor = 3.0
-cache_gap = 0.25
-min_total_running = 8.0
+critical_factor = 5.0
