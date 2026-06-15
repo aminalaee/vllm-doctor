@@ -15,10 +15,35 @@
 //! Confidence:
 //!   both prompt and gen low, or running very low  → medium
 //!   only one metric low                           → low
+use crate::config::Config;
 use crate::config::LowThroughputConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "low_throughput",
+    name: "Low Throughput",
+    title: "Low throughput",
+    severity: Severity::Warning,
+    likely_causes: &[
+        "Low incoming request rate — server is idle",
+        "Poor batching due to few concurrent requests",
+        "Suboptimal max_num_seqs or max_num_batched_tokens for current load",
+    ],
+    recommendations: &[
+        "Increase concurrent requests to improve batching efficiency",
+        "Review max_num_seqs and max_num_batched_tokens settings",
+        "Compare against benchmark baseline to confirm underperformance",
+        "Consider consolidating replicas if load is consistently low",
+    ],
+    related_metrics: &[
+        "vllm:prompt_tokens_per_second",
+        "vllm:generation_tokens_per_second",
+        "vllm:num_requests_running",
+    ],
+};
 
 pub struct LowThroughputRule {
     cfg: LowThroughputConfig,
@@ -31,47 +56,6 @@ impl LowThroughputRule {
 }
 
 impl Rule for LowThroughputRule {
-    fn id(&self) -> &'static str {
-        "low_throughput"
-    }
-
-    fn name(&self) -> &'static str {
-        "Low Throughput"
-    }
-
-    fn title(&self) -> &'static str {
-        "Low throughput"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Warning
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "Low incoming request rate — server is idle",
-            "Poor batching due to few concurrent requests",
-            "Suboptimal max_num_seqs or max_num_batched_tokens for current load",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Increase concurrent requests to improve batching efficiency",
-            "Review max_num_seqs and max_num_batched_tokens settings",
-            "Compare against benchmark baseline to confirm underperformance",
-            "Consider consolidating replicas if load is consistently low",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &[
-            "vllm:prompt_tokens_per_second",
-            "vllm:generation_tokens_per_second",
-            "vllm:num_requests_running",
-        ]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let prompt = signals.evaluate(Signal::PromptTokensPerSecond);
         let gen_tps = signals.evaluate(Signal::GenerationTokensPerSecond);
@@ -97,6 +81,13 @@ impl Rule for LowThroughputRule {
             DiagnosisState::Stressed(Signal::GenerationTokensPerSecond, gen_tps.unwrap_or(0.0))
         }
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(LowThroughputRule::new(config.rules.low_throughput.clone())),
+    )
 }
 
 #[cfg(test)]

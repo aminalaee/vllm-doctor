@@ -3,10 +3,36 @@
 //! Detects when time to first token (p95) exceeds the configured threshold.
 //! Confidence rises when TPOT is healthy — ruling out a general decode bottleneck
 //! — and when requests are queuing, confirming prefill pressure.
+use crate::config::Config;
 use crate::config::TtftBottleneckConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "ttft_bottleneck",
+    name: "High TTFT",
+    title: "High time to first token (TTFT)",
+    severity: Severity::Warning,
+    likely_causes: &[
+        "Long input prompts increasing prefill time",
+        "Queue pressure delaying prefill start",
+        "Chunked prefill not enabled or misconfigured",
+        "Insufficient capacity for current prompt load",
+    ],
+    recommendations: &[
+        "Enable or tune chunked prefill (--enable-chunked-prefill)",
+        "Reduce max prompt length or filter long requests",
+        "Inspect queue depth — consider adding replicas",
+        "Separate long-context traffic to dedicated instances",
+    ],
+    related_metrics: &[
+        "ttft_p95_seconds",
+        "num_requests_waiting",
+        "tpot_p95_seconds",
+    ],
+};
 
 pub struct TtftBottleneckRule {
     cfg: TtftBottleneckConfig,
@@ -19,48 +45,6 @@ impl TtftBottleneckRule {
 }
 
 impl Rule for TtftBottleneckRule {
-    fn id(&self) -> &'static str {
-        "ttft_bottleneck"
-    }
-
-    fn name(&self) -> &'static str {
-        "High TTFT"
-    }
-
-    fn title(&self) -> &'static str {
-        "High time to first token (TTFT)"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Warning
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "Long input prompts increasing prefill time",
-            "Queue pressure delaying prefill start",
-            "Chunked prefill not enabled or misconfigured",
-            "Insufficient capacity for current prompt load",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Enable or tune chunked prefill (--enable-chunked-prefill)",
-            "Reduce max prompt length or filter long requests",
-            "Inspect queue depth — consider adding replicas",
-            "Separate long-context traffic to dedicated instances",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &[
-            "ttft_p95_seconds",
-            "num_requests_waiting",
-            "tpot_p95_seconds",
-        ]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let Some(ttft) = signals.evaluate(Signal::TtftP95Seconds) else {
             return DiagnosisState::unknown_signal(Signal::TtftP95Seconds);
@@ -72,6 +56,15 @@ impl Rule for TtftBottleneckRule {
 
         DiagnosisState::Stressed(Signal::TtftP95Seconds, ttft)
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(TtftBottleneckRule::new(
+            config.rules.ttft_bottleneck.clone(),
+        )),
+    )
 }
 
 #[cfg(test)]

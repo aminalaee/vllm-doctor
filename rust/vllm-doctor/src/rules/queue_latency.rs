@@ -13,10 +13,35 @@
 //! Confidence:
 //!   high queue time only      → low  (spike may be transient)
 //!   high queue time + waiting → high (active backlog confirmed)
+use crate::config::Config;
 use crate::config::QueueLatencyConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "queue_latency",
+    name: "Queue Latency",
+    title: "High queue latency",
+    severity: Severity::Warning,
+    likely_causes: &[
+        "Insufficient replica capacity for current request rate",
+        "Long-context requests blocking admission of new sequences",
+        "Autoscaling has not reacted to traffic increase",
+        "KV cache exhaustion limiting sequence admission",
+    ],
+    recommendations: &[
+        "Add replicas or increase concurrency limits",
+        "Inspect autoscaling thresholds and reaction time",
+        "Correlate with KV cache pressure — reduce max_num_seqs if cache is full",
+        "Separate long-context traffic to a dedicated replica",
+    ],
+    related_metrics: &[
+        "vllm:request_queue_time_seconds",
+        "vllm:num_requests_waiting",
+    ],
+};
 
 pub struct QueueLatencyRule {
     cfg: QueueLatencyConfig,
@@ -29,47 +54,6 @@ impl QueueLatencyRule {
 }
 
 impl Rule for QueueLatencyRule {
-    fn id(&self) -> &'static str {
-        "queue_latency"
-    }
-
-    fn name(&self) -> &'static str {
-        "Queue Latency"
-    }
-
-    fn title(&self) -> &'static str {
-        "High queue latency"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Warning
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "Insufficient replica capacity for current request rate",
-            "Long-context requests blocking admission of new sequences",
-            "Autoscaling has not reacted to traffic increase",
-            "KV cache exhaustion limiting sequence admission",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Add replicas or increase concurrency limits",
-            "Inspect autoscaling thresholds and reaction time",
-            "Correlate with KV cache pressure — reduce max_num_seqs if cache is full",
-            "Separate long-context traffic to a dedicated replica",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &[
-            "vllm:request_queue_time_seconds",
-            "vllm:num_requests_waiting",
-        ]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let Some(queue_time) = signals.evaluate(Signal::QueueTimeP95Seconds) else {
             return DiagnosisState::unknown_signal(Signal::QueueTimeP95Seconds);
@@ -81,6 +65,13 @@ impl Rule for QueueLatencyRule {
 
         DiagnosisState::Stressed(Signal::QueueTimeP95Seconds, queue_time)
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(QueueLatencyRule::new(config.rules.queue_latency.clone())),
+    )
 }
 
 #[cfg(test)]

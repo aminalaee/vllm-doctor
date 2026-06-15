@@ -9,10 +9,31 @@
 //! Confidence:
 //!   1 signal → low
 //!   2 signals → high
+use crate::config::Config;
 use crate::config::QueuePressureConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "queue_pressure",
+    name: "Queue Pressure",
+    title: "Queue pressure",
+    severity: Severity::Warning,
+    likely_causes: &[
+        "Insufficient replica capacity for current traffic",
+        "Autoscaling has not reacted yet",
+        "Long-context requests consuming disproportionate compute",
+    ],
+    recommendations: &[
+        "Add replicas or increase concurrency limits",
+        "Inspect autoscaling thresholds",
+        "Separate long-context traffic to a dedicated replica",
+        "Reduce incoming request rate",
+    ],
+    related_metrics: &["vllm:num_requests_waiting", "vllm:num_requests_running"],
+};
 
 pub struct QueuePressureRule {
     cfg: QueuePressureConfig,
@@ -25,43 +46,6 @@ impl QueuePressureRule {
 }
 
 impl Rule for QueuePressureRule {
-    fn id(&self) -> &'static str {
-        "queue_pressure"
-    }
-
-    fn name(&self) -> &'static str {
-        "Queue Pressure"
-    }
-
-    fn title(&self) -> &'static str {
-        "Queue pressure"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Warning
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "Insufficient replica capacity for current traffic",
-            "Autoscaling has not reacted yet",
-            "Long-context requests consuming disproportionate compute",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Add replicas or increase concurrency limits",
-            "Inspect autoscaling thresholds",
-            "Separate long-context traffic to a dedicated replica",
-            "Reduce incoming request rate",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &["vllm:num_requests_waiting", "vllm:num_requests_running"]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let Some(waiting) = signals.evaluate(Signal::NumRequestsWaiting) else {
             return DiagnosisState::unknown_signal(Signal::NumRequestsWaiting);
@@ -73,6 +57,13 @@ impl Rule for QueuePressureRule {
 
         DiagnosisState::Stressed(Signal::NumRequestsWaiting, waiting)
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(QueuePressureRule::new(config.rules.queue_pressure.clone())),
+    )
 }
 
 #[cfg(test)]

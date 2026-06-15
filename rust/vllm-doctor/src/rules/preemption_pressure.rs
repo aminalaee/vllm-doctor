@@ -13,10 +13,31 @@
 //! Confidence:
 //!   preemptions only               → medium (happened at some point, may not be ongoing)
 //!   preemptions + high cache usage → high   (actively under memory pressure)
+use crate::config::Config;
 use crate::config::PreemptionPressureConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "preemption_pressure",
+    name: "Preemption Pressure",
+    title: "Preemption pressure",
+    severity: Severity::Warning,
+    likely_causes: &[
+        "KV cache too small for the concurrent request mix",
+        "Long-context requests exhausting cache before shorter ones complete",
+        "max_num_seqs set too high relative to available GPU memory",
+    ],
+    recommendations: &[
+        "Reduce max_num_seqs to limit concurrent sequences in GPU memory",
+        "Reduce max_num_batched_tokens to lower per-step memory pressure",
+        "Increase gpu_memory_utilization if GPU headroom exists",
+        "Route long-context requests to a dedicated replica",
+    ],
+    related_metrics: &["vllm:num_preemptions_total", "vllm:kv_cache_usage_perc"],
+};
 
 pub struct PreemptionPressureRule {
     cfg: PreemptionPressureConfig,
@@ -29,43 +50,6 @@ impl PreemptionPressureRule {
 }
 
 impl Rule for PreemptionPressureRule {
-    fn id(&self) -> &'static str {
-        "preemption_pressure"
-    }
-
-    fn name(&self) -> &'static str {
-        "Preemption Pressure"
-    }
-
-    fn title(&self) -> &'static str {
-        "Preemption pressure"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Warning
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "KV cache too small for the concurrent request mix",
-            "Long-context requests exhausting cache before shorter ones complete",
-            "max_num_seqs set too high relative to available GPU memory",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Reduce max_num_seqs to limit concurrent sequences in GPU memory",
-            "Reduce max_num_batched_tokens to lower per-step memory pressure",
-            "Increase gpu_memory_utilization if GPU headroom exists",
-            "Route long-context requests to a dedicated replica",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &["vllm:num_preemptions_total", "vllm:kv_cache_usage_perc"]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let Some(preemptions) = signals.evaluate(Signal::NumPreemptionsTotal) else {
             return DiagnosisState::unknown_signal(Signal::NumPreemptionsTotal);
@@ -77,6 +61,15 @@ impl Rule for PreemptionPressureRule {
 
         DiagnosisState::Stressed(Signal::NumPreemptionsTotal, preemptions)
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(PreemptionPressureRule::new(
+            config.rules.preemption_pressure.clone(),
+        )),
+    )
 }
 
 impl PreemptionPressureRule {

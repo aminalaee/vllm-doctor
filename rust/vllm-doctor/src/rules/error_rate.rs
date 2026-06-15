@@ -18,10 +18,32 @@
 //!   both high                            → high
 //!
 //! Severity is overridden to `Critical` when server-side errors are high.
+use crate::config::Config;
 use crate::config::ErrorRateConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "error_rate",
+    name: "Error Rate",
+    title: "Elevated error rate",
+    severity: Severity::Warning,
+    likely_causes: &[
+        "Server-side OOM or internal errors under high load",
+        "Requests exceeding timeout limits causing client aborts",
+        "High latency causing clients to disconnect before completion",
+        "Resource exhaustion correlating with KV cache pressure",
+    ],
+    recommendations: &[
+        "Inspect vLLM server logs for error details",
+        "Correlate with KV cache pressure and queue pressure findings",
+        "Check client timeout settings relative to observed TTFT and TPOT",
+        "Reduce load or add replicas if errors correlate with traffic spikes",
+    ],
+    related_metrics: &["vllm:request_success_total"],
+};
 
 pub struct ErrorRateRule {
     cfg: ErrorRateConfig,
@@ -34,44 +56,6 @@ impl ErrorRateRule {
 }
 
 impl Rule for ErrorRateRule {
-    fn id(&self) -> &'static str {
-        "error_rate"
-    }
-
-    fn name(&self) -> &'static str {
-        "Error Rate"
-    }
-
-    fn title(&self) -> &'static str {
-        "Elevated error rate"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Warning
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "Server-side OOM or internal errors under high load",
-            "Requests exceeding timeout limits causing client aborts",
-            "High latency causing clients to disconnect before completion",
-            "Resource exhaustion correlating with KV cache pressure",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Inspect vLLM server logs for error details",
-            "Correlate with KV cache pressure and queue pressure findings",
-            "Check client timeout settings relative to observed TTFT and TPOT",
-            "Reduce load or add replicas if errors correlate with traffic spikes",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &["vllm:request_success_total"]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let Some(errors) = signals.evaluate(Signal::RequestErrorTotal) else {
             return DiagnosisState::unknown_signal(Signal::RequestErrorTotal);
@@ -110,6 +94,13 @@ impl Rule for ErrorRateRule {
             DiagnosisState::Healthy
         }
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(ErrorRateRule::new(config.rules.error_rate.clone())),
+    )
 }
 
 #[cfg(test)]
