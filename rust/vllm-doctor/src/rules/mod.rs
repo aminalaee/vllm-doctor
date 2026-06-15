@@ -2,6 +2,7 @@
 use crate::config::Config;
 use crate::metrics::MetricSeriesSnapshot;
 use crate::models::{FindingData, Severity};
+use crate::signals::SignalGraph;
 
 pub mod error_rate;
 pub mod kv_cache_pressure;
@@ -23,7 +24,7 @@ pub trait Rule {
     fn recommendations(&self) -> &'static [&'static str];
     fn related_metrics(&self) -> &'static [&'static str];
 
-    fn run(&self, metrics: &MetricSeriesSnapshot) -> Option<FindingData>;
+    fn run(&self, signals: &SignalGraph) -> Option<FindingData>;
 }
 
 /// The result of running a single rule against a snapshot.
@@ -80,6 +81,7 @@ pub fn build_rules(config: &Config) -> Vec<Box<dyn Rule>> {
 
 /// Run every rule against the snapshot and collect metadata + findings.
 pub fn run_all(rules: &[Box<dyn Rule>], metrics: &MetricSeriesSnapshot) -> Vec<RuleResult> {
+    let signals = SignalGraph::new(metrics);
     rules
         .iter()
         .map(|rule| RuleResult {
@@ -87,7 +89,7 @@ pub fn run_all(rules: &[Box<dyn Rule>], metrics: &MetricSeriesSnapshot) -> Vec<R
             name: rule.name(),
             title: rule.title(),
             severity: rule.severity(),
-            finding: rule.run(metrics),
+            finding: rule.run(&signals),
         })
         .collect()
 }

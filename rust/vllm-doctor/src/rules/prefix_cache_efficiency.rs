@@ -11,9 +11,9 @@
 //!   large sample + very low rate  → high
 //!   otherwise                     → medium
 use crate::config::PrefixCacheEfficiencyConfig;
-use crate::metrics::MetricSeriesSnapshot;
 use crate::models::{Confidence, FindingData};
 use crate::rules::Rule;
+use crate::signals::{Signal, SignalGraph};
 
 const HIGH_CONFIDENCE_MAX_RATE: f64 = 0.2;
 
@@ -67,8 +67,8 @@ impl Rule for PrefixCacheEfficiencyRule {
         ]
     }
 
-    fn run(&self, metrics: &MetricSeriesSnapshot) -> Option<FindingData> {
-        let hit_rate = metrics.prefix_cache_hit_rate.value()?;
+    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
+        let hit_rate = signals.evaluate(Signal::PrefixCacheHitRate)?;
         if hit_rate >= self.cfg.min_hit_rate {
             return None;
         }
@@ -93,6 +93,7 @@ impl Rule for PrefixCacheEfficiencyRule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
 
     fn rule() -> PrefixCacheEfficiencyRule {
@@ -108,18 +109,18 @@ mod tests {
 
     #[test]
     fn no_finding_when_hit_rate_high() {
-        assert!(rule().run(&snapshot(0.80)).is_none());
+        assert!(rule().run(&SignalGraph::new(&snapshot(0.80))).is_none());
     }
 
     #[test]
     fn medium_confidence_when_hit_rate_moderately_low() {
-        let finding = rule().run(&snapshot(0.30)).unwrap();
+        let finding = rule().run(&SignalGraph::new(&snapshot(0.30))).unwrap();
         assert_eq!(finding.confidence, Confidence::Medium);
     }
 
     #[test]
     fn high_confidence_when_hit_rate_very_low() {
-        let finding = rule().run(&snapshot(0.10)).unwrap();
+        let finding = rule().run(&SignalGraph::new(&snapshot(0.10))).unwrap();
         assert_eq!(finding.confidence, Confidence::High);
     }
 }

@@ -4,9 +4,9 @@
 //! Confidence rises when TPOT is healthy — ruling out a general decode bottleneck
 //! — and when requests are queuing, confirming prefill pressure.
 use crate::config::TtftBottleneckConfig;
-use crate::metrics::MetricSeriesSnapshot;
 use crate::models::{Confidence, FindingData};
 use crate::rules::Rule;
+use crate::signals::{Signal, SignalGraph};
 
 pub struct TtftBottleneckRule {
     cfg: TtftBottleneckConfig,
@@ -61,16 +61,16 @@ impl Rule for TtftBottleneckRule {
         ]
     }
 
-    fn run(&self, metrics: &MetricSeriesSnapshot) -> Option<FindingData> {
-        let ttft = metrics.ttft_p95_seconds.value()?;
-        if !ttft.is_finite() || ttft < self.cfg.high_ttft_p95 {
+    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
+        let ttft = signals.evaluate(Signal::TtftP95Seconds)?;
+        if ttft < self.cfg.high_ttft_p95 {
             return None;
         }
 
-        let tpot = metrics.tpot_p95_seconds.value();
-        let waiting = metrics.num_requests_waiting.value();
+        let tpot = signals.evaluate(Signal::TpotP95Seconds);
+        let waiting = signals.evaluate(Signal::NumRequestsWaiting);
 
-        let mut signals = vec![format!(
+        let mut signals_list = vec![format!(
             "TTFT p95 ({:.2}s) exceeds threshold ({}s)",
             ttft, self.cfg.high_ttft_p95
         )];
@@ -78,23 +78,23 @@ impl Rule for TtftBottleneckRule {
 
         let tpot_stable = tpot.is_some_and(|v| v.is_finite() && v < self.cfg.high_tpot_p95);
         if let Some(v) = tpot {
-            if v.is_finite() {
-                evidence.push(format!("TPOT p95: {:.3}s", v));
-            }
+            evidence.push(format!("TPOT p95: {:.3}s", v));
         }
         if tpot_stable {
-            signals.push(format!(
+            signals_list.push(format!(
                 "TPOT p95 ({:.2}s) is stable — decode is not the bottleneck",
-                tpot.unwrap()
+                tpot.unwrap_or(0.0)
             ));
         }
         let waiting_confirmed = waiting.is_some_and(|v| v > 0.0);
-        if waiting_confirmed {
-            signals.push(format!(
-                "{} requests queued — prefill pressure confirmed",
-                waiting.unwrap() as i64
-            ));
-            evidence.push(format!("Waiting requests: {}", waiting.unwrap() as i64));
+        if let Some(w) = waiting {
+            if w > 0.0 {
+                signals_list.push(format!(
+                    "{} requests queued — prefill pressure confirmed",
+                    w as i64
+                ));
+            }
+            evidence.push(format!("Waiting requests: {}", w as i64));
         }
 
         let signal_count = 1 + usize::from(tpot_stable) + usize::from(waiting_confirmed);
@@ -107,7 +107,7 @@ impl Rule for TtftBottleneckRule {
         Some(FindingData {
             confidence,
             summary: "Requests are waiting too long before receiving the first token. This typically indicates prefill or queue pressure.".to_string(),
-            signals,
+            signals: signals_list,
             evidence,
             severity: None,
         })
@@ -117,6 +117,7 @@ impl Rule for TtftBottleneckRule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
 
     fn rule() -> TtftBottleneckRule {
@@ -137,18 +138,26 @@ mod tests {
 
     #[test]
     fn no_finding_when_ttft_low() {
-        assert!(rule().run(&snapshot(1.0, 0.1, 5.0)).is_none());
+        assert!(
+            rule()
+                .run(&SignalGraph::new(&snapshot(1.0, 0.1, 5.0)))
+                .is_none()
+        );
     }
 
     #[test]
     fn low_confidence_when_ttft_high_only() {
-        let finding = rule().run(&snapshot(3.0, 0.5, 0.0)).unwrap();
+        let finding = rule()
+            .run(&SignalGraph::new(&snapshot(3.0, 0.5, 0.0)))
+            .unwrap();
         assert_eq!(finding.confidence, Confidence::Low);
     }
 
     #[test]
     fn high_confidence_when_ttft_high_with_stable_tpot_and_waiting() {
-        let finding = rule().run(&snapshot(3.0, 0.1, 5.0)).unwrap();
+        let finding = rule()
+            .run(&SignalGraph::new(&snapshot(3.0, 0.1, 5.0)))
+            .unwrap();
         assert_eq!(finding.confidence, Confidence::High);
     }
 }
