@@ -8,6 +8,7 @@ on:
     paths:
       - "rust/**"
       - ".github/workflows/rust.yml"
+      - "Makefile"
 
 env:
   CARGO_TERM_COLOR: always

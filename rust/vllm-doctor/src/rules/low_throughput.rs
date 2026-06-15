@@ -16,7 +16,7 @@
 //!   both prompt and gen low, or running very low  → medium
 //!   only one metric low                           → low
 use crate::config::LowThroughputConfig;
-use crate::models::{Confidence, FindingData};
+use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::signals::{Signal, SignalGraph};
 
@@ -43,8 +43,8 @@ impl Rule for LowThroughputRule {
         "Low throughput"
     }
 
-    fn severity(&self) -> crate::models::Severity {
-        crate::models::Severity::Warning
+    fn severity(&self) -> Severity {
+        Severity::Warning
     }
 
     fn likely_causes(&self) -> &'static [&'static str] {
@@ -72,72 +72,30 @@ impl Rule for LowThroughputRule {
         ]
     }
 
-    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
+    fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let prompt = signals.evaluate(Signal::PromptTokensPerSecond);
         let gen_tps = signals.evaluate(Signal::GenerationTokensPerSecond);
         if prompt.is_none() && gen_tps.is_none() {
-            return None;
+            return DiagnosisState::unknown_signal(Signal::PromptTokensPerSecond);
         }
 
         let prompt_low = prompt.is_some_and(|v| v < self.cfg.low_prompt_tps);
         let gen_low = gen_tps.is_some_and(|v| v < self.cfg.low_gen_tps);
 
         if !prompt_low && !gen_low {
-            return None;
+            return DiagnosisState::Healthy;
         }
 
         let waiting = signals.evaluate(Signal::NumRequestsWaiting).unwrap_or(0.0);
         if waiting > 0.0 {
-            return None;
+            return DiagnosisState::Healthy;
         }
 
-        let mut signals_list = Vec::new();
-        let mut evidence = Vec::new();
-
-        if prompt_low && gen_low {
-            signals_list.push(
-                "Both prefill and decode throughput below threshold — server underutilized"
-                    .to_string(),
-            );
-        } else if prompt_low {
-            signals_list.push("Prefill throughput below threshold".to_string());
+        if prompt_low {
+            DiagnosisState::Stressed(Signal::PromptTokensPerSecond, prompt.unwrap_or(0.0))
         } else {
-            signals_list.push("Decode throughput below threshold".to_string());
+            DiagnosisState::Stressed(Signal::GenerationTokensPerSecond, gen_tps.unwrap_or(0.0))
         }
-
-        if let Some(p) = prompt {
-            evidence.push(format!(
-                "Prompt tokens/s: {:.1} (threshold: {})",
-                p, self.cfg.low_prompt_tps
-            ));
-        }
-        if let Some(g) = gen_tps {
-            evidence.push(format!(
-                "Generation tokens/s: {:.1} (threshold: {})",
-                g, self.cfg.low_gen_tps
-            ));
-        }
-
-        let running = signals.evaluate(Signal::NumRequestsRunning).unwrap_or(0.0);
-        let running_low = running > 0.0 && running < self.cfg.low_running as f64;
-        if running_low {
-            signals_list.push("Very few active requests — no batching benefit".to_string());
-            evidence.push(format!("Requests running: {:.0}", running));
-        }
-
-        Some(FindingData {
-            confidence: if (prompt_low && gen_low) || running_low {
-                Confidence::Medium
-            } else {
-                Confidence::Low
-            },
-            summary:
-                "Server is processing requests below expected throughput with no queue pressure."
-                    .to_string(),
-            signals: signals_list,
-            evidence,
-            severity: None,
-        })
     }
 }
 
@@ -146,6 +104,8 @@ mod tests {
     use super::*;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
+    use crate::models::DiagnosisState;
+    use crate::signals::{Signal, SignalGraph};
 
     fn rule() -> LowThroughputRule {
         LowThroughputRule::new(LowThroughputConfig {
@@ -168,44 +128,42 @@ mod tests {
     }
 
     #[test]
-    fn no_finding_when_throughput_high() {
-        assert!(
-            rule()
-                .run(&SignalGraph::new(&snapshot(100.0, 100.0, 5.0, 0.0)))
-                .is_none()
+    fn healthy_when_throughput_high() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(100.0, 100.0, 5.0, 0.0))),
+            DiagnosisState::Healthy
         );
     }
 
     #[test]
-    fn no_finding_when_waiting_exists() {
-        assert!(
-            rule()
-                .run(&SignalGraph::new(&snapshot(5.0, 5.0, 5.0, 1.0)))
-                .is_none()
+    fn healthy_when_waiting_exists() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(5.0, 5.0, 5.0, 1.0))),
+            DiagnosisState::Healthy
         );
     }
 
     #[test]
-    fn medium_confidence_when_both_low() {
-        let finding = rule()
-            .run(&SignalGraph::new(&snapshot(5.0, 20.0, 5.0, 0.0)))
-            .unwrap();
-        assert_eq!(finding.confidence, Confidence::Medium);
+    fn stressed_when_prompt_low() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(5.0, 100.0, 5.0, 0.0))),
+            DiagnosisState::Stressed(Signal::PromptTokensPerSecond, 5.0)
+        );
     }
 
     #[test]
-    fn low_confidence_when_only_one_low() {
-        let finding = rule()
-            .run(&SignalGraph::new(&snapshot(100.0, 20.0, 5.0, 0.0)))
-            .unwrap();
-        assert_eq!(finding.confidence, Confidence::Low);
+    fn stressed_when_gen_low() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(100.0, 20.0, 5.0, 0.0))),
+            DiagnosisState::Stressed(Signal::GenerationTokensPerSecond, 20.0)
+        );
     }
 
     #[test]
-    fn running_low_boosts_confidence() {
-        let finding = rule()
-            .run(&SignalGraph::new(&snapshot(100.0, 20.0, 1.0, 0.0)))
-            .unwrap();
-        assert_eq!(finding.confidence, Confidence::Medium);
+    fn stressed_when_both_low() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(5.0, 20.0, 5.0, 0.0))),
+            DiagnosisState::Stressed(Signal::PromptTokensPerSecond, 5.0)
+        );
     }
 }

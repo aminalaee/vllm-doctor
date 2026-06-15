@@ -13,7 +13,7 @@
 //!   cache signal only  → medium (pressure exists, queuing not yet observed)
 //!   both signals       → high   (cache is full and actively blocking requests)
 use crate::config::KVCachePressureConfig;
-use crate::models::{Confidence, FindingData};
+use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::signals::{Signal, SignalGraph};
 
@@ -40,8 +40,8 @@ impl Rule for KVCachePressureRule {
         "KV cache pressure"
     }
 
-    fn severity(&self) -> crate::models::Severity {
-        crate::models::Severity::Critical
+    fn severity(&self) -> Severity {
+        Severity::Critical
     }
 
     fn likely_causes(&self) -> &'static [&'static str] {
@@ -65,43 +65,16 @@ impl Rule for KVCachePressureRule {
         &["vllm:kv_cache_usage_perc", "vllm:num_requests_waiting"]
     }
 
-    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
-        let cache = signals.evaluate(Signal::KvCacheUsagePerc)?;
+    fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
+        let Some(cache) = signals.evaluate(Signal::KvCacheUsagePerc) else {
+            return DiagnosisState::unknown_signal(Signal::KvCacheUsagePerc);
+        };
+
         if cache < self.cfg.high_cache_usage {
-            return None;
+            return DiagnosisState::Healthy;
         }
 
-        let waiting = signals.evaluate(Signal::NumRequestsWaiting).unwrap_or(0.0);
-        let waiting_high = waiting > 0.0;
-
-        let mut signals_list = Vec::new();
-        let mut evidence = vec![format!(
-            "GPU KV cache usage: {:.0}% (threshold: {:.0}%)",
-            cache * 100.0,
-            self.cfg.high_cache_usage * 100.0
-        )];
-        if waiting_high {
-            signals_list.push("Cache saturation blocking new request admission".to_string());
-            evidence.push(format!(
-                "Waiting requests: {:.0} (blocked by full cache)",
-                waiting
-            ));
-        }
-
-        Some(FindingData {
-            confidence: if waiting_high {
-                Confidence::High
-            } else {
-                Confidence::Medium
-            },
-            summary: format!(
-                "GPU KV cache at {:.0}% — new requests cannot be admitted until sequences complete.",
-                cache * 100.0
-            ),
-            signals: signals_list,
-            evidence,
-            severity: None,
-        })
+        DiagnosisState::Stressed(Signal::KvCacheUsagePerc, cache)
     }
 }
 
@@ -110,6 +83,8 @@ mod tests {
     use super::*;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
+    use crate::models::DiagnosisState;
+    use crate::signals::{Signal, SignalGraph};
 
     fn rule() -> KVCachePressureRule {
         KVCachePressureRule::new(KVCachePressureConfig {
@@ -126,20 +101,18 @@ mod tests {
     }
 
     #[test]
-    fn no_finding_when_cache_usage_low() {
-        assert!(rule().run(&SignalGraph::new(&snapshot(0.5, 5.0))).is_none());
+    fn healthy_when_cache_usage_low() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.5, 5.0))),
+            DiagnosisState::Healthy
+        );
     }
 
     #[test]
-    fn medium_confidence_when_cache_high_but_no_waiting() {
-        let finding = rule().run(&SignalGraph::new(&snapshot(0.95, 0.0))).unwrap();
-        assert_eq!(finding.confidence, Confidence::Medium);
-    }
-
-    #[test]
-    fn high_confidence_when_cache_high_and_waiting() {
-        let finding = rule().run(&SignalGraph::new(&snapshot(0.95, 5.0))).unwrap();
-        assert_eq!(finding.confidence, Confidence::High);
-        assert_eq!(rule().severity(), crate::models::Severity::Critical);
+    fn stressed_when_cache_high() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.95, 0.0))),
+            DiagnosisState::Stressed(Signal::KvCacheUsagePerc, 0.95)
+        );
     }
 }

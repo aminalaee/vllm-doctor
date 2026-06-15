@@ -14,7 +14,7 @@
 //!   preemptions only               → medium (happened at some point, may not be ongoing)
 //!   preemptions + high cache usage → high   (actively under memory pressure)
 use crate::config::PreemptionPressureConfig;
-use crate::models::{Confidence, FindingData};
+use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::signals::{Signal, SignalGraph};
 
@@ -41,8 +41,8 @@ impl Rule for PreemptionPressureRule {
         "Preemption pressure"
     }
 
-    fn severity(&self) -> crate::models::Severity {
-        crate::models::Severity::Warning
+    fn severity(&self) -> Severity {
+        Severity::Warning
     }
 
     fn likely_causes(&self) -> &'static [&'static str] {
@@ -66,41 +66,23 @@ impl Rule for PreemptionPressureRule {
         &["vllm:num_preemptions_total", "vllm:kv_cache_usage_perc"]
     }
 
-    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
-        let preemptions = signals.evaluate(Signal::NumPreemptionsTotal)?;
+    fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
+        let Some(preemptions) = signals.evaluate(Signal::NumPreemptionsTotal) else {
+            return DiagnosisState::unknown_signal(Signal::NumPreemptionsTotal);
+        };
+
         if preemptions == 0.0 {
-            return None;
+            return DiagnosisState::Healthy;
         }
 
-        let mut evidence = vec![format!("Preemptions total: {:.0}", preemptions)];
-        let mut signals_list = Vec::new();
+        DiagnosisState::Stressed(Signal::NumPreemptionsTotal, preemptions)
+    }
+}
 
-        let cache = signals.evaluate(Signal::KvCacheUsagePerc).unwrap_or(0.0);
-        let cache_high = cache >= self.cfg.high_cache_usage;
-        if cache_high {
-            signals_list
-                .push("KV cache under pressure while preemptions are occurring".to_string());
-            evidence.push(format!(
-                "GPU KV cache usage: {:.0}% (threshold: {:.0}%)",
-                cache * 100.0,
-                self.cfg.high_cache_usage * 100.0
-            ));
-        }
-
-        Some(FindingData {
-            confidence: if cache_high {
-                Confidence::High
-            } else {
-                Confidence::Medium
-            },
-            summary: format!(
-                "vLLM has preempted {:.0} sequences — KV cache exhaustion is forcing sequences to be re-computed.",
-                preemptions
-            ),
-            signals: signals_list,
-            evidence,
-            severity: None,
-        })
+impl PreemptionPressureRule {
+    #[allow(dead_code)]
+    fn high_cache_usage(&self) -> f64 {
+        self.cfg.high_cache_usage
     }
 }
 
@@ -109,6 +91,8 @@ mod tests {
     use super::*;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
+    use crate::models::DiagnosisState;
+    use crate::signals::{Signal, SignalGraph};
 
     fn rule() -> PreemptionPressureRule {
         PreemptionPressureRule::new(PreemptionPressureConfig {
@@ -125,19 +109,18 @@ mod tests {
     }
 
     #[test]
-    fn no_finding_when_no_preemptions() {
-        assert!(rule().run(&SignalGraph::new(&snapshot(0.0, 0.9))).is_none());
+    fn healthy_when_no_preemptions() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.0, 0.9))),
+            DiagnosisState::Healthy
+        );
     }
 
     #[test]
-    fn medium_confidence_when_preemptions_but_cache_low() {
-        let finding = rule().run(&SignalGraph::new(&snapshot(5.0, 0.5))).unwrap();
-        assert_eq!(finding.confidence, Confidence::Medium);
-    }
-
-    #[test]
-    fn high_confidence_when_preemptions_and_cache_high() {
-        let finding = rule().run(&SignalGraph::new(&snapshot(5.0, 0.9))).unwrap();
-        assert_eq!(finding.confidence, Confidence::High);
+    fn stressed_when_preemptions_present() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(5.0, 0.5))),
+            DiagnosisState::Stressed(Signal::NumPreemptionsTotal, 5.0)
+        );
     }
 }

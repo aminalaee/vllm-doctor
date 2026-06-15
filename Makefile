@@ -4,13 +4,17 @@ setup:
 	uv sync --all-groups
 
 test:
+	cd rust/vllm-doctor && cargo test
 	uv run pytest tests --cov=vllm_doctor --cov-report=term-missing --cov-fail-under=95
 
 lint:
+	cd rust/vllm-doctor && cargo clippy --all-targets -- -D warnings
+	cd rust/vllm-doctor && cargo fmt --check
 	uv run ruff check vllm_doctor tests
 	uv run ruff format --check vllm_doctor tests
 
 format:
+	cd rust/vllm-doctor && cargo fmt
 	uv run ruff format vllm_doctor tests
 	uv run ruff check --fix vllm_doctor tests
 
@@ -29,25 +33,10 @@ docs-build:
 	uv run zensical build
 
 build:
+	cd rust/vllm-doctor && cargo build --release
 	uv build
 
 publish:
 	uv publish
 
-RUST_DIR = rust/vllm-doctor
-
-rust-format:
-	cd $(RUST_DIR) && cargo fmt
-
-rust-lint:
-	cd $(RUST_DIR) && cargo clippy --all-targets -- -D warnings
-
-rust-test:
-	cd $(RUST_DIR) && cargo test
-
-rust-build:
-	cd $(RUST_DIR) && cargo build --release
-
-rust: rust-format rust-lint rust-test rust-build
-
-.PHONY: all setup test lint format demo docs docs-build build publish rust rust-format rust-lint rust-test rust-build
+.PHONY: all setup test lint format demo docs docs-build build publish

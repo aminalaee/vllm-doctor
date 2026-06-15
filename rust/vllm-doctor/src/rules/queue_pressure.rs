@@ -10,7 +10,7 @@
 //!   1 signal → low
 //!   2 signals → high
 use crate::config::QueuePressureConfig;
-use crate::models::{Confidence, FindingData};
+use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::signals::{Signal, SignalGraph};
 
@@ -37,8 +37,8 @@ impl Rule for QueuePressureRule {
         "Queue pressure"
     }
 
-    fn severity(&self) -> crate::models::Severity {
-        crate::models::Severity::Warning
+    fn severity(&self) -> Severity {
+        Severity::Warning
     }
 
     fn likely_causes(&self) -> &'static [&'static str] {
@@ -62,39 +62,16 @@ impl Rule for QueuePressureRule {
         &["vllm:num_requests_waiting", "vllm:num_requests_running"]
     }
 
-    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
-        let waiting = signals.evaluate(Signal::NumRequestsWaiting)?;
+    fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
+        let Some(waiting) = signals.evaluate(Signal::NumRequestsWaiting) else {
+            return DiagnosisState::unknown_signal(Signal::NumRequestsWaiting);
+        };
+
         if waiting <= self.cfg.high_waiting as f64 {
-            return None;
+            return DiagnosisState::Healthy;
         }
 
-        let running = signals.evaluate(Signal::NumRequestsRunning).unwrap_or(0.0);
-        let running_high = running > self.cfg.high_running as f64;
-
-        let mut signals_list = Vec::new();
-        let mut evidence = vec![format!(
-            "Waiting requests: {:.0} (threshold: {})",
-            waiting, self.cfg.high_waiting
-        )];
-        if running_high {
-            signals_list.push("Queue pressure compounding with server saturation".to_string());
-            evidence.push(format!(
-                "Running requests: {:.0} (threshold: {})",
-                running, self.cfg.high_running
-            ));
-        }
-
-        Some(FindingData {
-            confidence: if running_high {
-                Confidence::High
-            } else {
-                Confidence::Low
-            },
-            summary: "Requests are queuing faster than the server can process them.".to_string(),
-            signals: signals_list,
-            evidence,
-            severity: None,
-        })
+        DiagnosisState::Stressed(Signal::NumRequestsWaiting, waiting)
     }
 }
 
@@ -103,6 +80,8 @@ mod tests {
     use super::*;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
+    use crate::models::DiagnosisState;
+    use crate::signals::{Signal, SignalGraph};
 
     fn rule() -> QueuePressureRule {
         QueuePressureRule::new(QueuePressureConfig {
@@ -120,29 +99,18 @@ mod tests {
     }
 
     #[test]
-    fn no_finding_when_waiting_low() {
-        assert!(
-            rule()
-                .run(&SignalGraph::new(&snapshot(3.0, 60.0)))
-                .is_none()
+    fn healthy_when_waiting_low() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(3.0, 60.0))),
+            DiagnosisState::Healthy
         );
     }
 
     #[test]
-    fn low_confidence_when_waiting_high_but_running_low() {
-        let finding = rule()
-            .run(&SignalGraph::new(&snapshot(10.0, 10.0)))
-            .unwrap();
-        assert_eq!(finding.confidence, Confidence::Low);
-        assert!(finding.evidence[0].contains("Waiting requests: 10"));
-    }
-
-    #[test]
-    fn high_confidence_when_both_high() {
-        let finding = rule()
-            .run(&SignalGraph::new(&snapshot(10.0, 60.0)))
-            .unwrap();
-        assert_eq!(finding.confidence, Confidence::High);
-        assert_eq!(finding.signals.len(), 1);
+    fn stressed_when_waiting_high() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(10.0, 10.0))),
+            DiagnosisState::Stressed(Signal::NumRequestsWaiting, 10.0)
+        );
     }
 }
