@@ -12,10 +12,31 @@
 //! Confidence:
 //!   cache signal only  → medium (pressure exists, queuing not yet observed)
 //!   both signals       → high   (cache is full and actively blocking requests)
+use crate::config::Config;
 use crate::config::KVCachePressureConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "kv_cache_pressure",
+    name: "KV Cache Pressure",
+    title: "KV cache pressure",
+    severity: Severity::Critical,
+    likely_causes: &[
+        "Long-context requests holding large KV cache allocations",
+        "max_num_seqs or max_num_batched_tokens set too high for available GPU memory",
+        "Sudden spike in concurrent requests",
+    ],
+    recommendations: &[
+        "Reduce max_num_seqs to limit concurrent sequences",
+        "Reduce max_num_batched_tokens to cap memory per step",
+        "Increase gpu_memory_utilization if GPU memory headroom exists",
+        "Route long-context requests to a dedicated replica",
+    ],
+    related_metrics: &["vllm:kv_cache_usage_perc", "vllm:num_requests_waiting"],
+};
 
 pub struct KVCachePressureRule {
     cfg: KVCachePressureConfig,
@@ -28,43 +49,6 @@ impl KVCachePressureRule {
 }
 
 impl Rule for KVCachePressureRule {
-    fn id(&self) -> &'static str {
-        "kv_cache_pressure"
-    }
-
-    fn name(&self) -> &'static str {
-        "KV Cache Pressure"
-    }
-
-    fn title(&self) -> &'static str {
-        "KV cache pressure"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Critical
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "Long-context requests holding large KV cache allocations",
-            "max_num_seqs or max_num_batched_tokens set too high for available GPU memory",
-            "Sudden spike in concurrent requests",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Reduce max_num_seqs to limit concurrent sequences",
-            "Reduce max_num_batched_tokens to cap memory per step",
-            "Increase gpu_memory_utilization if GPU memory headroom exists",
-            "Route long-context requests to a dedicated replica",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &["vllm:kv_cache_usage_perc", "vllm:num_requests_waiting"]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let Some(cache) = signals.evaluate(Signal::KvCacheUsagePerc) else {
             return DiagnosisState::unknown_signal(Signal::KvCacheUsagePerc);
@@ -76,6 +60,15 @@ impl Rule for KVCachePressureRule {
 
         DiagnosisState::Stressed(Signal::KvCacheUsagePerc, cache)
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(KVCachePressureRule::new(
+            config.rules.kv_cache_pressure.clone(),
+        )),
+    )
 }
 
 #[cfg(test)]

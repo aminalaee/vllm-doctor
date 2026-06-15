@@ -4,10 +4,36 @@
 //! Confidence rises when generation throughput is also low — corroborating decode
 //! pressure — and when TTFT is not elevated, isolating the bottleneck to decode
 //! rather than prefill or queue saturation.
+use crate::config::Config;
 use crate::config::TpotBottleneckConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "tpot_bottleneck",
+    name: "High TPOT",
+    title: "High time per output token (TPOT)",
+    severity: Severity::Warning,
+    likely_causes: &[
+        "GPU memory bandwidth saturated during decode",
+        "Too many concurrent sequences reducing per-request throughput",
+        "Large model size relative to available GPU memory",
+        "Insufficient tensor parallelism for current load",
+    ],
+    recommendations: &[
+        "Reduce max concurrent requests (--max-num-seqs)",
+        "Increase tensor parallelism to distribute decode across GPUs",
+        "Enable speculative decoding to amortize decode cost",
+        "Profile GPU memory bandwidth utilization",
+    ],
+    related_metrics: &[
+        "tpot_p95_seconds",
+        "generation_tokens_per_second",
+        "ttft_p95_seconds",
+    ],
+};
 
 pub struct TpotBottleneckRule {
     cfg: TpotBottleneckConfig,
@@ -20,48 +46,6 @@ impl TpotBottleneckRule {
 }
 
 impl Rule for TpotBottleneckRule {
-    fn id(&self) -> &'static str {
-        "tpot_bottleneck"
-    }
-
-    fn name(&self) -> &'static str {
-        "High TPOT"
-    }
-
-    fn title(&self) -> &'static str {
-        "High time per output token (TPOT)"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Warning
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "GPU memory bandwidth saturated during decode",
-            "Too many concurrent sequences reducing per-request throughput",
-            "Large model size relative to available GPU memory",
-            "Insufficient tensor parallelism for current load",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Reduce max concurrent requests (--max-num-seqs)",
-            "Increase tensor parallelism to distribute decode across GPUs",
-            "Enable speculative decoding to amortize decode cost",
-            "Profile GPU memory bandwidth utilization",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &[
-            "tpot_p95_seconds",
-            "generation_tokens_per_second",
-            "ttft_p95_seconds",
-        ]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let Some(tpot) = signals.evaluate(Signal::TpotP95Seconds) else {
             return DiagnosisState::unknown_signal(Signal::TpotP95Seconds);
@@ -73,6 +57,15 @@ impl Rule for TpotBottleneckRule {
 
         DiagnosisState::Stressed(Signal::TpotP95Seconds, tpot)
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(TpotBottleneckRule::new(
+            config.rules.tpot_bottleneck.clone(),
+        )),
+    )
 }
 
 #[cfg(test)]

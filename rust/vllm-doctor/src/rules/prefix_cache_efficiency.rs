@@ -10,10 +10,33 @@
 //! Confidence:
 //!   large sample + very low rate  → high
 //!   otherwise                     → medium
+use crate::config::Config;
 use crate::config::PrefixCacheEfficiencyConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "prefix_cache_efficiency",
+    name: "Prefix Cache Efficiency",
+    title: "Low prefix cache hit rate",
+    severity: Severity::Warning,
+    likely_causes: &[
+        "Requests do not share common prefixes (system prompts, few-shot examples)",
+        "Prefix caching not enabled (--enable-prefix-caching not set)",
+        "Cache eviction too aggressive for the workload",
+    ],
+    recommendations: &[
+        "Enable prefix caching: add --enable-prefix-caching to vLLM startup",
+        "Ensure requests share a common system prompt or few-shot prefix",
+        "Review prefix_caching_hash_algo if cache collisions are suspected",
+    ],
+    related_metrics: &[
+        "vllm:prefix_cache_hits_total",
+        "vllm:prefix_cache_queries_total",
+    ],
+};
 
 pub struct PrefixCacheEfficiencyRule {
     cfg: PrefixCacheEfficiencyConfig,
@@ -26,45 +49,6 @@ impl PrefixCacheEfficiencyRule {
 }
 
 impl Rule for PrefixCacheEfficiencyRule {
-    fn id(&self) -> &'static str {
-        "prefix_cache_efficiency"
-    }
-
-    fn name(&self) -> &'static str {
-        "Prefix Cache Efficiency"
-    }
-
-    fn title(&self) -> &'static str {
-        "Low prefix cache hit rate"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Warning
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "Requests do not share common prefixes (system prompts, few-shot examples)",
-            "Prefix caching not enabled (--enable-prefix-caching not set)",
-            "Cache eviction too aggressive for the workload",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Enable prefix caching: add --enable-prefix-caching to vLLM startup",
-            "Ensure requests share a common system prompt or few-shot prefix",
-            "Review prefix_caching_hash_algo if cache collisions are suspected",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &[
-            "vllm:prefix_cache_hits_total",
-            "vllm:prefix_cache_queries_total",
-        ]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let Some(hit_rate) = signals.evaluate(Signal::PrefixCacheHitRate) else {
             return DiagnosisState::unknown_signal(Signal::PrefixCacheHitRate);
@@ -76,6 +60,15 @@ impl Rule for PrefixCacheEfficiencyRule {
 
         DiagnosisState::Stressed(Signal::PrefixCacheHitRate, hit_rate)
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(PrefixCacheEfficiencyRule::new(
+            config.rules.prefix_cache_efficiency.clone(),
+        )),
+    )
 }
 
 #[cfg(test)]

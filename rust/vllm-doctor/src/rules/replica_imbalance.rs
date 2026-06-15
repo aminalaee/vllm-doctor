@@ -6,10 +6,36 @@
 //!   1 signal  -> low
 //!   2 signals -> medium
 //!   3 signals -> high
+use crate::config::Config;
 use crate::config::ReplicaImbalanceConfig;
 use crate::models::{DiagnosisState, Severity};
 use crate::rules::Rule;
+use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
+
+pub static DEFINITION: RuleDefinition = RuleDefinition {
+    id: "replica_imbalance",
+    name: "Replica Imbalance",
+    title: "Replica imbalance",
+    severity: Severity::Warning,
+    likely_causes: &[
+        "Load balancer not distributing requests evenly (sticky sessions or connection reuse)",
+        "A replica is not Ready or recently restarted, so traffic skips it",
+        "Long-context requests pinned to a subset of replicas",
+        "Autoscaler added replicas that are not yet receiving traffic",
+    ],
+    recommendations: &[
+        "Check the load balancer / service routing and session affinity settings",
+        "Verify readiness probes — an unready replica receives no traffic",
+        "Compare per-replica latency and restart any unhealthy replica",
+        "Confirm newly added replicas are registered with the load balancer",
+    ],
+    related_metrics: &[
+        "vllm:num_requests_running",
+        "vllm:num_requests_waiting",
+        "vllm:kv_cache_usage_perc",
+    ],
+};
 
 pub struct ReplicaImbalanceRule {
     cfg: ReplicaImbalanceConfig,
@@ -22,48 +48,6 @@ impl ReplicaImbalanceRule {
 }
 
 impl Rule for ReplicaImbalanceRule {
-    fn id(&self) -> &'static str {
-        "replica_imbalance"
-    }
-
-    fn name(&self) -> &'static str {
-        "Replica Imbalance"
-    }
-
-    fn title(&self) -> &'static str {
-        "Replica imbalance"
-    }
-
-    fn severity(&self) -> Severity {
-        Severity::Warning
-    }
-
-    fn likely_causes(&self) -> &'static [&'static str] {
-        &[
-            "Load balancer not distributing requests evenly (sticky sessions or connection reuse)",
-            "A replica is not Ready or recently restarted, so traffic skips it",
-            "Long-context requests pinned to a subset of replicas",
-            "Autoscaler added replicas that are not yet receiving traffic",
-        ]
-    }
-
-    fn recommendations(&self) -> &'static [&'static str] {
-        &[
-            "Check the load balancer / service routing and session affinity settings",
-            "Verify readiness probes — an unready replica receives no traffic",
-            "Compare per-replica latency and restart any unhealthy replica",
-            "Confirm newly added replicas are registered with the load balancer",
-        ]
-    }
-
-    fn related_metrics(&self) -> &'static [&'static str] {
-        &[
-            "vllm:num_requests_running",
-            "vllm:num_requests_waiting",
-            "vllm:kv_cache_usage_perc",
-        ]
-    }
-
     fn run(&self, signals: &SignalGraph<'_>) -> DiagnosisState {
         let Some(imbalance) = signals.evaluate(Signal::ReplicaRunningImbalance) else {
             return DiagnosisState::Healthy;
@@ -77,6 +61,15 @@ impl Rule for ReplicaImbalanceRule {
             DiagnosisState::Healthy
         }
     }
+}
+
+pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
+    (
+        &DEFINITION,
+        Box::new(ReplicaImbalanceRule::new(
+            config.rules.replica_imbalance.clone(),
+        )),
+    )
 }
 
 #[cfg(test)]
