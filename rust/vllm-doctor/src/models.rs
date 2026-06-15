@@ -332,4 +332,46 @@ mod tests {
             assert_eq!(Confidence::from_str(&text).unwrap(), c);
         }
     }
+
+    #[test]
+    fn parse_errors_for_unknown_values() {
+        assert!(ClientMode::from_str("unknown").is_err());
+        assert!(Severity::from_str("unknown").is_err());
+        assert!(Health::from_str("unknown").is_err());
+        assert!(Confidence::from_str("unknown").is_err());
+    }
+
+    #[test]
+    fn diagnosis_context_builders() {
+        let ctx = DiagnosisContext::new("5m")
+            .with_model_name("llama")
+            .with_client_mode(ClientMode::Scrape);
+        assert_eq!(ctx.since, "5m");
+        assert_eq!(ctx.model_name, Some("llama".to_string()));
+        assert_eq!(ctx.client_mode, ClientMode::Scrape);
+    }
+
+    #[test]
+    fn diagnosis_state_unknown_signal_message() {
+        let state = DiagnosisState::unknown_signal(Signal::NumRequestsRunning);
+        assert!(matches!(state, DiagnosisState::Unknown(_)));
+        assert!(format!("{state:?}").contains("num_requests_running"));
+    }
+
+    #[test]
+    fn finding_struct_is_independent() {
+        let finding = Finding {
+            severity: Severity::Warning,
+            confidence: Confidence::High,
+            title: "t".into(),
+            summary: "s".into(),
+            signals: vec!["a".into()],
+            evidence: vec!["b".into()],
+            likely_causes: vec!["c".into()],
+            recommendations: vec!["d".into()],
+            related_metrics: vec!["e".into()],
+        };
+        assert_eq!(finding.severity, Severity::Warning);
+        assert_eq!(finding.signals, vec!["a".to_string()]);
+    }
 }

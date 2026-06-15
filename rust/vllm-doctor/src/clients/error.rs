@@ -40,3 +40,33 @@ impl From<reqwest::Error> for ClientError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_and_parse_errors_display() {
+        assert_eq!(
+            ClientError::Query("bad query".into()).to_string(),
+            "query error: bad query"
+        );
+        assert_eq!(
+            ClientError::Parse("bad line".into()).to_string(),
+            "parse error: bad line"
+        );
+    }
+
+    #[test]
+    fn from_reqwest_maps_connection() {
+        let err = reqwest::Client::new().get("http://[::1]:9/").send();
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let client_err: ClientError = rt.block_on(err).unwrap_err().into();
+        assert!(client_err.is_connection());
+    }
+
+    #[test]
+    fn is_timeout_false_for_query_error() {
+        assert!(!ClientError::Query("x".into()).is_timeout());
+    }
+}

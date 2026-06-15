@@ -196,3 +196,355 @@ impl<'a> SignalGraph<'a> {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::metrics::series::{MetricSample, MetricSeries};
+
+    fn sample(value: f64, labels: &[(&str, &str)]) -> MetricSample {
+        MetricSample {
+            labels: labels
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+            value,
+            timestamp: None,
+        }
+    }
+
+    fn snapshot_with_running(samples: Vec<MetricSample>) -> MetricSeriesSnapshot {
+        MetricSeriesSnapshot {
+            num_requests_running: MetricSeries::from_samples(samples),
+            ..Default::default()
+        }
+    }
+
+    fn balanced_snapshot() -> MetricSeriesSnapshot {
+        MetricSeriesSnapshot {
+            num_requests_running: MetricSeries::from_samples(vec![
+                sample(10.0, &[("pod", "a"), ("model_name", "llama")]),
+                sample(10.0, &[("pod", "b"), ("model_name", "llama")]),
+            ]),
+            ..Default::default()
+        }
+    }
+
+    fn imbalanced_snapshot() -> MetricSeriesSnapshot {
+        MetricSeriesSnapshot {
+            num_requests_running: MetricSeries::from_samples(vec![
+                sample(10.0, &[("pod", "a"), ("model_name", "llama")]),
+                sample(30.0, &[("pod", "b"), ("model_name", "llama")]),
+            ]),
+            num_requests_waiting: MetricSeries::from_samples(vec![
+                sample(4.0, &[("pod", "a"), ("model_name", "llama")]),
+                sample(6.0, &[("pod", "b"), ("model_name", "llama")]),
+            ]),
+            kv_cache_usage_perc: MetricSeries::from_samples(vec![
+                sample(0.5, &[("pod", "a"), ("model_name", "llama")]),
+                sample(0.9, &[("pod", "b"), ("model_name", "llama")]),
+            ]),
+            ..Default::default()
+        }
+    }
+
+    fn zero_low_snapshot() -> MetricSeriesSnapshot {
+        MetricSeriesSnapshot {
+            num_requests_running: MetricSeries::from_samples(vec![
+                sample(0.0, &[("pod", "a"), ("model_name", "llama")]),
+                sample(10.0, &[("pod", "b"), ("model_name", "llama")]),
+            ]),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn display_all_signals() {
+        let signals = [
+            Signal::NumRequestsRunning,
+            Signal::NumRequestsWaiting,
+            Signal::KvCacheUsagePerc,
+            Signal::PromptTokensPerSecond,
+            Signal::GenerationTokensPerSecond,
+            Signal::RequestSuccessTotal,
+            Signal::RequestErrorTotal,
+            Signal::RequestAbortTotal,
+            Signal::TtftP95Seconds,
+            Signal::TpotP95Seconds,
+            Signal::PrefixCacheHitRate,
+            Signal::QueueTimeP95Seconds,
+            Signal::NumPreemptionsTotal,
+            Signal::TotalRequests,
+            Signal::ErrorRate,
+            Signal::AbortRate,
+            Signal::ReplicaRunningImbalance,
+        ];
+        for signal in signals {
+            assert!(!signal.to_string().is_empty());
+        }
+    }
+
+    #[test]
+    fn evaluate_returns_value_for_gauges() {
+        let snapshot = MetricSeriesSnapshot {
+            num_requests_running: MetricSeries::scalar(5.0),
+            num_requests_waiting: MetricSeries::scalar(3.0),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.evaluate(Signal::NumRequestsRunning), Some(5.0));
+        assert_eq!(graph.evaluate(Signal::NumRequestsWaiting), Some(3.0));
+    }
+
+    #[test]
+    fn evaluate_returns_none_for_missing_metric() {
+        let snapshot = MetricSeriesSnapshot::default();
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.evaluate(Signal::NumRequestsRunning), None);
+        assert_eq!(graph.evaluate(Signal::ReplicaRunningImbalance), None);
+    }
+
+    #[test]
+    fn evaluate_or_uses_default() {
+        let snapshot = MetricSeriesSnapshot::default();
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.evaluate_or(Signal::NumRequestsRunning, 7.0), 7.0);
+    }
+
+    #[test]
+    fn evaluate_finite_skips_non_finite() {
+        let snapshot = MetricSeriesSnapshot {
+            num_requests_running: MetricSeries::from_samples(vec![
+                MetricSample::new(f64::NAN),
+                MetricSample::new(4.0),
+            ]),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.evaluate_finite(Signal::NumRequestsRunning, 1.0), 1.0);
+    }
+
+    #[test]
+    fn total_requests_sums_components() {
+        let snapshot = MetricSeriesSnapshot {
+            request_success_total: MetricSeries::scalar(8.0),
+            request_error_total: MetricSeries::scalar(1.0),
+            request_abort_total: MetricSeries::scalar(1.0),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.evaluate(Signal::TotalRequests), Some(10.0));
+    }
+
+    #[test]
+    fn total_requests_none_when_component_missing() {
+        let snapshot = MetricSeriesSnapshot {
+            request_success_total: MetricSeries::scalar(8.0),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.evaluate(Signal::TotalRequests), None);
+    }
+
+    #[test]
+    fn error_rate_zero_when_no_total() {
+        let snapshot = MetricSeriesSnapshot::default();
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.evaluate(Signal::ErrorRate), None);
+    }
+
+    #[test]
+    fn error_rate_computes_ratio() {
+        let snapshot = MetricSeriesSnapshot {
+            request_success_total: MetricSeries::scalar(90.0),
+            request_error_total: MetricSeries::scalar(10.0),
+            request_abort_total: MetricSeries::scalar(0.0),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        assert!((graph.evaluate(Signal::ErrorRate).unwrap() - 0.1).abs() < 1e-9);
+    }
+
+    #[test]
+    fn abort_rate_computes_ratio() {
+        let snapshot = MetricSeriesSnapshot {
+            request_success_total: MetricSeries::scalar(90.0),
+            request_error_total: MetricSeries::scalar(0.0),
+            request_abort_total: MetricSeries::scalar(10.0),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        assert!((graph.evaluate(Signal::AbortRate).unwrap() - 0.1).abs() < 1e-9);
+    }
+
+    #[test]
+    fn replica_running_imbalance_detects_imbalance() {
+        let snapshot = imbalanced_snapshot();
+        let graph = SignalGraph::new(&snapshot);
+        let imbalance = graph.evaluate(Signal::ReplicaRunningImbalance).unwrap();
+        assert!((imbalance - 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn replica_running_imbalance_none_for_balanced() {
+        let snapshot = balanced_snapshot();
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.evaluate(Signal::ReplicaRunningImbalance), None);
+    }
+
+    #[test]
+    fn replica_running_imbalance_none_for_single_replica() {
+        let snapshot =
+            snapshot_with_running(vec![sample(5.0, &[("pod", "a"), ("model_name", "llama")])]);
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.evaluate(Signal::ReplicaRunningImbalance), None);
+    }
+
+    #[test]
+    fn replica_running_imbalance_zero_low_path() {
+        let snapshot = zero_low_snapshot();
+        let graph = SignalGraph::new(&snapshot);
+        let imbalance = graph.evaluate(Signal::ReplicaRunningImbalance).unwrap();
+        assert!((imbalance - 10.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn replica_label_detected_from_pod() {
+        let snapshot = imbalanced_snapshot();
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.replica_label(), Some("pod"));
+    }
+
+    #[test]
+    fn replica_label_none_for_single_replica() {
+        let snapshot = snapshot_with_running(vec![sample(1.0, &[("pod", "a")])]);
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.replica_label(), None);
+    }
+
+    #[test]
+    fn models_collects_model_names() {
+        let snapshot = imbalanced_snapshot();
+        let graph = SignalGraph::new(&snapshot);
+        let models = graph.models();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0], Some("llama".to_string()));
+    }
+
+    #[test]
+    fn models_returns_none_when_no_labels() {
+        let snapshot = snapshot_with_running(vec![MetricSample::new(1.0)]);
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.models(), vec![None]);
+    }
+
+    #[test]
+    fn per_replica_groups_by_label() {
+        let snapshot = imbalanced_snapshot();
+        let graph = SignalGraph::new(&snapshot);
+        let by_replica = graph.per_replica(Signal::NumRequestsRunning, Some("llama"));
+        assert_eq!(by_replica.len(), 2);
+        assert!((by_replica["a"] - 10.0).abs() < 1e-9);
+        assert!((by_replica["b"] - 30.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn per_replica_empty_without_replica_label() {
+        let snapshot = snapshot_with_running(vec![
+            sample(1.0, &[("model_name", "llama")]),
+            sample(2.0, &[("model_name", "llama")]),
+        ]);
+        let graph = SignalGraph::new(&snapshot);
+        assert!(
+            graph
+                .per_replica(Signal::NumRequestsRunning, Some("llama"))
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn per_replica_empty_for_unsupported_signal() {
+        let snapshot = imbalanced_snapshot();
+        let graph = SignalGraph::new(&snapshot);
+        assert!(
+            graph
+                .per_replica(Signal::TtftP95Seconds, Some("llama"))
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn per_replica_filters_by_model() {
+        let snapshot = MetricSeriesSnapshot {
+            num_requests_running: MetricSeries::from_samples(vec![
+                sample(1.0, &[("pod", "a"), ("model_name", "llama")]),
+                sample(2.0, &[("pod", "b"), ("model_name", "mistral")]),
+            ]),
+            num_requests_waiting: MetricSeries::from_samples(vec![
+                sample(1.0, &[("pod", "a"), ("model_name", "llama")]),
+                sample(2.0, &[("pod", "b"), ("model_name", "mistral")]),
+            ]),
+            kv_cache_usage_perc: MetricSeries::from_samples(vec![
+                sample(0.1, &[("pod", "a"), ("model_name", "llama")]),
+                sample(0.2, &[("pod", "b"), ("model_name", "mistral")]),
+            ]),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        let by_replica = graph.per_replica(Signal::NumRequestsRunning, Some("llama"));
+        assert_eq!(by_replica.len(), 1);
+        assert!((by_replica["a"] - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn per_replica_supports_waiting_and_cache() {
+        let snapshot = MetricSeriesSnapshot {
+            num_requests_running: MetricSeries::from_samples(vec![
+                sample(1.0, &[("pod", "a"), ("model_name", "llama")]),
+                sample(2.0, &[("pod", "b"), ("model_name", "llama")]),
+            ]),
+            num_requests_waiting: MetricSeries::from_samples(vec![sample(
+                4.0,
+                &[("pod", "a"), ("model_name", "llama")],
+            )]),
+            kv_cache_usage_perc: MetricSeries::from_samples(vec![sample(
+                0.5,
+                &[("pod", "a"), ("model_name", "llama")],
+            )]),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        assert!(
+            !graph
+                .per_replica(Signal::NumRequestsWaiting, Some("llama"))
+                .is_empty()
+        );
+        assert!(
+            !graph
+                .per_replica(Signal::KvCacheUsagePerc, Some("llama"))
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn per_replica_skips_non_finite_values() {
+        let snapshot = MetricSeriesSnapshot {
+            num_requests_running: MetricSeries::from_samples(vec![
+                sample(f64::NAN, &[("pod", "a"), ("model_name", "llama")]),
+                sample(2.0, &[("pod", "b"), ("model_name", "llama")]),
+            ]),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        let by_replica = graph.per_replica(Signal::NumRequestsRunning, Some("llama"));
+        assert_eq!(by_replica.len(), 1);
+        assert!((by_replica["b"] - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn snapshot_returns_inner_snapshot() {
+        let snapshot = imbalanced_snapshot();
+        let graph = SignalGraph::new(&snapshot);
+        assert_eq!(graph.snapshot().num_requests_running.value(), Some(40.0));
+    }
+}

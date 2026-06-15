@@ -145,6 +145,9 @@ impl MetricSeries {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+    use std::str::FromStr;
+
     use super::*;
 
     fn sample(value: f64, labels: &[(&str, &str)]) -> MetricSample {
@@ -227,5 +230,51 @@ mod tests {
 
         assert_eq!(filtered.samples.len(), 1);
         assert_eq!(filtered.samples[0].value, 2.0);
+    }
+
+    #[test]
+    fn aggregate_display_and_parse() {
+        for agg in [Aggregate::Sum, Aggregate::Max, Aggregate::Avg] {
+            assert_eq!(Aggregate::from_str(&agg.to_string()).unwrap(), agg);
+        }
+    }
+
+    #[test]
+    fn aggregate_parse_rejects_unknown() {
+        assert!(Aggregate::from_str("median").is_err());
+    }
+
+    #[test]
+    fn by_returns_none_for_missing_dimension() {
+        let series = MetricSeries {
+            samples: vec![sample(2.0, &[("pod", "a")]), sample(3.0, &[("pod", "b")])],
+            aggregate_by: Aggregate::Sum,
+        };
+        assert!(series.by("model_name").is_empty());
+    }
+
+    #[test]
+    fn filter_preserves_aggregate_by() {
+        let series = MetricSeries {
+            samples: vec![sample(2.0, &[("pod", "a")]), sample(3.0, &[("pod", "b")])],
+            aggregate_by: Aggregate::Max,
+        };
+        let labels = HashMap::from([("pod".to_string(), "a".to_string())]);
+        let filtered = series.filter(&labels);
+        assert_eq!(filtered.aggregate_by, Aggregate::Max);
+    }
+
+    #[test]
+    fn sample_builder_methods() {
+        let s = MetricSample::new(1.0)
+            .with_label("pod", "a")
+            .with_timestamp(123.0);
+        assert_eq!(s.labels["pod"], "a");
+        assert_eq!(s.timestamp, Some(123.0));
+    }
+
+    #[test]
+    fn scalar_is_alias_for_new() {
+        assert_eq!(MetricSample::scalar(5.0), MetricSample::new(5.0));
     }
 }

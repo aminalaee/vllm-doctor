@@ -302,4 +302,35 @@ mod tests {
         assert_eq!(config.rules.replica_imbalance.imbalance_factor, 3.0);
         assert_eq!(config.rules.replica_imbalance.critical_factor, 5.0);
     }
+
+    #[test]
+    fn global_config_dir_is_merged() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_dir = dir.path().join("config");
+        std::fs::create_dir_all(config_dir.join("vllm-doctor")).unwrap();
+        std::fs::write(
+            config_dir.join("vllm-doctor").join("config.toml"),
+            "[rules.low_throughput]\nlow_prompt_tps = 0.5\n",
+        )
+        .unwrap();
+
+        let config = load_config_with(None, None, Some(config_dir)).unwrap();
+        assert_eq!(config.rules.low_throughput.low_prompt_tps, 0.5);
+    }
+
+    #[test]
+    fn empty_database_url_gets_default() {
+        let home = tempfile::tempdir().unwrap();
+        let _config = Config {
+            database: DatabaseConfig { url: String::new() },
+            ..Config::default()
+        };
+        let merged = load_config_with(None, Some(home.path().to_path_buf()), None).unwrap();
+        assert!(!merged.database.url.is_empty());
+    }
+
+    #[test]
+    fn config_dir_from_returns_none_for_none() {
+        assert!(config_dir_from(None).is_none());
+    }
 }
