@@ -1,21 +1,6 @@
 //! Replica imbalance rule.
 //!
-//! Detects when load is unevenly distributed across the replicas of a deployment —
-//! one replica overloaded while its peers sit idle. This points at the routing layer
-//! rather than the model: an uneven load balancer, an unready replica receiving no
-//! traffic, or long-context requests pinned to a subset of pods.
-//!
-//! Because one vLLM deployment serves one model, replicas are grouped by the
-//! `model_name` label and compared only against peers serving the same model. This
-//! keeps the comparison correct on a shared Prometheus that scrapes several
-//! deployments, with or without a model filter. A group with a single replica is
-//! skipped (nothing to compare).
-//!
-//! Signals (each matching signal increases confidence), evaluated per model group:
-//!   - running spread: busiest replica handles >= imbalance_factor x the least busy
-//!     (gated by a minimum total running load to avoid firing on noise)
-//!   - cache gap: kv_cache_usage_perc max - min >= cache_gap
-//!   - waiting skew: one replica has queued requests while another has none
+//! Detects when load is unevenly distributed across the replicas of a deployment.
 //!
 //! Confidence:
 //!   1 signal  -> low
@@ -24,54 +9,9 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::config::ReplicaImbalanceConfig;
-use crate::metrics::series::MetricSeries;
-use crate::metrics::{MetricSeriesSnapshot, detect_replica_label};
 use crate::models::{Confidence, FindingData};
 use crate::rules::Rule;
-
-const MODEL_LABEL: &str = "model_name";
-
-fn models(series: [&MetricSeries; 3]) -> Vec<Option<String>> {
-    let mut values = HashSet::new();
-    let mut labeled = false;
-    for s in series {
-        for sample in &s.samples {
-            if let Some(model) = sample.labels.get(MODEL_LABEL) {
-                labeled = true;
-                values.insert(model.clone());
-            }
-        }
-    }
-    if labeled {
-        let mut values: Vec<Option<String>> = values.into_iter().map(Some).collect();
-        values.sort();
-        values
-    } else {
-        vec![None]
-    }
-}
-
-fn per_replica(series: &MetricSeries, model: Option<&str>, label: &str) -> HashMap<String, f64> {
-    let scoped = match model {
-        Some(m) => {
-            let mut labels = HashMap::new();
-            labels.insert(MODEL_LABEL.to_string(), m.to_string());
-            series.filter(&labels)
-        }
-        None => series.clone(),
-    };
-    scoped
-        .by(label)
-        .into_iter()
-        .filter_map(|(k, v)| v.filter(|v| v.is_finite()).map(|v| (k, v)))
-        .collect()
-}
-
-fn extremes(values: &HashMap<String, f64>) -> Option<(&String, &String)> {
-    let hi = values.iter().max_by(|a, b| a.1.total_cmp(b.1))?;
-    let lo = values.iter().min_by(|a, b| a.1.total_cmp(b.1))?;
-    Some((hi.0, lo.0))
-}
+use crate::signals::{Signal, SignalGraph};
 
 pub struct ReplicaImbalanceRule {
     cfg: ReplicaImbalanceConfig,
@@ -126,69 +66,64 @@ impl Rule for ReplicaImbalanceRule {
         ]
     }
 
-    fn run(&self, metrics: &MetricSeriesSnapshot) -> Option<FindingData> {
-        let label = detect_replica_label(metrics)?;
-
-        let running_series = &metrics.num_requests_running;
-        let waiting_series = &metrics.num_requests_waiting;
-        let cache_series = &metrics.kv_cache_usage_perc;
+    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
+        let _label = signals.replica_label()?;
 
         let mut evidence = Vec::new();
-        let mut signals: HashSet<String> = HashSet::new();
+        let mut signals_set: HashSet<String> = HashSet::new();
         let mut worst_count = 0;
 
-        for model in models([running_series, waiting_series, cache_series]) {
-            let running = per_replica(running_series, model.as_deref(), label);
-            let waiting = per_replica(waiting_series, model.as_deref(), label);
-            let cache = per_replica(cache_series, model.as_deref(), label);
+        for model in signals.models() {
+            let running = signals.per_replica(Signal::NumRequestsRunning, model.as_deref());
+            let waiting = signals.per_replica(Signal::NumRequestsWaiting, model.as_deref());
+            let cache = signals.per_replica(Signal::KvCacheUsagePerc, model.as_deref());
 
             let mut parts = Vec::new();
             let mut count = 0;
 
-            if running.len() >= 2 {
-                if let Some((hi, lo)) = extremes(&running) {
-                    let total: f64 = running.values().sum();
-                    if total >= self.cfg.min_total_running
-                        && ((running[lo] > 0.0
-                            && running[hi] >= self.cfg.imbalance_factor * running[lo])
-                            || (running[lo] == 0.0 && running[hi] > 0.0))
-                    {
-                        count += 1;
-                        signals.insert("Uneven running requests across replicas".to_string());
-                        parts.push(format!(
-                            "running {hi}={:.0} vs {lo}={:.0}",
-                            running[hi], running[lo]
-                        ));
-                    }
+            if let Some((hi_replica, lo_replica)) = extremes(&running) {
+                let total: f64 = running.values().sum();
+                let hi = running[hi_replica];
+                let lo = running[lo_replica];
+                if total >= self.cfg.min_total_running
+                    && ((lo > 0.0 && hi >= self.cfg.imbalance_factor * lo)
+                        || (lo == 0.0 && hi > 0.0))
+                {
+                    count += 1;
+                    signals_set.insert("Uneven running requests across replicas".to_string());
+                    parts.push(format!(
+                        "running {hi_replica}={:.0} vs {lo_replica}={:.0}",
+                        hi, lo
+                    ));
                 }
             }
 
-            if cache.len() >= 2 {
-                if let Some((hi, lo)) = extremes(&cache) {
-                    if cache[hi] - cache[lo] >= self.cfg.cache_gap {
-                        count += 1;
-                        signals.insert("Uneven KV cache usage across replicas".to_string());
-                        parts.push(format!(
-                            "cache {:.0}% vs {:.0}%",
-                            cache[hi] * 100.0,
-                            cache[lo] * 100.0
-                        ));
-                    }
+            if let Some((hi_replica, lo_replica)) = extremes(&cache) {
+                let hi = cache[hi_replica];
+                let lo = cache[lo_replica];
+                if hi - lo >= self.cfg.cache_gap {
+                    count += 1;
+                    signals_set.insert("Uneven KV cache usage across replicas".to_string());
+                    parts.push(format!(
+                        "cache {hi_replica}={:.0}% vs {lo_replica}={:.0}%",
+                        hi * 100.0,
+                        lo * 100.0
+                    ));
                 }
             }
 
-            if waiting.len() >= 2 {
-                if let Some((hi, lo)) = extremes(&waiting) {
-                    if waiting[hi] > 0.0 && waiting[lo] == 0.0 {
-                        count += 1;
-                        signals.insert(
-                            "Requests queued on some replicas while others are idle".to_string(),
-                        );
-                        parts.push(format!(
-                            "waiting {hi}={:.0} vs {lo}={:.0}",
-                            waiting[hi], waiting[lo]
-                        ));
-                    }
+            if let Some((hi_replica, lo_replica)) = extremes(&waiting) {
+                let hi = waiting[hi_replica];
+                let lo = waiting[lo_replica];
+                if hi > 0.0 && lo == 0.0 {
+                    count += 1;
+                    signals_set.insert(
+                        "Requests queued on some replicas while others are idle".to_string(),
+                    );
+                    parts.push(format!(
+                        "waiting {hi_replica}={:.0} vs {lo_replica}={:.0}",
+                        hi, lo
+                    ));
                 }
             }
 
@@ -220,22 +155,28 @@ impl Rule for ReplicaImbalanceRule {
             )
         };
 
-        let mut signals: Vec<String> = signals.into_iter().collect();
-        signals.sort();
+        let mut signals_list: Vec<String> = signals_set.into_iter().collect();
+        signals_list.sort();
 
         Some(FindingData {
             confidence,
             summary,
-            signals,
+            signals: signals_list,
             evidence,
             severity: None,
         })
     }
 }
+fn extremes(values: &HashMap<String, f64>) -> Option<(&String, &String)> {
+    let hi = values.iter().max_by(|a, b| a.1.total_cmp(b.1))?;
+    let lo = values.iter().min_by(|a, b| a.1.total_cmp(b.1))?;
+    Some((hi.0, lo.0))
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
 
     fn rule() -> ReplicaImbalanceRule {
@@ -271,11 +212,11 @@ mod tests {
     fn no_finding_when_balanced() {
         assert!(
             rule()
-                .run(&snapshot(
+                .run(&SignalGraph::new(&snapshot(
                     vec![sample(10.0, &[("pod", "a")]), sample(10.0, &[("pod", "b")])],
                     vec![sample(0.0, &[("pod", "a")]), sample(0.0, &[("pod", "b")])],
                     vec![sample(0.8, &[("pod", "a")]), sample(0.8, &[("pod", "b")])],
-                ))
+                )))
                 .is_none()
         );
     }
@@ -283,11 +224,11 @@ mod tests {
     #[test]
     fn detects_running_imbalance() {
         let finding = rule()
-            .run(&snapshot(
+            .run(&SignalGraph::new(&snapshot(
                 vec![sample(10.0, &[("pod", "a")]), sample(1.0, &[("pod", "b")])],
                 vec![sample(0.0, &[("pod", "a")]), sample(0.0, &[("pod", "b")])],
                 vec![sample(0.8, &[("pod", "a")]), sample(0.8, &[("pod", "b")])],
-            ))
+            )))
             .unwrap();
         assert_eq!(finding.confidence, Confidence::Low);
         assert!(
@@ -300,11 +241,11 @@ mod tests {
     #[test]
     fn detects_multiple_signals() {
         let finding = rule()
-            .run(&snapshot(
+            .run(&SignalGraph::new(&snapshot(
                 vec![sample(10.0, &[("pod", "a")]), sample(0.0, &[("pod", "b")])],
                 vec![sample(5.0, &[("pod", "a")]), sample(0.0, &[("pod", "b")])],
                 vec![sample(0.9, &[("pod", "a")]), sample(0.5, &[("pod", "b")])],
-            ))
+            )))
             .unwrap();
         assert_eq!(finding.confidence, Confidence::High);
     }
@@ -313,11 +254,11 @@ mod tests {
     fn skips_single_replica() {
         assert!(
             rule()
-                .run(&snapshot(
-                    vec![sample(10.0, &[("pod", "a")])],
-                    vec![sample(0.0, &[("pod", "a")])],
-                    vec![sample(0.8, &[("pod", "a")])],
-                ))
+                .run(&SignalGraph::new(&snapshot(
+                    vec![sample(10.0, &[("pod", "a")]),],
+                    vec![sample(0.0, &[("pod", "a")]),],
+                    vec![sample(0.8, &[("pod", "a")]),],
+                )))
                 .is_none()
         );
     }

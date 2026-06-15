@@ -14,9 +14,9 @@
 //!   preemptions only               → medium (happened at some point, may not be ongoing)
 //!   preemptions + high cache usage → high   (actively under memory pressure)
 use crate::config::PreemptionPressureConfig;
-use crate::metrics::MetricSeriesSnapshot;
 use crate::models::{Confidence, FindingData};
 use crate::rules::Rule;
+use crate::signals::{Signal, SignalGraph};
 
 pub struct PreemptionPressureRule {
     cfg: PreemptionPressureConfig,
@@ -66,22 +66,23 @@ impl Rule for PreemptionPressureRule {
         &["vllm:num_preemptions_total", "vllm:kv_cache_usage_perc"]
     }
 
-    fn run(&self, metrics: &MetricSeriesSnapshot) -> Option<FindingData> {
-        let preemptions = metrics.num_preemptions_total.value()?;
+    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
+        let preemptions = signals.evaluate(Signal::NumPreemptionsTotal)?;
         if preemptions == 0.0 {
             return None;
         }
 
-        let mut evidence = vec![format!("Preemptions total: {preemptions:.0}")];
-        let mut signals = Vec::new();
+        let mut evidence = vec![format!("Preemptions total: {:.0}", preemptions)];
+        let mut signals_list = Vec::new();
 
-        let cache = metrics.kv_cache_usage_perc.value();
-        let cache_high = cache.is_some_and(|v| v >= self.cfg.high_cache_usage);
+        let cache = signals.evaluate(Signal::KvCacheUsagePerc).unwrap_or(0.0);
+        let cache_high = cache >= self.cfg.high_cache_usage;
         if cache_high {
-            signals.push("KV cache under pressure while preemptions are occurring".to_string());
+            signals_list
+                .push("KV cache under pressure while preemptions are occurring".to_string());
             evidence.push(format!(
                 "GPU KV cache usage: {:.0}% (threshold: {:.0}%)",
-                cache.unwrap() * 100.0,
+                cache * 100.0,
                 self.cfg.high_cache_usage * 100.0
             ));
         }
@@ -93,9 +94,10 @@ impl Rule for PreemptionPressureRule {
                 Confidence::Medium
             },
             summary: format!(
-                "vLLM has preempted {preemptions:.0} sequences — KV cache exhaustion is forcing sequences to be re-computed."
+                "vLLM has preempted {:.0} sequences — KV cache exhaustion is forcing sequences to be re-computed.",
+                preemptions
             ),
-            signals,
+            signals: signals_list,
             evidence,
             severity: None,
         })
@@ -105,6 +107,7 @@ impl Rule for PreemptionPressureRule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
 
     fn rule() -> PreemptionPressureRule {
@@ -123,18 +126,18 @@ mod tests {
 
     #[test]
     fn no_finding_when_no_preemptions() {
-        assert!(rule().run(&snapshot(0.0, 0.9)).is_none());
+        assert!(rule().run(&SignalGraph::new(&snapshot(0.0, 0.9))).is_none());
     }
 
     #[test]
     fn medium_confidence_when_preemptions_but_cache_low() {
-        let finding = rule().run(&snapshot(5.0, 0.5)).unwrap();
+        let finding = rule().run(&SignalGraph::new(&snapshot(5.0, 0.5))).unwrap();
         assert_eq!(finding.confidence, Confidence::Medium);
     }
 
     #[test]
     fn high_confidence_when_preemptions_and_cache_high() {
-        let finding = rule().run(&snapshot(5.0, 0.9)).unwrap();
+        let finding = rule().run(&SignalGraph::new(&snapshot(5.0, 0.9))).unwrap();
         assert_eq!(finding.confidence, Confidence::High);
     }
 }

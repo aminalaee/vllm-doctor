@@ -14,9 +14,9 @@
 //!   high queue time only      → low  (spike may be transient)
 //!   high queue time + waiting → high (active backlog confirmed)
 use crate::config::QueueLatencyConfig;
-use crate::metrics::MetricSeriesSnapshot;
 use crate::models::{Confidence, FindingData};
 use crate::rules::Rule;
+use crate::signals::{Signal, SignalGraph};
 
 pub struct QueueLatencyRule {
     cfg: QueueLatencyConfig,
@@ -70,9 +70,9 @@ impl Rule for QueueLatencyRule {
         ]
     }
 
-    fn run(&self, metrics: &MetricSeriesSnapshot) -> Option<FindingData> {
-        let queue_time = metrics.queue_time_p95_seconds.value()?;
-        if !queue_time.is_finite() || queue_time < self.cfg.high_queue_time_p95 {
+    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
+        let queue_time = signals.evaluate(Signal::QueueTimeP95Seconds)?;
+        if queue_time < self.cfg.high_queue_time_p95 {
             return None;
         }
 
@@ -80,16 +80,18 @@ impl Rule for QueueLatencyRule {
             "Queue time p95: {:.3}s (threshold: {}s)",
             queue_time, self.cfg.high_queue_time_p95
         )];
-        let mut signals = Vec::new();
+        let mut signals_list = Vec::new();
 
-        let waiting = metrics.num_requests_waiting.value();
+        let waiting = signals.evaluate(Signal::NumRequestsWaiting);
         let waiting_confirmed = waiting.is_some_and(|v| v > 0.0);
-        if waiting_confirmed {
-            signals.push(format!(
-                "{} requests queued — active backlog confirmed",
-                waiting.unwrap() as i64
-            ));
-            evidence.push(format!("Waiting requests: {}", waiting.unwrap() as i64));
+        if let Some(w) = waiting {
+            if w > 0.0 {
+                signals_list.push(format!(
+                    "{} requests queued — active backlog confirmed",
+                    w as i64
+                ));
+            }
+            evidence.push(format!("Waiting requests: {}", w as i64));
         }
 
         Some(FindingData {
@@ -102,7 +104,7 @@ impl Rule for QueueLatencyRule {
                 "Requests are waiting {:.2}s (p95) in the queue before prefill begins — the server cannot admit requests fast enough.",
                 queue_time
             ),
-            signals,
+            signals: signals_list,
             evidence,
             severity: None,
         })
@@ -112,6 +114,7 @@ impl Rule for QueueLatencyRule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
 
     fn rule() -> QueueLatencyRule {
@@ -130,18 +133,18 @@ mod tests {
 
     #[test]
     fn no_finding_when_queue_time_low() {
-        assert!(rule().run(&snapshot(0.5, 5.0)).is_none());
+        assert!(rule().run(&SignalGraph::new(&snapshot(0.5, 5.0))).is_none());
     }
 
     #[test]
     fn low_confidence_when_queue_time_high_but_no_waiting() {
-        let finding = rule().run(&snapshot(2.0, 0.0)).unwrap();
+        let finding = rule().run(&SignalGraph::new(&snapshot(2.0, 0.0))).unwrap();
         assert_eq!(finding.confidence, Confidence::Low);
     }
 
     #[test]
     fn high_confidence_when_queue_time_high_and_waiting_exists() {
-        let finding = rule().run(&snapshot(2.0, 3.0)).unwrap();
+        let finding = rule().run(&SignalGraph::new(&snapshot(2.0, 3.0))).unwrap();
         assert_eq!(finding.confidence, Confidence::High);
         assert!(finding.signals[0].contains("3"));
     }

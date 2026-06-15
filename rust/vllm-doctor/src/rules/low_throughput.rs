@@ -16,9 +16,9 @@
 //!   both prompt and gen low, or running very low  → medium
 //!   only one metric low                           → low
 use crate::config::LowThroughputConfig;
-use crate::metrics::MetricSeriesSnapshot;
 use crate::models::{Confidence, FindingData};
 use crate::rules::Rule;
+use crate::signals::{Signal, SignalGraph};
 
 pub struct LowThroughputRule {
     cfg: LowThroughputConfig,
@@ -72,9 +72,9 @@ impl Rule for LowThroughputRule {
         ]
     }
 
-    fn run(&self, metrics: &MetricSeriesSnapshot) -> Option<FindingData> {
-        let prompt = metrics.prompt_tokens_per_second.value();
-        let gen_tps = metrics.generation_tokens_per_second.value();
+    fn run(&self, signals: &SignalGraph<'_>) -> Option<FindingData> {
+        let prompt = signals.evaluate(Signal::PromptTokensPerSecond);
+        let gen_tps = signals.evaluate(Signal::GenerationTokensPerSecond);
         if prompt.is_none() && gen_tps.is_none() {
             return None;
         }
@@ -86,43 +86,43 @@ impl Rule for LowThroughputRule {
             return None;
         }
 
-        let waiting = metrics.num_requests_waiting.value();
-        if waiting.is_some_and(|v| v > 0.0) {
+        let waiting = signals.evaluate(Signal::NumRequestsWaiting).unwrap_or(0.0);
+        if waiting > 0.0 {
             return None;
         }
 
-        let mut signals = Vec::new();
+        let mut signals_list = Vec::new();
         let mut evidence = Vec::new();
 
         if prompt_low && gen_low {
-            signals.push(
+            signals_list.push(
                 "Both prefill and decode throughput below threshold — server underutilized"
                     .to_string(),
             );
         } else if prompt_low {
-            signals.push("Prefill throughput below threshold".to_string());
+            signals_list.push("Prefill throughput below threshold".to_string());
         } else {
-            signals.push("Decode throughput below threshold".to_string());
+            signals_list.push("Decode throughput below threshold".to_string());
         }
 
         if let Some(p) = prompt {
             evidence.push(format!(
-                "Prompt tokens/s: {p:.1} (threshold: {})",
-                self.cfg.low_prompt_tps
+                "Prompt tokens/s: {:.1} (threshold: {})",
+                p, self.cfg.low_prompt_tps
             ));
         }
         if let Some(g) = gen_tps {
             evidence.push(format!(
-                "Generation tokens/s: {g:.1} (threshold: {})",
-                self.cfg.low_gen_tps
+                "Generation tokens/s: {:.1} (threshold: {})",
+                g, self.cfg.low_gen_tps
             ));
         }
 
-        let running = metrics.num_requests_running.value();
-        let running_low = running.is_some_and(|v| v < self.cfg.low_running as f64);
+        let running = signals.evaluate(Signal::NumRequestsRunning).unwrap_or(0.0);
+        let running_low = running > 0.0 && running < self.cfg.low_running as f64;
         if running_low {
-            signals.push("Very few active requests — no batching benefit".to_string());
-            evidence.push(format!("Requests running: {:.0}", running.unwrap()));
+            signals_list.push("Very few active requests — no batching benefit".to_string());
+            evidence.push(format!("Requests running: {:.0}", running));
         }
 
         Some(FindingData {
@@ -134,7 +134,7 @@ impl Rule for LowThroughputRule {
             summary:
                 "Server is processing requests below expected throughput with no queue pressure."
                     .to_string(),
-            signals,
+            signals: signals_list,
             evidence,
             severity: None,
         })
@@ -144,6 +144,7 @@ impl Rule for LowThroughputRule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
 
     fn rule() -> LowThroughputRule {
@@ -168,29 +169,43 @@ mod tests {
 
     #[test]
     fn no_finding_when_throughput_high() {
-        assert!(rule().run(&snapshot(100.0, 100.0, 5.0, 0.0)).is_none());
+        assert!(
+            rule()
+                .run(&SignalGraph::new(&snapshot(100.0, 100.0, 5.0, 0.0)))
+                .is_none()
+        );
     }
 
     #[test]
     fn no_finding_when_waiting_exists() {
-        assert!(rule().run(&snapshot(5.0, 5.0, 5.0, 1.0)).is_none());
+        assert!(
+            rule()
+                .run(&SignalGraph::new(&snapshot(5.0, 5.0, 5.0, 1.0)))
+                .is_none()
+        );
     }
 
     #[test]
     fn medium_confidence_when_both_low() {
-        let finding = rule().run(&snapshot(5.0, 20.0, 5.0, 0.0)).unwrap();
+        let finding = rule()
+            .run(&SignalGraph::new(&snapshot(5.0, 20.0, 5.0, 0.0)))
+            .unwrap();
         assert_eq!(finding.confidence, Confidence::Medium);
     }
 
     #[test]
     fn low_confidence_when_only_one_low() {
-        let finding = rule().run(&snapshot(100.0, 20.0, 5.0, 0.0)).unwrap();
+        let finding = rule()
+            .run(&SignalGraph::new(&snapshot(100.0, 20.0, 5.0, 0.0)))
+            .unwrap();
         assert_eq!(finding.confidence, Confidence::Low);
     }
 
     #[test]
     fn running_low_boosts_confidence() {
-        let finding = rule().run(&snapshot(100.0, 20.0, 1.0, 0.0)).unwrap();
+        let finding = rule()
+            .run(&SignalGraph::new(&snapshot(100.0, 20.0, 1.0, 0.0)))
+            .unwrap();
         assert_eq!(finding.confidence, Confidence::Medium);
     }
 }
