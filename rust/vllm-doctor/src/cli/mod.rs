@@ -38,4 +38,10 @@ mod tests {
         let args = Args::parse_from(["vllm-doctor", "diagnose"]);
         assert!(matches!(args.command, Command::Diagnose));
     }
+
+    #[test]
+    fn parse_history_command() {
+        let args = Args::parse_from(["vllm-doctor", "history"]);
+        assert!(matches!(args.command, Command::History));
+    }
 }

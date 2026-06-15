@@ -54,7 +54,47 @@ pub async fn diagnose(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::metrics::MetricSeriesSnapshot;
+    #[test]
+    fn parse_error_display() {
+        let err = ProviderError::Parse("bad metrics".into());
+        assert_eq!(err.to_string(), "snapshot parsing failed: bad metrics");
+    }
+
+    #[test]
+    fn not_configured_display() {
+        assert_eq!(
+            ProviderError::NotConfigured.to_string(),
+            "provider not configured"
+        );
+    }
+
+    #[test]
+    fn diagnose_propagates_fetch_error() {
+        let registry = build_registry(&Config::default());
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let err = rt
+            .block_on(diagnose(&FailingProvider, &registry))
+            .unwrap_err();
+        assert!(err.to_string().contains("forced"));
+    }
+
+    struct FailingProvider;
+
+    #[async_trait::async_trait]
+    impl Provider for FailingProvider {
+        async fn fetch_snapshot(&self) -> Result<MetricSeriesSnapshot, ProviderError> {
+            Err(ProviderError::Fetch(ClientError::Query("forced".into())))
+        }
+
+        fn metadata(&self) -> ProviderMetadata {
+            ProviderMetadata {
+                id: "failing",
+                endpoint: "nowhere".into(),
+            }
+        }
+    }
+
+    use crate::clients::error::ClientError;
     use crate::rules::build_registry;
     use crate::{
         config::Config,
