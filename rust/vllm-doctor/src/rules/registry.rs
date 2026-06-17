@@ -5,7 +5,8 @@ use crate::models::Severity;
 use crate::signals::SignalGraph;
 
 use super::definition::RuleDefinition;
-use super::{Rule, RuleResult, finding_for};
+use super::{Rule, finding_for};
+use crate::models::RuleResult;
 
 /// Factory function signature for registering a rule type.
 pub type RuleFactory = fn(&Config) -> (&'static RuleDefinition, Box<dyn Rule>);
@@ -58,7 +59,7 @@ impl RuleRegistry {
                 name: entry.definition.name,
                 title: entry.definition.title,
                 severity: entry.definition.severity,
-                finding: finding_for(entry.definition, entry.rule.run(&signals)),
+                finding: finding_for(entry.definition, entry.rule.run(&signals), &signals),
             })
             .collect();
         results.sort_by(|a, b| {

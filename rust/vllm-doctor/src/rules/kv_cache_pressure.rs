@@ -15,6 +15,7 @@
 use crate::config::Config;
 use crate::config::KVCachePressureConfig;
 use crate::models::{DiagnosisState, Severity};
+use crate::reports::templates::KvCachePressureTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
@@ -36,6 +37,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "Route long-context requests to a dedicated replica",
     ],
     related_metrics: &["vllm:kv_cache_usage_perc", "vllm:num_requests_waiting"],
+    template: &KvCachePressureTemplate as &dyn crate::reports::templates::FindingTemplate,
 };
 
 pub struct KVCachePressureRule {

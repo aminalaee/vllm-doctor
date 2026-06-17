@@ -13,6 +13,7 @@
 use crate::config::Config;
 use crate::config::PrefixCacheEfficiencyConfig;
 use crate::models::{DiagnosisState, Severity};
+use crate::reports::templates::PrefixCacheEfficiencyTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
@@ -36,6 +37,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "vllm:prefix_cache_hits_total",
         "vllm:prefix_cache_queries_total",
     ],
+    template: &PrefixCacheEfficiencyTemplate as &dyn crate::reports::templates::FindingTemplate,
 };
 
 pub struct PrefixCacheEfficiencyRule {

@@ -21,6 +21,7 @@
 use crate::config::Config;
 use crate::config::ErrorRateConfig;
 use crate::models::{DiagnosisState, Severity};
+use crate::reports::templates::ErrorRateTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
@@ -43,6 +44,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "Reduce load or add replicas if errors correlate with traffic spikes",
     ],
     related_metrics: &["vllm:request_success_total"],
+    template: &ErrorRateTemplate as &dyn crate::reports::templates::FindingTemplate,
 };
 
 pub struct ErrorRateRule {

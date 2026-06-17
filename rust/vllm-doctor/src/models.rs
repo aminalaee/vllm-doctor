@@ -74,7 +74,7 @@ pub enum Health {
 impl fmt::Display for Health {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Ok => write!(f, "ok"),
+            Self::Ok => write!(f, "healthy"),
             Self::Info => write!(f, "info"),
             Self::Warning => write!(f, "warning"),
             Self::Critical => write!(f, "critical"),
@@ -201,9 +201,17 @@ pub struct Finding {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleResult {
-    pub id: String,
-    pub name: String,
+    pub id: &'static str,
+    pub name: &'static str,
+    pub title: &'static str,
+    pub severity: Severity,
     pub finding: Option<Finding>,
+}
+
+impl RuleResult {
+    pub fn is_significant(&self) -> bool {
+        self.finding.is_some()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -277,8 +285,10 @@ mod tests {
             metric_series: MetricSeriesSnapshot::default(),
             checks: vec![
                 RuleResult {
-                    id: "info-rule".into(),
-                    name: "Info Rule".into(),
+                    id: "info-rule",
+                    name: "Info Rule",
+                    title: "Info",
+                    severity: Severity::Info,
                     finding: Some(Finding {
                         severity: Severity::Info,
                         confidence: Confidence::Medium,
@@ -292,8 +302,10 @@ mod tests {
                     }),
                 },
                 RuleResult {
-                    id: "critical-rule".into(),
-                    name: "Critical Rule".into(),
+                    id: "critical-rule",
+                    name: "Critical Rule",
+                    title: "Critical",
+                    severity: Severity::Critical,
                     finding: Some(Finding {
                         severity: Severity::Critical,
                         confidence: Confidence::High,
@@ -317,8 +329,10 @@ mod tests {
             context: DiagnosisContext::new("5m"),
             metric_series: MetricSeriesSnapshot::default(),
             checks: vec![RuleResult {
-                id: "quiet".into(),
-                name: "Quiet".into(),
+                id: "quiet",
+                name: "Quiet",
+                title: "Quiet",
+                severity: Severity::Info,
                 finding: None,
             }],
         };

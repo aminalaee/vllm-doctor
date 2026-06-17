@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
 use super::series::{Aggregate, MetricSeries};
+use crate::metrics::MetricSeriesSnapshot;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MetricDisplay {
@@ -36,6 +37,31 @@ pub trait MetricSpec: std::fmt::Debug + Send + Sync {
     fn display(&self) -> &MetricDisplay;
     fn probe_names(&self) -> HashSet<String>;
     fn compute(&self, raw: &HashMap<String, MetricSeries>) -> MetricSeries;
+
+    /// Extract the aggregated value for this metric from a snapshot.
+    fn extract(&self, snapshot: &MetricSeriesSnapshot) -> Option<f64> {
+        match self.output() {
+            "num_requests_running" => snapshot.num_requests_running.value(),
+            "num_requests_waiting" => snapshot.num_requests_waiting.value(),
+            "kv_cache_usage_perc" => snapshot.kv_cache_usage_perc.value(),
+            "prompt_tokens_per_second" => snapshot.prompt_tokens_per_second.value(),
+            "generation_tokens_per_second" => snapshot.generation_tokens_per_second.value(),
+            "request_success_total" => snapshot.request_success_total.value(),
+            "request_error_total" => snapshot.request_error_total.value(),
+            "request_abort_total" => snapshot.request_abort_total.value(),
+            "ttft_p95_seconds" => snapshot.ttft_p95_seconds.value(),
+            "tpot_p95_seconds" => snapshot.tpot_p95_seconds.value(),
+            "prefix_cache_hit_rate" => snapshot.prefix_cache_hit_rate.value(),
+            "queue_time_p95_seconds" => snapshot.queue_time_p95_seconds.value(),
+            "num_preemptions_total" => snapshot.num_preemptions_total.value(),
+            _ => None,
+        }
+    }
+}
+
+/// Return all defined metric specs.
+pub fn all_specs() -> &'static [Box<dyn MetricSpec + Send + Sync>] {
+    &*METRIC_SPECS
 }
 
 #[derive(Debug, Clone, PartialEq)]
