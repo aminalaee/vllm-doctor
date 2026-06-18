@@ -87,7 +87,7 @@ impl FromStr for Health {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "ok" => Ok(Self::Ok),
+            "healthy" => Ok(Self::Ok),
             "info" => Ok(Self::Info),
             "warning" => Ok(Self::Warning),
             "critical" => Ok(Self::Critical),
@@ -245,6 +245,16 @@ mod tests {
             let text = mode.to_string();
             assert_eq!(ClientMode::from_str(&text).unwrap(), mode);
         }
+    }
+
+    #[test]
+    fn health_display_roundtrips_through_from_str() {
+        for health in [Health::Ok, Health::Info, Health::Warning, Health::Critical] {
+            let text = health.to_string();
+            assert_eq!(Health::from_str(&text).unwrap(), health);
+        }
+        // `ok` is not a valid token — the Display form is `healthy`.
+        assert!(Health::from_str("ok").is_err());
     }
 
     #[test]

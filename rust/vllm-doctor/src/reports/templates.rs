@@ -121,12 +121,19 @@ impl FindingTemplate for PreemptionPressureTemplate {
     }
 
     fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
-        let Some((_, usage)) = signal_and_value(ctx) else {
-            return GenericTemplate.evidence(ctx);
-        };
-        let mut lines = vec![format!("KV cache usage: {}%", usage * 100.0)];
-        if let Some(preemptions) = ctx.graph.evaluate(Signal::NumPreemptionsTotal) {
+        let mut lines = Vec::new();
+        if let Some(usage) = ctx.graph.evaluate(Signal::KvCacheUsagePerc) {
+            lines.push(format!("KV cache usage: {}%", usage * 100.0));
+        }
+        // The firing state value carries the preemption count; fall back to the graph.
+        let preemptions = signal_and_value(ctx)
+            .map(|(_, count)| count)
+            .or_else(|| ctx.graph.evaluate(Signal::NumPreemptionsTotal));
+        if let Some(preemptions) = preemptions {
             lines.push(format!("Preemptions total: {preemptions:.0}"));
+        }
+        if lines.is_empty() {
+            return GenericTemplate.evidence(ctx);
         }
         lines
     }
@@ -371,6 +378,27 @@ mod tests {
         };
         let t = KvCachePressureTemplate;
         assert_eq!(t.summary(&ctx), "GPU KV cache usage is at 92%");
+    }
+
+    #[test]
+    fn preemption_evidence_reads_cache_from_graph_not_state() {
+        // State value is the preemption count; usage must come from the graph.
+        let snapshot = MetricSeriesSnapshot {
+            kv_cache_usage_perc: MetricSeries::from_samples(vec![MetricSample::new(0.85)]),
+            num_preemptions_total: MetricSeries::from_samples(vec![MetricSample::new(5.0)]),
+            ..Default::default()
+        };
+        let graph = SignalGraph::new(&snapshot);
+        let state = DiagnosisState::Stressed(Signal::NumPreemptionsTotal, 5.0);
+        let ctx = TemplateContext {
+            graph: &graph,
+            state: &state,
+        };
+        let evidence = PreemptionPressureTemplate.evidence(&ctx);
+        assert!(evidence.contains(&"KV cache usage: 85%".to_string()));
+        assert!(evidence.contains(&"Preemptions total: 5".to_string()));
+        // The old bug printed the preemption count as a percentage.
+        assert!(!evidence.iter().any(|line| line.contains("500%")));
     }
 
     #[test]
