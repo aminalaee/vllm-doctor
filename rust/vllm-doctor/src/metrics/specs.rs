@@ -57,6 +57,26 @@ pub trait MetricSpec: std::fmt::Debug + Send + Sync {
             _ => None,
         }
     }
+
+    /// Borrow the raw series backing this metric, for per-label breakdowns.
+    fn series<'a>(&self, snapshot: &'a MetricSeriesSnapshot) -> Option<&'a MetricSeries> {
+        Some(match self.output() {
+            "num_requests_running" => &snapshot.num_requests_running,
+            "num_requests_waiting" => &snapshot.num_requests_waiting,
+            "kv_cache_usage_perc" => &snapshot.kv_cache_usage_perc,
+            "prompt_tokens_per_second" => &snapshot.prompt_tokens_per_second,
+            "generation_tokens_per_second" => &snapshot.generation_tokens_per_second,
+            "request_success_total" => &snapshot.request_success_total,
+            "request_error_total" => &snapshot.request_error_total,
+            "request_abort_total" => &snapshot.request_abort_total,
+            "ttft_p95_seconds" => &snapshot.ttft_p95_seconds,
+            "tpot_p95_seconds" => &snapshot.tpot_p95_seconds,
+            "prefix_cache_hit_rate" => &snapshot.prefix_cache_hit_rate,
+            "queue_time_p95_seconds" => &snapshot.queue_time_p95_seconds,
+            "num_preemptions_total" => &snapshot.num_preemptions_total,
+            _ => return None,
+        })
+    }
 }
 
 /// Return all defined metric specs.

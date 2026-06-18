@@ -1,6 +1,7 @@
 //! Report renderers for diagnostic results.
 pub mod format;
 pub mod json;
+pub mod notices;
 pub mod templates;
 pub mod text;
 
@@ -76,7 +77,7 @@ mod tests {
         assert!(text.contains("Check"));
 
         let json = crate::reports::json::render(&report, false);
-        assert_eq!(json["schema_version"], "1.0");
+        assert_eq!(json["schema_version"], "1");
         assert!(!json["checks"].as_array().unwrap().is_empty());
     }
 }

@@ -1,5 +1,9 @@
-//! Plain-text report renderer with hand-rolled tables and panels.
-use crate::metrics::all_specs;
+//! Plain-text report renderer: comfy-table for column layouts, hand-rolled panels.
+use comfy_table::presets::NOTHING;
+use comfy_table::{Cell, CellAlignment, Table};
+use unicode_width::UnicodeWidthStr;
+
+use crate::metrics::{all_specs, detect_replica_label};
 use crate::models::{Finding, RuleResult, Severity};
 use crate::reports::Report;
 use crate::reports::format::format_value;
@@ -8,7 +12,20 @@ const BAR_WIDTH: usize = 20;
 const BAR_FILLED: char = '█';
 const BAR_EMPTY: char = '░';
 const PANEL_OUTER_WIDTH: usize = 78;
-const PANEL_INNER_WIDTH: usize = PANEL_OUTER_WIDTH - 4;
+// Each content row is "│  " + inner + "  │" — 6 framing chars around the text.
+const PANEL_INNER_WIDTH: usize = PANEL_OUTER_WIDTH - 6;
+const MAX_REPLICAS: usize = 6;
+
+/// A borderless table that sizes columns to their content.
+fn borderless_table() -> Table {
+    let mut table = Table::new();
+    table.load_preset(NOTHING);
+    table
+}
+
+fn right(value: impl ToString) -> Cell {
+    Cell::new(value).set_alignment(CellAlignment::Right)
+}
 
 /// Render a report as structured plain text.
 pub fn render(report: &Report, verbose: bool) -> String {
@@ -16,10 +33,25 @@ pub fn render(report: &Report, verbose: bool) -> String {
     render_header(report, &mut out);
     render_findings(report, &mut out);
     render_check_list(report, &mut out);
+    render_notices(report, &mut out);
     if verbose {
         render_metrics(report, &mut out);
+        if let Some(label) = detect_replica_label(report.metric_series()) {
+            render_replica_metrics(report, label, &mut out);
+        }
     }
     out
+}
+
+fn render_notices(report: &Report, out: &mut String) {
+    let notices = crate::reports::notices::resolve_notices(&report.diagnosis);
+    if notices.is_empty() {
+        return;
+    }
+    for notice in &notices {
+        out.push_str(&format!("⚠ {notice}\n"));
+    }
+    out.push('\n');
 }
 
 fn render_header(report: &Report, out: &mut String) {
@@ -75,14 +107,21 @@ fn render_finding_panel(finding: &Finding, out: &mut String) {
     out.push_str(&format!("│  {}  │\n", pad_right("", inner)));
 
     for line in &finding.evidence {
-        out.push_str(&format!("│  {}  │\n", pad_right(line, inner)));
+        for wrapped in textwrap::wrap(line, inner) {
+            out.push_str(&format!("│  {}  │\n", pad_right(&wrapped, inner)));
+        }
     }
 
     if !finding.recommendations.is_empty() {
         out.push_str(&format!("│  {}  │\n", pad_right("", inner)));
+        // Hanging indent: "→ " on the first line, two spaces on continuations.
+        let opts = textwrap::Options::new(inner)
+            .initial_indent("→ ")
+            .subsequent_indent("  ");
         for rec in &finding.recommendations {
-            let row = format!("→ {}", rec);
-            out.push_str(&format!("│  {}  │\n", pad_right(&row, inner)));
+            for wrapped in textwrap::wrap(rec, &opts) {
+                out.push_str(&format!("│  {}  │\n", pad_right(&wrapped, inner)));
+            }
         }
     }
 
@@ -103,66 +142,135 @@ fn render_check_list(report: &Report, out: &mut String) {
         return;
     }
 
-    let name_width = report
-        .checks()
-        .iter()
-        .map(|c| c.name.len())
-        .max()
-        .unwrap_or(10)
-        .max(20);
-
+    let mut table = borderless_table();
     for check in report.checks() {
         if let Some(finding) = &check.finding {
             let status = format!("{} {}", severity_icon(finding.severity), finding.severity);
-            out.push_str(&format!(
-                "  {:<name_width$}  {:^12}  [{}]\n",
-                check.name, status, finding.confidence
-            ));
+            table.add_row(vec![
+                Cell::new(check.name),
+                Cell::new(status),
+                Cell::new(format!("[{}]", finding.confidence)),
+            ]);
         } else {
-            out.push_str(&format!("  {:<name_width$}  ✓ ok\n", check.name));
+            table.add_row(vec![
+                Cell::new(check.name),
+                Cell::new("✓ ok"),
+                Cell::new(""),
+            ]);
         }
     }
-    out.push('\n');
+    out.push_str(&table.to_string());
+    out.push_str("\n\n");
 }
 
 fn render_metrics(report: &Report, out: &mut String) {
     out.push_str("Observed Metrics:\n\n");
 
-    let name_width = all_specs()
-        .iter()
-        .map(|s| s.display().title.len())
-        .max()
-        .unwrap_or(20)
-        .max(28);
-    let value_width = 28;
-
-    let header = format!("{:<name_width$}  {:>value_width$}", "Metric", "Value");
-    let separator = "─".repeat(header.len());
-    out.push_str(&header);
-    out.push('\n');
-    out.push_str(&separator);
-    out.push('\n');
-
+    let mut table = borderless_table();
+    table.set_header(vec![Cell::new("Metric"), right("Value")]);
     for spec in all_specs() {
         let spec: &dyn crate::metrics::MetricSpec = spec.as_ref();
-        let value: Option<f64> = spec.extract(report.metric_series());
         let display = spec.display();
-        let value_str = match value {
+        let value_str = match spec.extract(report.metric_series()) {
             Some(v) if v.is_finite() => {
                 if display.bar {
-                    cache_bar(v).to_string()
+                    cache_bar(v)
                 } else {
                     format_value(v, &display.fmt)
                 }
             }
             _ => "n/a".to_string(),
         };
-        out.push_str(&format!(
-            "{:<name_width$}  {:>value_width$}\n",
-            display.title, value_str
-        ));
+        table.add_row(vec![Cell::new(&display.title), right(value_str)]);
     }
-    out.push('\n');
+    out.push_str(&table.to_string());
+    out.push_str("\n\n");
+}
+
+fn render_replica_metrics(report: &Report, label: &str, out: &mut String) {
+    use std::collections::{HashMap, HashSet};
+
+    let snapshot = report.metric_series();
+
+    // Collect per-replica values for each spec that has a breakdown.
+    let mut specs_with_data: Vec<&dyn crate::metrics::MetricSpec> = Vec::new();
+    let mut values: HashMap<&str, HashMap<String, Option<f64>>> = HashMap::new();
+    for spec in all_specs() {
+        let spec: &dyn crate::metrics::MetricSpec = spec.as_ref();
+        if let Some(series) = spec.series(snapshot) {
+            let breakdown = series.by(label);
+            if !breakdown.is_empty() {
+                values.insert(spec.output(), breakdown);
+                specs_with_data.push(spec);
+            }
+        }
+    }
+    if specs_with_data.is_empty() {
+        return;
+    }
+
+    let cell = |output: &str, replica: &str| -> Option<f64> {
+        values
+            .get(output)
+            .and_then(|m| m.get(replica))
+            .copied()
+            .flatten()
+    };
+
+    // Order replicas by pressure: waiting, then cache usage, then running — descending.
+    let mut replicas: Vec<String> = values
+        .values()
+        .flat_map(|m| m.keys().cloned())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+    let sort_key = |r: &str| {
+        (
+            cell("num_requests_waiting", r).unwrap_or(0.0),
+            cell("kv_cache_usage_perc", r).unwrap_or(0.0),
+            cell("num_requests_running", r).unwrap_or(0.0),
+        )
+    };
+    replicas.sort_by(|a, b| {
+        sort_key(b)
+            .partial_cmp(&sort_key(a))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let hidden = replicas.len().saturating_sub(MAX_REPLICAS);
+    let visible: Vec<String> = replicas.into_iter().take(MAX_REPLICAS).collect();
+
+    let fmt_cell = |spec: &dyn crate::metrics::MetricSpec, replica: &str| -> String {
+        match cell(spec.output(), replica) {
+            Some(v) if v.is_finite() => format_value(v, &spec.display().fmt),
+            _ => "n/a".to_string(),
+        }
+    };
+
+    let mut table = borderless_table();
+    let mut header = vec![Cell::new("")];
+    header.extend(visible.iter().map(right));
+    if hidden > 0 {
+        header.push(right(format!("+{hidden} more")));
+    }
+    table.set_header(header);
+
+    for spec in &specs_with_data {
+        let mut row = vec![Cell::new(spec.display().title.as_str())];
+        row.extend(
+            visible
+                .iter()
+                .map(|replica| right(fmt_cell(*spec, replica))),
+        );
+        if hidden > 0 {
+            row.push(Cell::new(""));
+        }
+        table.add_row(row);
+    }
+
+    out.push_str(&format!("Observed Metrics per {label}:\n\n"));
+    out.push_str(&table.to_string());
+    out.push_str("\n\n");
 }
 
 fn cache_bar(value: f64) -> String {
@@ -174,24 +282,27 @@ fn cache_bar(value: f64) -> String {
     format!("{} {}%", bar, (value * 100.0).round() as usize)
 }
 
+/// Pad `s` on the right to a given terminal-column width. Uses display width so
+/// wide glyphs (icons, box drawing) don't throw off panel borders.
 fn pad_right(s: &str, width: usize) -> String {
-    let visible_len = s.chars().count();
-    if visible_len >= width {
-        s.chars().take(width).collect()
+    let visible = s.width();
+    if visible >= width {
+        s.to_string()
     } else {
-        format!("{}{}", s, " ".repeat(width - visible_len))
+        format!("{}{}", s, " ".repeat(width - visible))
     }
 }
 
+/// Center `s` within a given terminal-column width.
 fn pad_center(s: &str, width: usize) -> String {
-    let visible_len = s.chars().count();
-    if visible_len >= width {
-        return s.chars().take(width).collect();
+    let visible = s.width();
+    if visible >= width {
+        return s.to_string();
     }
-    let total_pad = width - visible_len;
-    let left = total_pad / 2;
-    let right = total_pad - left;
-    format!("{}{}{}", " ".repeat(left), s, " ".repeat(right))
+    let total_pad = width - visible;
+    let left_pad = total_pad / 2;
+    let right_pad = total_pad - left_pad;
+    format!("{}{}{}", " ".repeat(left_pad), s, " ".repeat(right_pad))
 }
 
 #[cfg(test)]
@@ -264,5 +375,58 @@ mod tests {
         assert!(text.contains("Health: HEALTHY"));
         assert!(text.contains("No issues detected"));
         assert!(text.contains("✓ ok"));
+    }
+
+    #[test]
+    fn long_recommendation_wraps_instead_of_truncating() {
+        let mut result = sample_result();
+        let long = "Check client timeout settings relative to the observed TTFT and TPOT \
+            latencies and increase them where requests are being aborted before completion";
+        result.checks[0].finding.as_mut().unwrap().recommendations = vec![long.to_string()];
+        let report = Report::new(result);
+        let text = render(&report, false);
+
+        // The tail of the sentence must survive (no truncation), on a continuation line.
+        assert!(text.contains("completion"));
+        // Every rendered panel row stays within the panel width.
+        for line in text.lines().filter(|l| l.starts_with('│')) {
+            assert!(line.chars().count() <= PANEL_OUTER_WIDTH);
+        }
+    }
+
+    #[test]
+    fn verbose_renders_per_replica_table() {
+        let mut result = sample_result();
+        result.metric_series = MetricSeriesSnapshot {
+            num_requests_waiting: MetricSeries::from_samples(vec![
+                MetricSample::new(8.0).with_label("pod", "pod-a"),
+                MetricSample::new(2.0).with_label("pod", "pod-b"),
+            ]),
+            num_requests_running: MetricSeries::from_samples(vec![
+                MetricSample::new(1.0).with_label("pod", "pod-a"),
+                MetricSample::new(3.0).with_label("pod", "pod-b"),
+            ]),
+            ..Default::default()
+        };
+        let text = render(&Report::new(result), true);
+
+        assert!(text.contains("Observed Metrics per pod"));
+        assert!(text.contains("pod-a"));
+        assert!(text.contains("pod-b"));
+        // Most-pressured replica (pod-a, 8 waiting) sorts before pod-b.
+        let pos = text.find("Observed Metrics per pod").unwrap();
+        let table = &text[pos..];
+        assert!(table.find("pod-a").unwrap() < table.find("pod-b").unwrap());
+    }
+
+    #[test]
+    fn scrape_mode_renders_notice() {
+        let mut result = sample_result();
+        result.context = result
+            .context
+            .with_client_mode(crate::models::ClientMode::Scrape);
+        let report = Report::new(result);
+        let text = render(&report, false);
+        assert!(text.contains("require Prometheus"));
     }
 }
