@@ -6,6 +6,7 @@ pub mod metrics;
 pub mod models;
 pub mod probes;
 pub mod providers;
+pub mod reports;
 pub mod rules;
 pub mod signals;
 

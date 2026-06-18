@@ -7,6 +7,7 @@
 use crate::config::Config;
 use crate::config::TpotBottleneckConfig;
 use crate::models::{DiagnosisState, Severity};
+use crate::reports::templates::TpotBottleneckTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
@@ -33,6 +34,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "generation_tokens_per_second",
         "ttft_p95_seconds",
     ],
+    template: &TpotBottleneckTemplate as &dyn crate::reports::templates::FindingTemplate,
 };
 
 pub struct TpotBottleneckRule {

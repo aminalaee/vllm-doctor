@@ -23,28 +23,16 @@ pub trait Rule {
     fn run(&self, signals: &SignalGraph) -> DiagnosisState;
 }
 
-/// The result of running a single rule against a snapshot.
-#[derive(Debug, Clone, PartialEq)]
-pub struct RuleResult {
-    pub id: &'static str,
-    pub name: &'static str,
-    pub title: &'static str,
-    pub severity: Severity,
-    pub finding: Option<Finding>,
-}
-
-impl RuleResult {
-    pub fn is_significant(&self) -> bool {
-        self.finding.is_some()
-    }
-}
-
 /// Map a rule's judgment state to the final presentation finding.
-pub(crate) fn finding_for(definition: &RuleDefinition, state: DiagnosisState) -> Option<Finding> {
-    let (severity, value, signal) = match state {
+pub(crate) fn finding_for(
+    definition: &RuleDefinition,
+    state: DiagnosisState,
+    graph: &SignalGraph<'_>,
+) -> Option<Finding> {
+    let (severity, confidence) = match state {
         DiagnosisState::Healthy => return None,
-        DiagnosisState::Stressed(signal, value) => (Severity::Warning, value, signal),
-        DiagnosisState::Saturated(signal, value) => (Severity::Critical, value, signal),
+        DiagnosisState::Stressed(_, _) => (Severity::Warning, Confidence::Medium),
+        DiagnosisState::Saturated(_, _) => (Severity::Critical, Confidence::High),
         DiagnosisState::Unknown(ref reason) => {
             return Some(Finding {
                 severity: Severity::Info,
@@ -72,19 +60,24 @@ pub(crate) fn finding_for(definition: &RuleDefinition, state: DiagnosisState) ->
         }
     };
 
-    let confidence = match severity {
-        Severity::Critical => Confidence::High,
-        Severity::Warning => Confidence::Medium,
-        Severity::Info => Confidence::Low,
+    let ctx = crate::reports::templates::TemplateContext {
+        graph,
+        state: &state,
+    };
+    let signal_text = match state {
+        DiagnosisState::Stressed(signal, _) | DiagnosisState::Saturated(signal, _) => {
+            signal.to_string()
+        }
+        _ => String::new(),
     };
 
     Some(Finding {
         severity,
         confidence,
         title: definition.title.to_string(),
-        summary: format!("{signal} is elevated"),
-        signals: vec![signal.to_string()],
-        evidence: vec![format!("{signal} = {value:.4}")],
+        summary: definition.template.summary(&ctx),
+        signals: vec![signal_text],
+        evidence: definition.template.evidence(&ctx),
         likely_causes: definition
             .likely_causes
             .iter()

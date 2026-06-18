@@ -74,7 +74,7 @@ pub enum Health {
 impl fmt::Display for Health {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Ok => write!(f, "ok"),
+            Self::Ok => write!(f, "healthy"),
             Self::Info => write!(f, "info"),
             Self::Warning => write!(f, "warning"),
             Self::Critical => write!(f, "critical"),
@@ -87,7 +87,7 @@ impl FromStr for Health {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "ok" => Ok(Self::Ok),
+            "healthy" => Ok(Self::Ok),
             "info" => Ok(Self::Info),
             "warning" => Ok(Self::Warning),
             "critical" => Ok(Self::Critical),
@@ -201,9 +201,17 @@ pub struct Finding {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleResult {
-    pub id: String,
-    pub name: String,
+    pub id: &'static str,
+    pub name: &'static str,
+    pub title: &'static str,
+    pub severity: Severity,
     pub finding: Option<Finding>,
+}
+
+impl RuleResult {
+    pub fn is_significant(&self) -> bool {
+        self.finding.is_some()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -237,6 +245,16 @@ mod tests {
             let text = mode.to_string();
             assert_eq!(ClientMode::from_str(&text).unwrap(), mode);
         }
+    }
+
+    #[test]
+    fn health_display_roundtrips_through_from_str() {
+        for health in [Health::Ok, Health::Info, Health::Warning, Health::Critical] {
+            let text = health.to_string();
+            assert_eq!(Health::from_str(&text).unwrap(), health);
+        }
+        // `ok` is not a valid token — the Display form is `healthy`.
+        assert!(Health::from_str("ok").is_err());
     }
 
     #[test]
@@ -277,8 +295,10 @@ mod tests {
             metric_series: MetricSeriesSnapshot::default(),
             checks: vec![
                 RuleResult {
-                    id: "info-rule".into(),
-                    name: "Info Rule".into(),
+                    id: "info-rule",
+                    name: "Info Rule",
+                    title: "Info",
+                    severity: Severity::Info,
                     finding: Some(Finding {
                         severity: Severity::Info,
                         confidence: Confidence::Medium,
@@ -292,8 +312,10 @@ mod tests {
                     }),
                 },
                 RuleResult {
-                    id: "critical-rule".into(),
-                    name: "Critical Rule".into(),
+                    id: "critical-rule",
+                    name: "Critical Rule",
+                    title: "Critical",
+                    severity: Severity::Critical,
                     finding: Some(Finding {
                         severity: Severity::Critical,
                         confidence: Confidence::High,
@@ -317,8 +339,10 @@ mod tests {
             context: DiagnosisContext::new("5m"),
             metric_series: MetricSeriesSnapshot::default(),
             checks: vec![RuleResult {
-                id: "quiet".into(),
-                name: "Quiet".into(),
+                id: "quiet",
+                name: "Quiet",
+                title: "Quiet",
+                severity: Severity::Info,
                 finding: None,
             }],
         };

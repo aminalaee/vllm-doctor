@@ -46,7 +46,7 @@ pub const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(15);
 pub async fn diagnose(
     provider: &dyn Provider,
     registry: &crate::rules::RuleRegistry,
-) -> Result<Vec<crate::rules::RuleResult>, ProviderError> {
+) -> Result<Vec<crate::models::RuleResult>, ProviderError> {
     let snapshot = provider.fetch_snapshot().await?;
     Ok(registry.run_all(&snapshot))
 }

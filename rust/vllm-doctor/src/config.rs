@@ -202,7 +202,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn defaults_match_python() {
+    fn default_thresholds_are_stable() {
         let config = Config::default();
         assert_eq!(config.rules.queue_pressure.high_waiting, 5);
         assert_eq!(config.rules.queue_pressure.high_running, 50);

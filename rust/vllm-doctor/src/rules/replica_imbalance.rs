@@ -9,6 +9,7 @@
 use crate::config::Config;
 use crate::config::ReplicaImbalanceConfig;
 use crate::models::{DiagnosisState, Severity};
+use crate::reports::templates::ReplicaImbalanceTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::signals::{Signal, SignalGraph};
@@ -35,6 +36,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "vllm:num_requests_waiting",
         "vllm:kv_cache_usage_perc",
     ],
+    template: &ReplicaImbalanceTemplate as &dyn crate::reports::templates::FindingTemplate,
 };
 
 pub struct ReplicaImbalanceRule {

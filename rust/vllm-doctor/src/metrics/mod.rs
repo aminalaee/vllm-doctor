@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub mod series;
 pub mod specs;
+pub use specs::all_specs;
 
 pub use series::{Aggregate, MetricSample, MetricSeries};
 pub use specs::{Direct, METRIC_SPECS, METRIC_SPECS_BY_OUTPUT, MetricDisplay, MetricSpec, Ratio};
