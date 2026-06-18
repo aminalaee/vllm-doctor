@@ -15,7 +15,7 @@
 //!   high queue time + waiting → high (active backlog confirmed)
 use crate::config::Config;
 use crate::config::QueueLatencyConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::QueueLatencyTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -65,7 +65,12 @@ impl Rule for QueueLatencyRule {
             return DiagnosisState::Healthy;
         }
 
-        DiagnosisState::Stressed(Signal::QueueTimeP95Seconds, queue_time)
+        DiagnosisState::firing(
+            Severity::Warning,
+            Confidence::Medium,
+            Signal::QueueTimeP95Seconds,
+            queue_time,
+        )
     }
 }
 
@@ -107,10 +112,15 @@ mod tests {
     }
 
     #[test]
-    fn stressed_when_queue_time_high() {
+    fn fires_warning_when_queue_time_high() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(2.0, 3.0))),
-            DiagnosisState::Stressed(Signal::QueueTimeP95Seconds, 2.0)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::QueueTimeP95Seconds,
+                2.0
+            )
         );
     }
 }

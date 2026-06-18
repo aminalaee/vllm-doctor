@@ -2,6 +2,7 @@ pub mod cli;
 pub mod clients;
 pub mod collector;
 pub mod config;
+pub mod diagnosis;
 pub mod metrics;
 pub mod models;
 pub mod probes;

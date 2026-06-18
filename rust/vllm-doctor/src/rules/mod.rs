@@ -1,6 +1,6 @@
 //! Diagnostic rules.
 use crate::config::Config;
-use crate::models::{Confidence, DiagnosisState, Finding, Severity};
+use crate::models::{DiagnosisState, Finding};
 use crate::signals::SignalGraph;
 
 pub mod definition;
@@ -29,54 +29,26 @@ pub(crate) fn finding_for(
     state: DiagnosisState,
     graph: &SignalGraph<'_>,
 ) -> Option<Finding> {
-    let (severity, confidence) = match state {
-        DiagnosisState::Healthy => return None,
-        DiagnosisState::Stressed(_, _) => (Severity::Warning, Confidence::Medium),
-        DiagnosisState::Saturated(_, _) => (Severity::Critical, Confidence::High),
-        DiagnosisState::Unknown(ref reason) => {
-            return Some(Finding {
-                severity: Severity::Info,
-                confidence: Confidence::Low,
-                title: definition.title.to_string(),
-                summary: "Check could not be evaluated".to_string(),
-                signals: vec![reason.clone()],
-                evidence: vec![reason.clone()],
-                likely_causes: definition
-                    .likely_causes
-                    .iter()
-                    .map(|s| (*s).to_string())
-                    .collect(),
-                recommendations: definition
-                    .recommendations
-                    .iter()
-                    .map(|s| (*s).to_string())
-                    .collect(),
-                related_metrics: definition
-                    .related_metrics
-                    .iter()
-                    .map(|s| (*s).to_string())
-                    .collect(),
-            });
-        }
+    // Healthy and "could not evaluate" both produce no finding: a rule that
+    // cannot read its signal stays quiet rather than emitting noise. Missing
+    // signals are explained by report notices (e.g. scrape mode lacks latency).
+    let judgment = match state {
+        DiagnosisState::Healthy | DiagnosisState::Unknown(_) => return None,
+        DiagnosisState::Firing(judgment) => judgment,
     };
 
     let ctx = crate::reports::templates::TemplateContext {
         graph,
-        state: &state,
-    };
-    let signal_text = match state {
-        DiagnosisState::Stressed(signal, _) | DiagnosisState::Saturated(signal, _) => {
-            signal.to_string()
-        }
-        _ => String::new(),
+        signal: judgment.signal,
+        value: judgment.value,
     };
 
     Some(Finding {
-        severity,
-        confidence,
+        severity: judgment.severity,
+        confidence: judgment.confidence,
         title: definition.title.to_string(),
         summary: definition.template.summary(&ctx),
-        signals: vec![signal_text],
+        signals: vec![judgment.signal.to_string()],
         evidence: definition.template.evidence(&ctx),
         likely_causes: definition
             .likely_causes
@@ -117,6 +89,7 @@ mod tests {
     use crate::config::Config;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
+    use crate::models::Severity;
 
     fn snapshot_with_queue(waiting: f64, running: f64) -> MetricSeriesSnapshot {
         MetricSeriesSnapshot {

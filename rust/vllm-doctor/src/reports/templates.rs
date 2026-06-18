@@ -1,26 +1,21 @@
 //! Per-rule finding templates.
-use crate::models::DiagnosisState;
 use crate::signals::{Signal, SignalGraph};
 
-/// Context provided to a template when formatting a finding.
+/// Context provided to a template when formatting a finding: the driving signal
+/// and its value, plus the graph for pulling corroborating signals.
 pub struct TemplateContext<'a> {
     pub graph: &'a SignalGraph<'a>,
-    pub state: &'a DiagnosisState,
+    pub signal: Signal,
+    pub value: f64,
 }
 
-/// Formats a rule's judgment state into human-readable summary and evidence.
 pub trait FindingTemplate: Sync {
     fn summary(&self, ctx: &TemplateContext<'_>) -> String;
     fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String>;
 }
 
 fn signal_and_value(ctx: &TemplateContext<'_>) -> Option<(Signal, f64)> {
-    match ctx.state {
-        DiagnosisState::Stressed(signal, value) | DiagnosisState::Saturated(signal, value) => {
-            Some((*signal, *value))
-        }
-        _ => None,
-    }
+    Some((ctx.signal, ctx.value))
 }
 
 /// Generic fallback template used when a rule does not provide a custom one.
@@ -331,10 +326,10 @@ mod tests {
             ..Default::default()
         };
         let graph = SignalGraph::new(&snapshot);
-        let state = DiagnosisState::Stressed(Signal::NumRequestsRunning, 12.0);
         let ctx = TemplateContext {
             graph: &graph,
-            state: &state,
+            signal: Signal::NumRequestsRunning,
+            value: 12.0,
         };
         let t = GenericTemplate;
         assert_eq!(t.summary(&ctx), "num_requests_running is elevated");
@@ -345,10 +340,10 @@ mod tests {
     fn queue_pressure_summary_includes_count() {
         let snapshot = base_snapshot();
         let graph = SignalGraph::new(&snapshot);
-        let state = DiagnosisState::Stressed(Signal::NumRequestsWaiting, 8.0);
         let ctx = TemplateContext {
             graph: &graph,
-            state: &state,
+            signal: Signal::NumRequestsWaiting,
+            value: 8.0,
         };
         let t = QueuePressureTemplate;
         assert_eq!(t.summary(&ctx), "8 requests are waiting in the queue");
@@ -358,10 +353,10 @@ mod tests {
     fn queue_latency_summary_includes_seconds() {
         let snapshot = base_snapshot();
         let graph = SignalGraph::new(&snapshot);
-        let state = DiagnosisState::Stressed(Signal::QueueTimeP95Seconds, 2.5);
         let ctx = TemplateContext {
             graph: &graph,
-            state: &state,
+            signal: Signal::QueueTimeP95Seconds,
+            value: 2.5,
         };
         let t = QueueLatencyTemplate;
         assert!(t.summary(&ctx).contains("2.50s"));
@@ -371,10 +366,10 @@ mod tests {
     fn kv_cache_summary_uses_percentage() {
         let snapshot = base_snapshot();
         let graph = SignalGraph::new(&snapshot);
-        let state = DiagnosisState::Stressed(Signal::KvCacheUsagePerc, 0.92);
         let ctx = TemplateContext {
             graph: &graph,
-            state: &state,
+            signal: Signal::KvCacheUsagePerc,
+            value: 0.92,
         };
         let t = KvCachePressureTemplate;
         assert_eq!(t.summary(&ctx), "GPU KV cache usage is at 92%");
@@ -389,10 +384,10 @@ mod tests {
             ..Default::default()
         };
         let graph = SignalGraph::new(&snapshot);
-        let state = DiagnosisState::Stressed(Signal::NumPreemptionsTotal, 5.0);
         let ctx = TemplateContext {
             graph: &graph,
-            state: &state,
+            signal: Signal::NumPreemptionsTotal,
+            value: 5.0,
         };
         let evidence = PreemptionPressureTemplate.evidence(&ctx);
         assert!(evidence.contains(&"KV cache usage: 85%".to_string()));
@@ -405,10 +400,10 @@ mod tests {
     fn error_rate_template_computes_rates() {
         let snapshot = base_snapshot();
         let graph = SignalGraph::new(&snapshot);
-        let state = DiagnosisState::Stressed(Signal::RequestErrorTotal, 1.0);
         let ctx = TemplateContext {
             graph: &graph,
-            state: &state,
+            signal: Signal::RequestErrorTotal,
+            value: 1.0,
         };
         let t = ErrorRateTemplate;
         let evidence = t.evidence(&ctx);
@@ -425,10 +420,10 @@ mod tests {
             ..Default::default()
         };
         let graph = SignalGraph::new(&snapshot);
-        let state = DiagnosisState::Stressed(Signal::ReplicaRunningImbalance, 5.0);
         let ctx = TemplateContext {
             graph: &graph,
-            state: &state,
+            signal: Signal::ReplicaRunningImbalance,
+            value: 5.0,
         };
         let t = ReplicaImbalanceTemplate;
         let evidence = t.evidence(&ctx);

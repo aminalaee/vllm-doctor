@@ -12,7 +12,7 @@
 //!   otherwise                     → medium
 use crate::config::Config;
 use crate::config::PrefixCacheEfficiencyConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::PrefixCacheEfficiencyTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -60,7 +60,12 @@ impl Rule for PrefixCacheEfficiencyRule {
             return DiagnosisState::Healthy;
         }
 
-        DiagnosisState::Stressed(Signal::PrefixCacheHitRate, hit_rate)
+        DiagnosisState::firing(
+            Severity::Warning,
+            Confidence::Medium,
+            Signal::PrefixCacheHitRate,
+            hit_rate,
+        )
     }
 }
 
@@ -101,10 +106,15 @@ mod tests {
     }
 
     #[test]
-    fn stressed_when_hit_rate_low() {
+    fn fires_warning_when_hit_rate_low() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.30))),
-            DiagnosisState::Stressed(Signal::PrefixCacheHitRate, 0.30)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::PrefixCacheHitRate,
+                0.30
+            )
         );
     }
 }

@@ -17,7 +17,7 @@
 //!   only one metric low                           → low
 use crate::config::Config;
 use crate::config::LowThroughputConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::LowThroughputTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -78,9 +78,19 @@ impl Rule for LowThroughputRule {
         }
 
         if prompt_low {
-            DiagnosisState::Stressed(Signal::PromptTokensPerSecond, prompt.unwrap_or(0.0))
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::PromptTokensPerSecond,
+                prompt.unwrap_or(0.0),
+            )
         } else {
-            DiagnosisState::Stressed(Signal::GenerationTokensPerSecond, gen_tps.unwrap_or(0.0))
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::GenerationTokensPerSecond,
+                gen_tps.unwrap_or(0.0),
+            )
         }
     }
 }
@@ -137,26 +147,41 @@ mod tests {
     }
 
     #[test]
-    fn stressed_when_prompt_low() {
+    fn warns_when_prompt_low() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 100.0, 5.0, 0.0))),
-            DiagnosisState::Stressed(Signal::PromptTokensPerSecond, 5.0)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::PromptTokensPerSecond,
+                5.0
+            )
         );
     }
 
     #[test]
-    fn stressed_when_gen_low() {
+    fn warns_when_gen_low() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(100.0, 20.0, 5.0, 0.0))),
-            DiagnosisState::Stressed(Signal::GenerationTokensPerSecond, 20.0)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::GenerationTokensPerSecond,
+                20.0
+            )
         );
     }
 
     #[test]
-    fn stressed_when_both_low() {
+    fn warns_when_both_low() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 20.0, 5.0, 0.0))),
-            DiagnosisState::Stressed(Signal::PromptTokensPerSecond, 5.0)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::PromptTokensPerSecond,
+                5.0
+            )
         );
     }
 }

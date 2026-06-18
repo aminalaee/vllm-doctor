@@ -9,6 +9,25 @@ use crate::metrics::MetricSeriesSnapshot;
 use crate::models::RuleResult;
 use crate::models::{DiagnosisResult, Health};
 
+/// How the text report should be rendered. The CLI fills these in from the
+/// terminal (width, whether stdout is a TTY); tests and pipes use the defaults.
+#[derive(Debug, Clone, Copy)]
+pub struct RenderOptions {
+    pub verbose: bool,
+    pub width: usize,
+    pub color: bool,
+}
+
+impl Default for RenderOptions {
+    fn default() -> Self {
+        Self {
+            verbose: false,
+            width: 78,
+            color: false,
+        }
+    }
+}
+
 /// A rendered or renderable diagnosis report.
 pub struct Report {
     pub diagnosis: DiagnosisResult,
@@ -72,9 +91,11 @@ mod tests {
         };
         let report = Report::new(diagnosis);
 
-        let text = crate::reports::text::render(&report, false);
+        let text = crate::reports::text::render(&report, &RenderOptions::default());
         assert!(text.contains("Health:"));
-        assert!(text.contains("Check"));
+        // Queue pressure fires; rules that cannot evaluate stay quiet (no panel).
+        assert!(text.contains("Queue Pressure"));
+        assert!(!text.contains("could not be evaluated"));
 
         let json = crate::reports::json::render(&report, false);
         assert_eq!(json["schema_version"], "1");
