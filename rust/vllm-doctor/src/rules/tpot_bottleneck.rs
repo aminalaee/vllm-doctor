@@ -6,7 +6,7 @@
 //! rather than prefill or queue saturation.
 use crate::config::Config;
 use crate::config::TpotBottleneckConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::TpotBottleneckTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -57,7 +57,12 @@ impl Rule for TpotBottleneckRule {
             return DiagnosisState::Healthy;
         }
 
-        DiagnosisState::Stressed(Signal::TpotP95Seconds, tpot)
+        DiagnosisState::firing(
+            Severity::Warning,
+            Confidence::Medium,
+            Signal::TpotP95Seconds,
+            tpot,
+        )
     }
 }
 
@@ -105,10 +110,15 @@ mod tests {
     }
 
     #[test]
-    fn stressed_when_tpot_high() {
+    fn fires_warning_when_tpot_high() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.3, 5.0, 100.0))),
-            DiagnosisState::Stressed(Signal::TpotP95Seconds, 0.3)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::TpotP95Seconds,
+                0.3
+            )
         );
     }
 }

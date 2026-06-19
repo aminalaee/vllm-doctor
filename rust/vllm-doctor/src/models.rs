@@ -139,12 +139,30 @@ impl FromStr for Confidence {
 #[derive(Debug, Clone, PartialEq)]
 pub enum DiagnosisState {
     Healthy,
-    Stressed(Signal, f64),
-    Saturated(Signal, f64),
+    Firing(Judgment),
     Unknown(String),
 }
 
+/// A rule's verdict when it fires: how serious, how sure, and the driving signal.
+/// The rule owns both severity and confidence; the report layer just presents them.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Judgment {
+    pub severity: Severity,
+    pub confidence: Confidence,
+    pub signal: Signal,
+    pub value: f64,
+}
+
 impl DiagnosisState {
+    pub fn firing(severity: Severity, confidence: Confidence, signal: Signal, value: f64) -> Self {
+        Self::Firing(Judgment {
+            severity,
+            confidence,
+            signal,
+            value,
+        })
+    }
+
     pub fn unknown_signal(signal: Signal) -> Self {
         Self::Unknown(format!("{signal} signal is missing or non-finite"))
     }

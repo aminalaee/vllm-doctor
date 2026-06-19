@@ -48,7 +48,8 @@ impl RuleRegistry {
         self.definitions().filter(move |d| d.severity == severity)
     }
 
-    /// Run every rule and collect metadata + findings.
+    /// Run every rule and collect metadata + findings, ordered worst-first:
+    /// by fired severity, then confidence, with non-firing checks last.
     pub fn run_all(&self, metrics: &MetricSeriesSnapshot) -> Vec<RuleResult> {
         let signals = SignalGraph::new(metrics);
         let mut results: Vec<RuleResult> = self
@@ -62,11 +63,28 @@ impl RuleRegistry {
                 finding: finding_for(entry.definition, entry.rule.run(&signals), &signals),
             })
             .collect();
-        results.sort_by(|a, b| {
-            a.severity
-                .cmp(&b.severity)
-                .then_with(|| b.is_significant().cmp(&a.is_significant()))
-        });
+        results.sort_by_key(order_key);
         results
+    }
+}
+
+/// Sort key placing the most urgent findings first and non-firing checks last.
+fn order_key(result: &RuleResult) -> (u8, u8) {
+    use crate::models::{Confidence, Severity};
+    match result.finding.as_ref() {
+        Some(finding) => {
+            let severity = match finding.severity {
+                Severity::Critical => 0,
+                Severity::Warning => 1,
+                Severity::Info => 2,
+            };
+            let confidence = match finding.confidence {
+                Confidence::High => 0,
+                Confidence::Medium => 1,
+                Confidence::Low => 2,
+            };
+            (severity, confidence)
+        }
+        None => (u8::MAX, u8::MAX),
     }
 }

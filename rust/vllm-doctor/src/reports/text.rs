@@ -1,81 +1,77 @@
 //! Plain-text report renderer: comfy-table for column layouts, hand-rolled panels.
 use comfy_table::presets::NOTHING;
 use comfy_table::{Cell, CellAlignment, Table};
+use owo_colors::{AnsiColors, OwoColorize};
 use unicode_width::UnicodeWidthStr;
 
 use crate::metrics::{all_specs, detect_replica_label};
-use crate::models::{Finding, RuleResult, Severity};
-use crate::reports::Report;
+use crate::models::{Finding, Health, Severity};
 use crate::reports::format::format_value;
+use crate::reports::{RenderOptions, Report};
 
 const BAR_WIDTH: usize = 20;
 const BAR_FILLED: char = '█';
 const BAR_EMPTY: char = '░';
-const PANEL_OUTER_WIDTH: usize = 78;
-// Each content row is "│  " + inner + "  │" — 6 framing chars around the text.
-const PANEL_INNER_WIDTH: usize = PANEL_OUTER_WIDTH - 6;
+const MIN_WIDTH: usize = 60;
+const MAX_WIDTH: usize = 120;
+// A content row is "│  " + inner + "  │" — 6 framing chars around the text.
+const PANEL_FRAME: usize = 6;
 const MAX_REPLICAS: usize = 6;
 
-/// A borderless table that sizes columns to their content.
-fn borderless_table() -> Table {
-    let mut table = Table::new();
-    table.load_preset(NOTHING);
-    table
-}
-
-fn right(value: impl ToString) -> Cell {
-    Cell::new(value).set_alignment(CellAlignment::Right)
-}
-
 /// Render a report as structured plain text.
-pub fn render(report: &Report, verbose: bool) -> String {
+pub fn render(report: &Report, opts: &RenderOptions) -> String {
+    let outer = opts.width.clamp(MIN_WIDTH, MAX_WIDTH);
+    let inner = outer - PANEL_FRAME;
+
     let mut out = String::new();
-    render_header(report, &mut out);
-    render_findings(report, &mut out);
-    render_check_list(report, &mut out);
-    render_notices(report, &mut out);
-    if verbose {
-        render_metrics(report, &mut out);
+    render_header(report, opts, outer, &mut out);
+    render_findings(report, opts, outer, inner, &mut out);
+    render_check_list(report, opts, &mut out);
+    render_notices(report, opts, &mut out);
+    if opts.verbose {
+        render_metrics(report, opts, &mut out);
         if let Some(label) = detect_replica_label(report.metric_series()) {
-            render_replica_metrics(report, label, &mut out);
+            render_replica_metrics(report, opts, label, &mut out);
         }
     }
     out
 }
 
-fn render_notices(report: &Report, out: &mut String) {
-    let notices = crate::reports::notices::resolve_notices(&report.diagnosis);
-    if notices.is_empty() {
-        return;
-    }
-    for notice in &notices {
-        out.push_str(&format!("⚠ {notice}\n"));
-    }
-    out.push('\n');
-}
-
-fn render_header(report: &Report, out: &mut String) {
-    let health_str = report.health().to_string().to_uppercase();
+fn render_header(report: &Report, opts: &RenderOptions, outer: usize, out: &mut String) {
+    let health = report.health();
+    let label = health.to_string().to_uppercase();
     let since = report.since();
-    let width = PANEL_OUTER_WIDTH;
 
-    let header_text = format!(
-        "vLLM Doctor  ·  Health: {}  ·  Since: {}",
-        health_str, since
-    );
-    let padded = pad_center(&header_text, width);
+    // Pad from the plain text so an embedded color code doesn't skew centering.
+    let plain = format!("vLLM Doctor  ·  Health: {label}  ·  Since: {since}");
+    let pad = outer.saturating_sub(plain.width());
+    let left = pad / 2;
+    let right = pad - left;
+    let health_text = paint(&label, health_color(health), true, opts.color);
+    let line = format!("vLLM Doctor  ·  Health: {health_text}  ·  Since: {since}");
 
-    out.push_str(&format!("──{}──\n", "─".repeat(width)));
-    out.push_str(&format!("  {}\n", padded));
-    out.push_str(&format!("──{}──\n", "─".repeat(width)));
+    let rule = "─".repeat(outer);
+    out.push_str(&rule);
     out.push('\n');
+    out.push_str(&" ".repeat(left));
+    out.push_str(&line);
+    out.push_str(&" ".repeat(right));
+    out.push('\n');
+    out.push_str(&rule);
+    out.push_str("\n\n");
 }
 
-fn render_findings(report: &Report, out: &mut String) {
-    let fired: Vec<(&RuleResult, &Finding)> = report
+fn render_findings(
+    report: &Report,
+    opts: &RenderOptions,
+    outer: usize,
+    inner: usize,
+    out: &mut String,
+) {
+    let fired: Vec<&Finding> = report
         .checks()
         .iter()
-        .filter_map(|check| check.finding.as_ref().map(|f| (check, f)))
+        .filter_map(|check| check.finding.as_ref())
         .collect();
 
     if fired.is_empty() {
@@ -83,95 +79,127 @@ fn render_findings(report: &Report, out: &mut String) {
         return;
     }
 
-    for (_check, finding) in &fired {
-        render_finding_panel(finding, out);
+    for finding in fired {
+        render_finding_panel(finding, opts, outer, inner, out);
         out.push('\n');
     }
 }
 
-fn render_finding_panel(finding: &Finding, out: &mut String) {
+fn render_finding_panel(
+    finding: &Finding,
+    opts: &RenderOptions,
+    outer: usize,
+    inner: usize,
+    out: &mut String,
+) {
+    let color = severity_color(finding.severity);
     let icon = severity_icon(finding.severity);
     let title = format!(
         "{} {}  [{} confidence]",
         icon, finding.title, finding.confidence
     );
 
-    let outer = PANEL_OUTER_WIDTH;
-    let inner = PANEL_INNER_WIDTH;
-    let top = format!("╭{}╮", "─".repeat(outer - 2));
-    let bottom = format!("╰{}╯", "─".repeat(outer - 2));
+    let bar = paint("│", color, false, opts.color);
+    let content = |text: &str| format!("{bar}  {text}  {bar}\n");
 
-    out.push_str(&top);
+    out.push_str(&paint(
+        &format!("╭{}╮", "─".repeat(outer - 2)),
+        color,
+        false,
+        opts.color,
+    ));
     out.push('\n');
-    out.push_str(&format!("│  {}  │\n", pad_center(&title, inner)));
-    out.push_str(&format!("│  {}  │\n", pad_right("", inner)));
+    let title_cell = paint(&pad_center(&title, inner), color, true, opts.color);
+    out.push_str(&content(&title_cell));
 
     for line in &finding.evidence {
         for wrapped in textwrap::wrap(line, inner) {
-            out.push_str(&format!("│  {}  │\n", pad_right(&wrapped, inner)));
+            out.push_str(&content(&pad_right(&wrapped, inner)));
         }
     }
 
     if !finding.recommendations.is_empty() {
-        out.push_str(&format!("│  {}  │\n", pad_right("", inner)));
+        out.push_str(&content(&pad_right("", inner)));
         // Hanging indent: "→ " on the first line, two spaces on continuations.
-        let opts = textwrap::Options::new(inner)
+        let wrap_opts = textwrap::Options::new(inner)
             .initial_indent("→ ")
             .subsequent_indent("  ");
         for rec in &finding.recommendations {
-            for wrapped in textwrap::wrap(rec, &opts) {
-                out.push_str(&format!("│  {}  │\n", pad_right(&wrapped, inner)));
+            for wrapped in textwrap::wrap(rec, &wrap_opts) {
+                // Tint the arrow to match the finding's severity color.
+                let padded = pad_right(&wrapped, inner);
+                let line = if opts.color {
+                    padded.replacen('→', &paint("→", color, false, true), 1)
+                } else {
+                    padded
+                };
+                out.push_str(&content(&line));
             }
         }
     }
 
-    out.push_str(&bottom);
+    out.push_str(&paint(
+        &format!("╰{}╯", "─".repeat(outer - 2)),
+        color,
+        false,
+        opts.color,
+    ));
     out.push('\n');
 }
 
-fn severity_icon(severity: Severity) -> &'static str {
-    match severity {
-        Severity::Critical => "✖",
-        Severity::Warning => "⚠",
-        Severity::Info => "ℹ",
-    }
-}
-
-fn render_check_list(report: &Report, out: &mut String) {
+fn render_check_list(report: &Report, opts: &RenderOptions, out: &mut String) {
     if report.checks().is_empty() {
         return;
     }
 
-    let mut table = borderless_table();
+    let mut table = colored_table(opts);
     for check in report.checks() {
         if let Some(finding) = &check.finding {
-            let status = format!("{} {}", severity_icon(finding.severity), finding.severity);
+            let status = Cell::new(format!(
+                "{} {}",
+                severity_icon(finding.severity),
+                finding.severity
+            ));
             table.add_row(vec![
                 Cell::new(check.name),
-                Cell::new(status),
+                paint_cell(status, finding.severity, opts),
                 Cell::new(format!("[{}]", finding.confidence)),
             ]);
         } else {
-            table.add_row(vec![
-                Cell::new(check.name),
-                Cell::new("✓ ok"),
-                Cell::new(""),
-            ]);
+            let mut ok = Cell::new("✓ ok");
+            if opts.color {
+                ok = ok.fg(comfy_table::Color::Green);
+            }
+            table.add_row(vec![Cell::new(check.name), ok, Cell::new("")]);
         }
     }
     out.push_str(&table.to_string());
     out.push_str("\n\n");
 }
 
-fn render_metrics(report: &Report, out: &mut String) {
+fn render_notices(report: &Report, opts: &RenderOptions, out: &mut String) {
+    let notices = crate::reports::notices::resolve_notices(&report.diagnosis);
+    if notices.is_empty() {
+        return;
+    }
+    for notice in &notices {
+        let line = format!("⚠ {notice}");
+        out.push_str(&paint(&line, AnsiColors::Yellow, false, opts.color));
+        out.push('\n');
+    }
+    out.push('\n');
+}
+
+fn render_metrics(report: &Report, opts: &RenderOptions, out: &mut String) {
     out.push_str("Observed Metrics:\n\n");
 
-    let mut table = borderless_table();
+    let mut table = colored_table(opts);
     table.set_header(vec![Cell::new("Metric"), right("Value")]);
     for spec in all_specs() {
         let spec: &dyn crate::metrics::MetricSpec = spec.as_ref();
         let display = spec.display();
-        let value_str = match spec.extract(report.metric_series()) {
+        let value = spec.extract(report.metric_series());
+        let value_str = match value {
             Some(v) if v.is_finite() => {
                 if display.bar {
                     cache_bar(v)
@@ -181,13 +209,19 @@ fn render_metrics(report: &Report, out: &mut String) {
             }
             _ => "n/a".to_string(),
         };
-        table.add_row(vec![Cell::new(&display.title), right(value_str)]);
+        let mut value_cell = right(value_str);
+        if opts.color && display.bar {
+            if let Some(v) = value {
+                value_cell = value_cell.fg(bar_color(v));
+            }
+        }
+        table.add_row(vec![Cell::new(&display.title), value_cell]);
     }
     out.push_str(&table.to_string());
     out.push_str("\n\n");
 }
 
-fn render_replica_metrics(report: &Report, label: &str, out: &mut String) {
+fn render_replica_metrics(report: &Report, opts: &RenderOptions, label: &str, out: &mut String) {
     use std::collections::{HashMap, HashSet};
 
     let snapshot = report.metric_series();
@@ -247,7 +281,7 @@ fn render_replica_metrics(report: &Report, label: &str, out: &mut String) {
         }
     };
 
-    let mut table = borderless_table();
+    let mut table = colored_table(opts);
     let mut header = vec![Cell::new("")];
     header.extend(visible.iter().map(right));
     if hidden > 0 {
@@ -271,6 +305,85 @@ fn render_replica_metrics(report: &Report, label: &str, out: &mut String) {
     out.push_str(&format!("Observed Metrics per {label}:\n\n"));
     out.push_str(&table.to_string());
     out.push_str("\n\n");
+}
+
+/// Wrap `text` in ANSI color when `enabled`; otherwise return it unchanged so
+/// piped/captured output stays plain.
+fn paint(text: &str, color: AnsiColors, bold: bool, enabled: bool) -> String {
+    if !enabled {
+        return text.to_string();
+    }
+    if bold {
+        text.color(color).bold().to_string()
+    } else {
+        text.color(color).to_string()
+    }
+}
+
+fn severity_icon(severity: Severity) -> &'static str {
+    match severity {
+        Severity::Critical => "✖",
+        Severity::Warning => "⚠",
+        Severity::Info => "ℹ",
+    }
+}
+
+fn severity_color(severity: Severity) -> AnsiColors {
+    match severity {
+        Severity::Critical => AnsiColors::Red,
+        Severity::Warning => AnsiColors::Yellow,
+        Severity::Info => AnsiColors::Blue,
+    }
+}
+
+fn health_color(health: Health) -> AnsiColors {
+    match health {
+        Health::Ok => AnsiColors::Green,
+        Health::Info => AnsiColors::Blue,
+        Health::Warning => AnsiColors::Yellow,
+        Health::Critical => AnsiColors::Red,
+    }
+}
+
+fn bar_color(value: f64) -> comfy_table::Color {
+    if value >= 0.9 {
+        comfy_table::Color::Red
+    } else if value >= 0.7 {
+        comfy_table::Color::Yellow
+    } else {
+        comfy_table::Color::Green
+    }
+}
+
+fn comfy_severity(severity: Severity) -> comfy_table::Color {
+    match severity {
+        Severity::Critical => comfy_table::Color::Red,
+        Severity::Warning => comfy_table::Color::Yellow,
+        Severity::Info => comfy_table::Color::Blue,
+    }
+}
+
+fn paint_cell(cell: Cell, severity: Severity, opts: &RenderOptions) -> Cell {
+    if opts.color {
+        cell.fg(comfy_severity(severity))
+    } else {
+        cell
+    }
+}
+
+/// A borderless table that sizes columns to their content, with styling forced
+/// on when color is requested (otherwise comfy-table may strip it off a pipe).
+fn colored_table(opts: &RenderOptions) -> Table {
+    let mut table = Table::new();
+    table.load_preset(NOTHING);
+    if opts.color {
+        table.enforce_styling();
+    }
+    table
+}
+
+fn right(value: impl ToString) -> Cell {
+    Cell::new(value).set_alignment(CellAlignment::Right)
 }
 
 fn cache_bar(value: f64) -> String {
@@ -313,6 +426,13 @@ mod tests {
     use crate::models::RuleResult;
     use crate::models::{Confidence, DiagnosisContext, DiagnosisResult, Severity};
 
+    fn verbose() -> RenderOptions {
+        RenderOptions {
+            verbose: true,
+            ..Default::default()
+        }
+    }
+
     fn sample_finding() -> Finding {
         Finding {
             severity: Severity::Warning,
@@ -348,7 +468,7 @@ mod tests {
     #[test]
     fn text_report_includes_health_and_finding() {
         let report = Report::new(sample_result());
-        let text = render(&report, false);
+        let text = render(&report, &RenderOptions::default());
 
         assert!(text.contains("Health: WARNING"));
         assert!(text.contains("Queue Pressure"));
@@ -359,7 +479,7 @@ mod tests {
     #[test]
     fn text_report_verbose_shows_metrics() {
         let report = Report::new(sample_result());
-        let text = render(&report, true);
+        let text = render(&report, &verbose());
         assert!(text.contains("Observed Metrics"));
         assert!(text.contains("GPU Cache Usage"));
         assert!(text.contains("92%"));
@@ -370,7 +490,7 @@ mod tests {
         let mut result = sample_result();
         result.checks[0].finding = None;
         let report = Report::new(result);
-        let text = render(&report, false);
+        let text = render(&report, &RenderOptions::default());
 
         assert!(text.contains("Health: HEALTHY"));
         assert!(text.contains("No issues detected"));
@@ -384,14 +504,45 @@ mod tests {
             latencies and increase them where requests are being aborted before completion";
         result.checks[0].finding.as_mut().unwrap().recommendations = vec![long.to_string()];
         let report = Report::new(result);
-        let text = render(&report, false);
+        let text = render(&report, &RenderOptions::default());
 
         // The tail of the sentence must survive (no truncation), on a continuation line.
         assert!(text.contains("completion"));
-        // Every rendered panel row stays within the panel width.
+        // Every rendered panel row stays within the default panel width.
         for line in text.lines().filter(|l| l.starts_with('│')) {
-            assert!(line.chars().count() <= PANEL_OUTER_WIDTH);
+            assert!(line.chars().count() <= RenderOptions::default().width);
         }
+    }
+
+    #[test]
+    fn width_controls_panel_size() {
+        let report = Report::new(sample_result());
+        let text = render(
+            &report,
+            &RenderOptions {
+                width: 100,
+                ..Default::default()
+            },
+        );
+        assert!(
+            text.lines()
+                .any(|l| l.starts_with('╭') && l.chars().count() == 100)
+        );
+    }
+
+    #[test]
+    fn color_is_emitted_only_when_enabled() {
+        let report = Report::new(sample_result());
+        let plain = render(&report, &RenderOptions::default());
+        let colored = render(
+            &report,
+            &RenderOptions {
+                color: true,
+                ..Default::default()
+            },
+        );
+        assert!(!plain.contains('\u{1b}'));
+        assert!(colored.contains('\u{1b}'));
     }
 
     #[test]
@@ -408,7 +559,7 @@ mod tests {
             ]),
             ..Default::default()
         };
-        let text = render(&Report::new(result), true);
+        let text = render(&Report::new(result), &verbose());
 
         assert!(text.contains("Observed Metrics per pod"));
         assert!(text.contains("pod-a"));
@@ -426,7 +577,7 @@ mod tests {
             .context
             .with_client_mode(crate::models::ClientMode::Scrape);
         let report = Report::new(result);
-        let text = render(&report, false);
+        let text = render(&report, &RenderOptions::default());
         assert!(text.contains("require Prometheus"));
     }
 }

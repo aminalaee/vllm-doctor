@@ -8,7 +8,7 @@
 //!   3 signals -> high
 use crate::config::Config;
 use crate::config::ReplicaImbalanceConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::ReplicaImbalanceTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -56,9 +56,19 @@ impl Rule for ReplicaImbalanceRule {
         };
 
         if imbalance >= self.cfg.critical_factor {
-            DiagnosisState::Saturated(Signal::ReplicaRunningImbalance, imbalance)
+            DiagnosisState::firing(
+                Severity::Critical,
+                Confidence::High,
+                Signal::ReplicaRunningImbalance,
+                imbalance,
+            )
         } else if imbalance >= self.cfg.imbalance_factor {
-            DiagnosisState::Stressed(Signal::ReplicaRunningImbalance, imbalance)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::ReplicaRunningImbalance,
+                imbalance,
+            )
         } else {
             DiagnosisState::Healthy
         }
@@ -128,7 +138,12 @@ mod tests {
         )));
         assert_eq!(
             result,
-            DiagnosisState::Stressed(Signal::ReplicaRunningImbalance, 2.5)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::ReplicaRunningImbalance,
+                2.5
+            )
         );
     }
 
@@ -141,7 +156,12 @@ mod tests {
         )));
         assert_eq!(
             result,
-            DiagnosisState::Saturated(Signal::ReplicaRunningImbalance, 5.0)
+            DiagnosisState::firing(
+                Severity::Critical,
+                Confidence::High,
+                Signal::ReplicaRunningImbalance,
+                5.0
+            )
         );
     }
     #[test]

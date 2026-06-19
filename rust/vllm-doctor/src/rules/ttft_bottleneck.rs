@@ -5,7 +5,7 @@
 //! — and when requests are queuing, confirming prefill pressure.
 use crate::config::Config;
 use crate::config::TtftBottleneckConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::TtftBottleneckTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -56,7 +56,12 @@ impl Rule for TtftBottleneckRule {
             return DiagnosisState::Healthy;
         }
 
-        DiagnosisState::Stressed(Signal::TtftP95Seconds, ttft)
+        DiagnosisState::firing(
+            Severity::Warning,
+            Confidence::Medium,
+            Signal::TtftP95Seconds,
+            ttft,
+        )
     }
 }
 
@@ -102,10 +107,15 @@ mod tests {
     }
 
     #[test]
-    fn stressed_when_ttft_high() {
+    fn fires_warning_when_ttft_high() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(3.0, 0.5, 0.0))),
-            DiagnosisState::Stressed(Signal::TtftP95Seconds, 3.0)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::TtftP95Seconds,
+                3.0
+            )
         );
     }
 }

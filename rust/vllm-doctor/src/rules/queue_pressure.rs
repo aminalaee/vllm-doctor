@@ -11,7 +11,7 @@
 //!   2 signals → high
 use crate::config::Config;
 use crate::config::QueuePressureConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::QueuePressureTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -57,7 +57,12 @@ impl Rule for QueuePressureRule {
             return DiagnosisState::Healthy;
         }
 
-        DiagnosisState::Stressed(Signal::NumRequestsWaiting, waiting)
+        DiagnosisState::firing(
+            Severity::Warning,
+            Confidence::Medium,
+            Signal::NumRequestsWaiting,
+            waiting,
+        )
     }
 }
 
@@ -100,10 +105,15 @@ mod tests {
     }
 
     #[test]
-    fn stressed_when_waiting_high() {
+    fn fires_warning_when_waiting_high() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(10.0, 10.0))),
-            DiagnosisState::Stressed(Signal::NumRequestsWaiting, 10.0)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::NumRequestsWaiting,
+                10.0
+            )
         );
     }
 }

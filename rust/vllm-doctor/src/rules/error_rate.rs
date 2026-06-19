@@ -20,7 +20,7 @@
 //! Severity is overridden to `Critical` when server-side errors are high.
 use crate::config::Config;
 use crate::config::ErrorRateConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::ErrorRateTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -88,10 +88,21 @@ impl Rule for ErrorRateRule {
             return DiagnosisState::Healthy;
         }
 
+        // Server-side errors are critical; client aborts alone are a warning.
         if errors_high {
-            DiagnosisState::Saturated(Signal::ErrorRate, error_rate)
+            DiagnosisState::firing(
+                Severity::Critical,
+                Confidence::High,
+                Signal::ErrorRate,
+                error_rate,
+            )
         } else if aborts_high {
-            DiagnosisState::Stressed(Signal::AbortRate, abort_rate)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::AbortRate,
+                abort_rate,
+            )
         } else {
             DiagnosisState::Healthy
         }
@@ -138,18 +149,28 @@ mod tests {
     }
 
     #[test]
-    fn saturated_when_errors_high() {
+    fn critical_when_errors_high() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(10.0, 0.0, 100.0))),
-            DiagnosisState::Saturated(Signal::ErrorRate, 10.0 / 110.0)
+            DiagnosisState::firing(
+                Severity::Critical,
+                Confidence::High,
+                Signal::ErrorRate,
+                10.0 / 110.0
+            )
         );
     }
 
     #[test]
-    fn stressed_when_aborts_high() {
+    fn warning_when_aborts_high() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.0, 15.0, 100.0))),
-            DiagnosisState::Stressed(Signal::AbortRate, 15.0 / 115.0)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::AbortRate,
+                15.0 / 115.0
+            )
         );
     }
 }

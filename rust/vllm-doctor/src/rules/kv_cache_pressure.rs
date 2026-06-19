@@ -14,7 +14,7 @@
 //!   both signals       → high   (cache is full and actively blocking requests)
 use crate::config::Config;
 use crate::config::KVCachePressureConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::KvCachePressureTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -60,7 +60,20 @@ impl Rule for KVCachePressureRule {
             return DiagnosisState::Healthy;
         }
 
-        DiagnosisState::Stressed(Signal::KvCacheUsagePerc, cache)
+        // Cache exhaustion is always critical; confidence rises to high once it is
+        // actively blocking admission (requests waiting).
+        let waiting = signals.evaluate(Signal::NumRequestsWaiting).unwrap_or(0.0);
+        let confidence = if waiting > 0.0 {
+            Confidence::High
+        } else {
+            Confidence::Medium
+        };
+        DiagnosisState::firing(
+            Severity::Critical,
+            confidence,
+            Signal::KvCacheUsagePerc,
+            cache,
+        )
     }
 }
 
@@ -104,10 +117,28 @@ mod tests {
     }
 
     #[test]
-    fn stressed_when_cache_high() {
+    fn critical_medium_when_cache_high_no_waiting() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.95, 0.0))),
-            DiagnosisState::Stressed(Signal::KvCacheUsagePerc, 0.95)
+            DiagnosisState::firing(
+                Severity::Critical,
+                Confidence::Medium,
+                Signal::KvCacheUsagePerc,
+                0.95
+            )
+        );
+    }
+
+    #[test]
+    fn critical_high_when_cache_high_and_waiting() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.95, 7.0))),
+            DiagnosisState::firing(
+                Severity::Critical,
+                Confidence::High,
+                Signal::KvCacheUsagePerc,
+                0.95
+            )
         );
     }
 }

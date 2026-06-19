@@ -15,7 +15,7 @@
 //!   preemptions + high cache usage → high   (actively under memory pressure)
 use crate::config::Config;
 use crate::config::PreemptionPressureConfig;
-use crate::models::{DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::reports::templates::PreemptionPressureTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
@@ -61,7 +61,12 @@ impl Rule for PreemptionPressureRule {
             return DiagnosisState::Healthy;
         }
 
-        DiagnosisState::Stressed(Signal::NumPreemptionsTotal, preemptions)
+        DiagnosisState::firing(
+            Severity::Warning,
+            Confidence::Medium,
+            Signal::NumPreemptionsTotal,
+            preemptions,
+        )
     }
 }
 
@@ -112,10 +117,15 @@ mod tests {
     }
 
     #[test]
-    fn stressed_when_preemptions_present() {
+    fn fires_warning_when_preemptions_present() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 0.5))),
-            DiagnosisState::Stressed(Signal::NumPreemptionsTotal, 5.0)
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Medium,
+                Signal::NumPreemptionsTotal,
+                5.0
+            )
         );
     }
 }
