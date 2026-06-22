@@ -161,7 +161,7 @@ fn render_check_list(report: &Report, opts: &RenderOptions, out: &mut String) {
                 finding.severity
             ));
             table.add_row(vec![
-                Cell::new(check.name),
+                Cell::new(&check.name),
                 paint_cell(status, finding.severity, opts),
                 Cell::new(format!("[{}]", finding.confidence)),
             ]);
@@ -170,7 +170,7 @@ fn render_check_list(report: &Report, opts: &RenderOptions, out: &mut String) {
             if opts.color {
                 ok = ok.fg(comfy_table::Color::Green);
             }
-            table.add_row(vec![Cell::new(check.name), ok, Cell::new("")]);
+            table.add_row(vec![Cell::new(&check.name), ok, Cell::new("")]);
         }
     }
     out.push_str(&table.to_string());
@@ -451,9 +451,9 @@ mod tests {
         DiagnosisResult {
             context: DiagnosisContext::new("5m"),
             checks: vec![RuleResult {
-                id: "queue_pressure",
-                name: "Queue Pressure",
-                title: "Queue pressure",
+                id: "queue_pressure".into(),
+                name: "Queue Pressure".into(),
+                title: "Queue pressure".into(),
                 severity: Severity::Warning,
                 finding: Some(sample_finding()),
             }],

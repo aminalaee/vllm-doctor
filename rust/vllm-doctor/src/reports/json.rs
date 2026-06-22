@@ -116,9 +116,9 @@ mod tests {
             context: DiagnosisContext::new("5m"),
             metric_series,
             checks: vec![RuleResult {
-                id: "queue_pressure",
-                name: "Queue Pressure",
-                title: "Queue pressure",
+                id: "queue_pressure".into(),
+                name: "Queue Pressure".into(),
+                title: "Queue pressure".into(),
                 severity: Severity::Warning,
                 finding: Some(finding()),
             }],
