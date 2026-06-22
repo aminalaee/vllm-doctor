@@ -2,10 +2,13 @@
 use std::fmt;
 use std::str::FromStr;
 
+use serde::{Deserialize, Serialize};
+
 use crate::metrics::{MetricSeriesSnapshot, Metrics};
 use crate::signals::Signal;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ClientMode {
     #[default]
     Prometheus,
@@ -33,7 +36,8 @@ impl FromStr for ClientMode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Severity {
     Critical,
     Warning,
@@ -63,7 +67,7 @@ impl FromStr for Severity {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Health {
     Ok,
     Info,
@@ -106,7 +110,8 @@ impl From<Severity> for Health {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Confidence {
     High,
     Medium,
@@ -168,7 +173,7 @@ impl DiagnosisState {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DiagnosisContext {
     pub since: String,
     pub model_name: Option<String>,
@@ -204,7 +209,7 @@ pub struct FindingData {
     pub severity: Option<Severity>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Finding {
     pub severity: Severity,
     pub confidence: Confidence,
@@ -217,11 +222,11 @@ pub struct Finding {
     pub related_metrics: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RuleResult {
-    pub id: &'static str,
-    pub name: &'static str,
-    pub title: &'static str,
+    pub id: String,
+    pub name: String,
+    pub title: String,
     pub severity: Severity,
     pub finding: Option<Finding>,
 }
@@ -232,7 +237,7 @@ impl RuleResult {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DiagnosisResult {
     pub context: DiagnosisContext,
     pub metric_series: MetricSeriesSnapshot,
@@ -313,9 +318,9 @@ mod tests {
             metric_series: MetricSeriesSnapshot::default(),
             checks: vec![
                 RuleResult {
-                    id: "info-rule",
-                    name: "Info Rule",
-                    title: "Info",
+                    id: "info-rule".into(),
+                    name: "Info Rule".into(),
+                    title: "Info".into(),
                     severity: Severity::Info,
                     finding: Some(Finding {
                         severity: Severity::Info,
@@ -330,9 +335,9 @@ mod tests {
                     }),
                 },
                 RuleResult {
-                    id: "critical-rule",
-                    name: "Critical Rule",
-                    title: "Critical",
+                    id: "critical-rule".into(),
+                    name: "Critical Rule".into(),
+                    title: "Critical".into(),
                     severity: Severity::Critical,
                     finding: Some(Finding {
                         severity: Severity::Critical,
@@ -357,9 +362,9 @@ mod tests {
             context: DiagnosisContext::new("5m"),
             metric_series: MetricSeriesSnapshot::default(),
             checks: vec![RuleResult {
-                id: "quiet",
-                name: "Quiet",
-                title: "Quiet",
+                id: "quiet".into(),
+                name: "Quiet".into(),
+                title: "Quiet".into(),
                 severity: Severity::Info,
                 finding: None,
             }],

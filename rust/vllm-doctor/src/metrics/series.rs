@@ -6,8 +6,49 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct MetricSample {
     pub labels: HashMap<String, String>,
+    // Scraped metrics can be NaN/±Inf, which JSON renders as `null` and cannot
+    // be read back into an `f64`. Encode non-finite values as strings so a stored
+    // run round-trips instead of becoming unreadable.
+    #[serde(with = "finite_f64")]
     pub value: f64,
     pub timestamp: Option<f64>,
+}
+
+/// Serde for an `f64` that may be non-finite: finite values stay JSON numbers;
+/// `NaN`/`Inf`/`-Inf` are written as strings and parsed back.
+mod finite_f64 {
+    use serde::de::Error;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
+        if value.is_finite() {
+            serializer.serialize_f64(*value)
+        } else if value.is_nan() {
+            serializer.serialize_str("nan")
+        } else if value.is_sign_positive() {
+            serializer.serialize_str("inf")
+        } else {
+            serializer.serialize_str("-inf")
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Repr {
+            Num(f64),
+            Str(String),
+        }
+        match Repr::deserialize(deserializer)? {
+            Repr::Num(n) => Ok(n),
+            Repr::Str(s) => match s.as_str() {
+                "nan" => Ok(f64::NAN),
+                "inf" => Ok(f64::INFINITY),
+                "-inf" => Ok(f64::NEG_INFINITY),
+                other => other.parse().map_err(D::Error::custom),
+            },
+        }
+    }
 }
 
 impl MetricSample {
@@ -87,7 +128,8 @@ impl std::str::FromStr for Aggregate {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct MetricSeries {
     pub samples: Vec<MetricSample>,
-    #[serde(skip)]
+    // Serialized so a stored run reloads with the same aggregation (gauges are
+    // not summed); without this, a reloaded series would default to Sum.
     pub aggregate_by: Aggregate,
 }
 
@@ -276,5 +318,30 @@ mod tests {
     #[test]
     fn scalar_is_alias_for_new() {
         assert_eq!(MetricSample::scalar(5.0), MetricSample::new(5.0));
+    }
+
+    #[test]
+    fn finite_sample_serializes_as_number() {
+        let json = serde_json::to_string(&MetricSample::new(0.95)).unwrap();
+        assert!(json.contains("\"value\":0.95"));
+        let back: MetricSample = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.value, 0.95);
+    }
+
+    #[test]
+    fn non_finite_samples_round_trip() {
+        for value in [f64::INFINITY, f64::NEG_INFINITY] {
+            let json = serde_json::to_string(&MetricSample::new(value)).unwrap();
+            assert!(
+                !json.contains("\"value\":null"),
+                "non-finite value must not serialize as null"
+            );
+            let back: MetricSample = serde_json::from_str(&json).unwrap();
+            assert_eq!(back.value, value);
+        }
+        // NaN never equals itself, so assert the property survives instead.
+        let json = serde_json::to_string(&MetricSample::new(f64::NAN)).unwrap();
+        let back: MetricSample = serde_json::from_str(&json).unwrap();
+        assert!(back.value.is_nan());
     }
 }

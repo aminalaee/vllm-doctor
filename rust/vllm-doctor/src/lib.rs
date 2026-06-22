@@ -10,6 +10,7 @@ pub mod providers;
 pub mod reports;
 pub mod rules;
 pub mod signals;
+pub mod stores;
 
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")

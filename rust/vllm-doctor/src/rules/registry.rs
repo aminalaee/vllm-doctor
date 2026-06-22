@@ -56,9 +56,9 @@ impl RuleRegistry {
             .entries
             .iter()
             .map(|entry| RuleResult {
-                id: entry.definition.id,
-                name: entry.definition.name,
-                title: entry.definition.title,
+                id: entry.definition.id.to_string(),
+                name: entry.definition.name.to_string(),
+                title: entry.definition.title.to_string(),
                 severity: entry.definition.severity,
                 finding: finding_for(entry.definition, entry.rule.run(&signals), &signals),
             })
