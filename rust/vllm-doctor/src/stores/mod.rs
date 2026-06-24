@@ -1,6 +1,7 @@
 //! Persistence for diagnosis runs, behind a storage interface so a future
 //! server mode can swap the backend (local SQLite now; see v0.6 storage plan).
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::models::{ClientMode, DiagnosisResult, Health};
@@ -29,7 +30,7 @@ pub enum StoreError {
 /// Summary of a stored run, for listing without loading the full report. Built
 /// from denormalized columns so it stays readable even if the report blob is an
 /// incompatible version.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct RunSummary {
     pub run_id: Uuid,
     pub saved_at: DateTime<Utc>,

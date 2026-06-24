@@ -1,17 +1,26 @@
 use std::io::IsTerminal;
 
 use clap::Parser;
+use comfy_table::{Cell, Color, ContentArrangement, Table, presets::UTF8_BORDERS_ONLY};
 
-use vllm_doctor::cli::{Args, Command, Format};
-use vllm_doctor::config::Config;
+use vllm_doctor::cli::{Args, Command, Format, HistoryCommand};
+use vllm_doctor::config::{Config, load_config};
 use vllm_doctor::diagnosis::diagnose;
+use vllm_doctor::models::Health;
 use vllm_doctor::providers::resolve_provider;
 use vllm_doctor::reports::{RenderOptions, Report, json, text};
 use vllm_doctor::rules::build_registry;
+use vllm_doctor::stores::{HistoryStore, SqliteHistoryStore};
 
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
+    if let Err(code) = run(args).await {
+        std::process::exit(code);
+    }
+}
+
+async fn run(args: Args) -> Result<(), i32> {
     match args.command {
         Command::Diagnose {
             url,
@@ -19,17 +28,50 @@ async fn main() {
             model,
             output,
             verbose,
+            save,
+            config,
         } => {
-            if let Err(err) = run_diagnose(&url, &since, model.as_deref(), output, verbose).await {
-                eprintln!("Error: could not read metrics from {url}: {err}");
-                std::process::exit(1);
+            let cfg = load_config_or_default(config.as_deref());
+            match run_diagnose(&url, &since, model.as_deref(), output, verbose, save, &cfg).await {
+                Ok(()) => {}
+                Err(DiagnoseError::Fetch(e)) => {
+                    eprintln!("Error: could not read metrics from {url}: {e}");
+                    return Err(1);
+                }
+                Err(DiagnoseError::Save(e)) => {
+                    eprintln!("Error: failed to save run: {e}");
+                    return Err(1);
+                }
             }
         }
-        Command::History | Command::Migrate => {
-            eprintln!("not implemented yet");
-            std::process::exit(1);
+        Command::Migrate { config } => {
+            let cfg = load_config_or_default(config.as_deref());
+            if let Err(err) = run_migrate(&cfg).await {
+                eprintln!("Error: migration failed: {err}");
+                return Err(1);
+            }
+        }
+        Command::History { command } => {
+            let cfg = load_config_or_default(history_config(&command).as_deref());
+            run_history(command, &cfg).await?;
         }
     }
+    Ok(())
+}
+
+fn load_config_or_default(path: Option<&std::path::Path>) -> Config {
+    load_config(path).unwrap_or_else(|_| Config::default())
+}
+
+fn history_config(command: &HistoryCommand) -> Option<std::path::PathBuf> {
+    match command {
+        HistoryCommand::List { config, .. } | HistoryCommand::Show { config, .. } => config.clone(),
+    }
+}
+
+enum DiagnoseError {
+    Fetch(Box<dyn std::error::Error>),
+    Save(Box<dyn std::error::Error>),
 }
 
 async fn run_diagnose(
@@ -38,16 +80,110 @@ async fn run_diagnose(
     model: Option<&str>,
     output: Format,
     verbose: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let config = Config::default();
-    let registry = build_registry(&config);
-    let provider = resolve_provider(url, 10.0, since, model).await?;
-    let result = diagnose(provider.as_ref(), &registry, since, model).await?;
+    save: bool,
+    config: &Config,
+) -> Result<(), DiagnoseError> {
+    let registry = build_registry(config);
+    let provider = resolve_provider(url, 10.0, since, model)
+        .await
+        .map_err(|e| DiagnoseError::Fetch(e.into()))?;
+    let result = diagnose(provider.as_ref(), &registry, since, model)
+        .await
+        .map_err(|e| DiagnoseError::Fetch(e.into()))?;
     let report = Report::new(result);
+
+    let stdout = std::io::stdout();
+    let opts = RenderOptions {
+        verbose,
+        width: terminal_size::terminal_size()
+            .map(|(w, _)| w.0 as usize)
+            .unwrap_or(80),
+        color: stdout.is_terminal(),
+    };
+
     match output {
-        Format::Text => {
-            // Color and full width when stdout is a terminal; plain and bounded
-            // when piped or redirected so files and pipelines stay clean.
+        Format::Text => print!("{}", text::render(&report, &opts)),
+        Format::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(&json::render(&report, verbose))
+                .map_err(|e| DiagnoseError::Fetch(e.into()))?
+        ),
+    }
+
+    if save {
+        let store = SqliteHistoryStore::connect(&config.database.url)
+            .await
+            .map_err(|e| DiagnoseError::Save(e.into()))?;
+        let id = store
+            .save(&report.diagnosis)
+            .await
+            .map_err(|e| DiagnoseError::Save(e.into()))?;
+        eprintln!("Saved run: {id}");
+    }
+
+    Ok(())
+}
+
+async fn run_migrate(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    let _store = SqliteHistoryStore::connect(&config.database.url).await?;
+    println!("Database migrated successfully.");
+    Ok(())
+}
+
+async fn run_history(command: HistoryCommand, config: &Config) -> Result<(), i32> {
+    let store = match SqliteHistoryStore::connect(&config.database.url).await {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Error: {e}");
+            return Err(1);
+        }
+    };
+    match command {
+        HistoryCommand::List {
+            output, verbose, ..
+        } => {
+            let runs = match store.list().await {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    return Err(1);
+                }
+            };
+            match output {
+                Format::Json => match serde_json::to_string(&runs) {
+                    Ok(s) => println!("{s}"),
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        return Err(1);
+                    }
+                },
+                Format::Text => {
+                    if runs.is_empty() {
+                        println!("No saved diagnosis runs found.");
+                    } else {
+                        print_history_table(&runs, verbose);
+                    }
+                }
+            }
+        }
+        HistoryCommand::Show {
+            run_id,
+            output,
+            verbose,
+            ..
+        } => {
+            let result = match store.get(&run_id).await {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    return Err(1);
+                }
+            };
+            let Some(result) = result else {
+                eprintln!("Error: run {run_id} not found.");
+                return Err(1);
+            };
+            let report = Report::new(result);
             let stdout = std::io::stdout();
             let opts = RenderOptions {
                 verbose,
@@ -56,12 +192,65 @@ async fn run_diagnose(
                     .unwrap_or(80),
                 color: stdout.is_terminal(),
             };
-            print!("{}", text::render(&report, &opts));
+            match output {
+                Format::Text => print!("{}", text::render(&report, &opts)),
+                Format::Json => match serde_json::to_string_pretty(&json::render(&report, verbose))
+                {
+                    Ok(s) => println!("{s}"),
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        return Err(1);
+                    }
+                },
+            }
         }
-        Format::Json => println!(
-            "{}",
-            serde_json::to_string_pretty(&json::render(&report, verbose))?
-        ),
     }
     Ok(())
+}
+
+fn print_history_table(runs: &[vllm_doctor::stores::RunSummary], verbose: bool) {
+    let stdout = std::io::stdout();
+    let color = stdout.is_terminal();
+
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_BORDERS_ONLY)
+        .set_content_arrangement(ContentArrangement::Disabled);
+
+    let mut header = vec!["Run ID", "Time", "Model"];
+    if verbose {
+        header.push("Mode");
+    }
+    header.push("Health");
+    header.push("Fired");
+    table.set_header(header);
+
+    for run in runs {
+        let saved = run.saved_at.format("%Y-%m-%d %H:%M").to_string();
+        let model = run.model_name.clone().unwrap_or_else(|| "—".to_string());
+        let mut row = vec![Cell::new(run.run_id), Cell::new(saved), Cell::new(model)];
+        if verbose {
+            row.push(Cell::new(run.client_mode.to_string()));
+        }
+        let health_cell = Cell::new(run.health.to_string());
+        let health_cell = if color {
+            health_cell.fg(health_to_comfy(run.health))
+        } else {
+            health_cell
+        };
+        row.push(health_cell);
+        row.push(Cell::new(run.fired_count));
+        table.add_row(row);
+    }
+
+    println!("{table}");
+}
+
+fn health_to_comfy(health: Health) -> Color {
+    match health {
+        Health::Ok => Color::Green,
+        Health::Info => Color::Blue,
+        Health::Warning => Color::Yellow,
+        Health::Critical => Color::Red,
+    }
 }
