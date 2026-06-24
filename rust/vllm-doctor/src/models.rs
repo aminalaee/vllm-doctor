@@ -69,9 +69,13 @@ impl FromStr for Severity {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Health {
+    #[serde(rename = "healthy")]
     Ok,
+    #[serde(rename = "info")]
     Info,
+    #[serde(rename = "warning")]
     Warning,
+    #[serde(rename = "critical")]
     Critical,
 }
 

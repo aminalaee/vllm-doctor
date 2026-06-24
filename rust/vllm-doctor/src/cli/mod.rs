@@ -1,4 +1,6 @@
 //! CLI argument definitions.
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, Parser)]
@@ -36,11 +38,54 @@ pub enum Command {
         /// Show additional diagnostic detail
         #[arg(short, long)]
         verbose: bool,
+        /// Persist this diagnosis run to the local database
+        #[arg(long)]
+        save: bool,
+        /// Path to config file (default: vllm-doctor.toml)
+        #[arg(short, long)]
+        config: Option<PathBuf>,
     },
     /// Local diagnosis history commands
-    History,
+    History {
+        #[command(subcommand)]
+        command: HistoryCommand,
+    },
     /// Run database migrations
-    Migrate,
+    Migrate {
+        /// Path to config file (default: vllm-doctor.toml)
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum HistoryCommand {
+    /// List saved diagnosis runs
+    List {
+        /// Output format
+        #[arg(short, long, value_enum, default_value = "text")]
+        output: Format,
+        /// Show additional columns
+        #[arg(short, long)]
+        verbose: bool,
+        /// Path to config file (default: vllm-doctor.toml)
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+    },
+    /// Show a saved diagnosis run
+    Show {
+        /// ID of the saved diagnosis run
+        run_id: String,
+        /// Output format
+        #[arg(short, long, value_enum, default_value = "text")]
+        output: Format,
+        /// Show additional diagnostic detail
+        #[arg(short, long)]
+        verbose: bool,
+        /// Path to config file (default: vllm-doctor.toml)
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+    },
 }
 
 #[cfg(test)]
@@ -51,7 +96,7 @@ mod tests {
     #[test]
     fn parse_migrate_command() {
         let args = Args::parse_from(["vllm-doctor", "migrate"]);
-        assert!(matches!(args.command, Command::Migrate));
+        assert!(matches!(args.command, Command::Migrate { .. }));
     }
 
     #[test]
@@ -67,6 +112,7 @@ mod tests {
             "--output",
             "json",
             "--verbose",
+            "--save",
         ]);
         match args.command {
             Command::Diagnose {
@@ -75,12 +121,15 @@ mod tests {
                 model,
                 output,
                 verbose,
+                save,
+                ..
             } => {
                 assert_eq!(url, "http://localhost:8000/metrics");
                 assert_eq!(since, "1h");
                 assert_eq!(model.as_deref(), Some("llama"));
                 assert_eq!(output, Format::Json);
                 assert!(verbose);
+                assert!(save);
             }
             _ => panic!("expected diagnose command"),
         }
@@ -95,12 +144,16 @@ mod tests {
                 output,
                 verbose,
                 model,
+                save,
+                config,
                 ..
             } => {
                 assert_eq!(since, "now");
                 assert_eq!(output, Format::Text);
                 assert!(!verbose);
                 assert_eq!(model, None);
+                assert!(!save);
+                assert_eq!(config, None);
             }
             _ => panic!("expected diagnose command"),
         }
@@ -112,8 +165,32 @@ mod tests {
     }
 
     #[test]
-    fn parse_history_command() {
-        let args = Args::parse_from(["vllm-doctor", "history"]);
-        assert!(matches!(args.command, Command::History));
+    fn parse_history_list() {
+        let args = Args::parse_from(["vllm-doctor", "history", "list"]);
+        match args.command {
+            Command::History {
+                command:
+                    HistoryCommand::List {
+                        output, verbose, ..
+                    },
+            } => {
+                assert_eq!(output, Format::Text);
+                assert!(!verbose);
+            }
+            _ => panic!("expected history list"),
+        }
+    }
+
+    #[test]
+    fn parse_history_show() {
+        let args = Args::parse_from(["vllm-doctor", "history", "show", "abc-123"]);
+        match args.command {
+            Command::History {
+                command: HistoryCommand::Show { run_id, .. },
+            } => {
+                assert_eq!(run_id, "abc-123");
+            }
+            _ => panic!("expected history show"),
+        }
     }
 }
