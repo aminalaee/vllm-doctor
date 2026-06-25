@@ -41,6 +41,9 @@ pub enum Command {
         /// Persist this diagnosis run to the local database
         #[arg(long)]
         save: bool,
+        /// Refresh continuously every 5s
+        #[arg(short, long)]
+        watch: bool,
         /// Path to config file (default: vllm-doctor.toml)
         #[arg(short, long)]
         config: Option<PathBuf>,
@@ -122,6 +125,7 @@ mod tests {
                 output,
                 verbose,
                 save,
+                watch,
                 ..
             } => {
                 assert_eq!(url, "http://localhost:8000/metrics");
@@ -130,6 +134,7 @@ mod tests {
                 assert_eq!(output, Format::Json);
                 assert!(verbose);
                 assert!(save);
+                assert!(!watch);
             }
             _ => panic!("expected diagnose command"),
         }
@@ -145,6 +150,7 @@ mod tests {
                 verbose,
                 model,
                 save,
+                watch,
                 config,
                 ..
             } => {
@@ -153,6 +159,7 @@ mod tests {
                 assert!(!verbose);
                 assert_eq!(model, None);
                 assert!(!save);
+                assert!(!watch);
                 assert_eq!(config, None);
             }
             _ => panic!("expected diagnose command"),
