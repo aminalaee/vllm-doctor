@@ -50,7 +50,7 @@ impl RuleRegistry {
 
     /// Run every rule and collect metadata + findings, ordered worst-first:
     /// by fired severity, then confidence, with non-firing checks last.
-    pub fn run_all(&self, metrics: &MetricSeriesSnapshot) -> Vec<RuleResult> {
+    pub fn run_all(&self, metrics: &MetricSeriesSnapshot, config: &Config) -> Vec<RuleResult> {
         let signals = SignalGraph::new(metrics);
         let mut results: Vec<RuleResult> = self
             .entries
@@ -60,7 +60,7 @@ impl RuleRegistry {
                 name: entry.definition.name.to_string(),
                 title: entry.definition.title.to_string(),
                 severity: entry.definition.severity,
-                finding: finding_for(entry.definition, entry.rule.run(&signals), &signals),
+                finding: finding_for(entry.definition, entry.rule.run(&signals), &signals, config),
             })
             .collect();
         results.sort_by_key(order_key);

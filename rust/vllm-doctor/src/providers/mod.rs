@@ -4,6 +4,7 @@ use std::time::Duration;
 use crate::metrics::MetricSeriesSnapshot;
 
 pub mod cache;
+pub mod cached;
 pub mod prometheus;
 pub mod scrape;
 
@@ -55,10 +56,8 @@ pub async fn resolve_provider(
         .await
         .map_err(ProviderError::Fetch)?;
     let provider: Box<dyn Provider> = match resolved {
-        ResolvedClient::Scrape(_) => Box::new(ScrapeProvider::new(url, timeout, since, model)?),
-        ResolvedClient::Prometheus(_) => {
-            Box::new(PrometheusProvider::new(url, timeout, since, model)?)
-        }
+        ResolvedClient::Scrape(_) => Box::new(scrape::new(url, timeout, since, model)?),
+        ResolvedClient::Prometheus(_) => Box::new(prometheus::new(url, timeout, since, model)?),
     };
     Ok(provider)
 }

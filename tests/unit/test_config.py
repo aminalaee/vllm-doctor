@@ -104,4 +104,3 @@ class TestLoadConfig:
 
     def test_full_config_replica_imbalance(self, full_config):
         assert full_config.rules.replica_imbalance.imbalance_factor == 3.0
-        assert full_config.rules.replica_imbalance.critical_factor == 5.0

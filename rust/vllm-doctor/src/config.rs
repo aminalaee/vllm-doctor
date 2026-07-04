@@ -23,7 +23,6 @@ fn config_dir_from(base: Option<PathBuf>) -> Option<PathBuf> {
 fn default_database_url_with_home(home: Option<PathBuf>) -> String {
     let mut path = home.unwrap_or_else(|| PathBuf::from("."));
     path.push(".vllm-doctor");
-    std::fs::create_dir_all(&path).ok();
     path.push("vllm_doctor.db");
     format!("sqlite:///{}", path.display())
 }
@@ -86,7 +85,8 @@ pub struct PrefixCacheEfficiencyConfig {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct ReplicaImbalanceConfig {
     pub imbalance_factor: f64,
-    pub critical_factor: f64,
+    pub cache_gap: f64,
+    pub min_total_running: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -160,7 +160,8 @@ impl Default for Config {
                 prefix_cache_efficiency: PrefixCacheEfficiencyConfig { min_hit_rate: 0.50 },
                 replica_imbalance: ReplicaImbalanceConfig {
                     imbalance_factor: 2.0,
-                    critical_factor: 3.0,
+                    cache_gap: 0.30,
+                    min_total_running: 5.0,
                 },
             },
         }
@@ -220,7 +221,8 @@ mod tests {
         assert_eq!(config.rules.tpot_bottleneck.low_gen_tokens_per_sec, 50.0);
         assert_eq!(config.rules.prefix_cache_efficiency.min_hit_rate, 0.50);
         assert_eq!(config.rules.replica_imbalance.imbalance_factor, 2.0);
-        assert_eq!(config.rules.replica_imbalance.critical_factor, 3.0);
+        assert_eq!(config.rules.replica_imbalance.cache_gap, 0.30);
+        assert_eq!(config.rules.replica_imbalance.min_total_running, 5.0);
     }
 
     #[test]
@@ -269,7 +271,6 @@ mod tests {
         let url = default_database_url_with_home(Some(home.clone()));
         assert!(url.starts_with("sqlite:///"));
         assert!(url.contains("/.vllm-doctor/vllm_doctor.db"));
-        assert!(home.join(".vllm-doctor").exists());
     }
 
     #[test]
@@ -300,7 +301,8 @@ mod tests {
         assert_eq!(config.rules.tpot_bottleneck.low_gen_tokens_per_sec, 30.0);
         assert_eq!(config.rules.prefix_cache_efficiency.min_hit_rate, 0.70);
         assert_eq!(config.rules.replica_imbalance.imbalance_factor, 3.0);
-        assert_eq!(config.rules.replica_imbalance.critical_factor, 5.0);
+        assert_eq!(config.rules.replica_imbalance.cache_gap, 0.30);
+        assert_eq!(config.rules.replica_imbalance.min_total_running, 5.0);
     }
 
     #[test]

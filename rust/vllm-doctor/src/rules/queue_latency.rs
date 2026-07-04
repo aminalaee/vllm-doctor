@@ -65,13 +65,27 @@ impl Rule for QueueLatencyRule {
             return DiagnosisState::Healthy;
         }
 
+        let confidence = if waiting_backlog(signals).is_some() {
+            Confidence::High
+        } else {
+            Confidence::Low
+        };
         DiagnosisState::firing(
             Severity::Warning,
-            Confidence::Medium,
+            confidence,
             Signal::QueueTimeP95Seconds,
             queue_time,
         )
     }
+}
+
+/// Active backlog confirmed: requests are waiting in the queue.
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
+    graph
+        .evaluate(Signal::NumRequestsWaiting)
+        .filter(|&w| w > 0.0)
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -113,11 +127,26 @@ mod tests {
 
     #[test]
     fn fires_warning_when_queue_time_high() {
+        // waiting=3.0 > 0 → waiting_confirmed=true → High confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(2.0, 3.0))),
             DiagnosisState::firing(
                 Severity::Warning,
-                Confidence::Medium,
+                Confidence::High,
+                Signal::QueueTimeP95Seconds,
+                2.0
+            )
+        );
+    }
+
+    #[test]
+    fn low_confidence_when_no_waiting() {
+        // waiting=0.0 → waiting_confirmed=false → Low confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(2.0, 0.0))),
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Low,
                 Signal::QueueTimeP95Seconds,
                 2.0
             )

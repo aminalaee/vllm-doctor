@@ -76,9 +76,7 @@ pub async fn resolve_client(
                 url, client,
             )?))
         }
-        Err(_) => Ok(ResolvedClient::Prometheus(PrometheusClient::with_client(
-            url, client,
-        )?)),
+        Err(e) => Err(ClientError::from(e)),
     }
 }
 
@@ -190,15 +188,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn resolve_client_returns_prometheus_on_connection_refused() {
+    async fn resolve_client_returns_error_on_connection_refused() {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
 
-        let resolved = resolve_client(format!("http://127.0.0.1:{port}"), 1.0)
-            .await
-            .unwrap();
-        assert!(matches!(resolved, ResolvedClient::Prometheus(_)));
+        let result = resolve_client(format!("http://127.0.0.1:{port}"), 1.0).await;
+        assert!(result.is_err());
     }
 
     #[tokio::test]

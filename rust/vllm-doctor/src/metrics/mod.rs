@@ -1,5 +1,10 @@
 //! Metrics primitives for the diagnostic engine.
+//!
+//! All metric definitions — probe wiring, specs, snapshot fields, and signals —
+//! are generated from a single `define_metrics!` invocation below.  Adding a new
+//! metric is a one-line change in that table.
 use std::collections::HashSet;
+use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
 
@@ -8,83 +13,309 @@ pub mod specs;
 pub use specs::all_specs;
 
 pub use series::{Aggregate, MetricSample, MetricSeries};
-pub use specs::{Direct, METRIC_SPECS, METRIC_SPECS_BY_OUTPUT, MetricDisplay, MetricSpec, Ratio};
+pub use specs::{Direct, METRIC_SPECS_BY_OUTPUT, MetricDisplay, MetricSpec, Ratio};
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct Metrics {
-    pub num_requests_running: Option<f64>,
-    pub num_requests_waiting: Option<f64>,
-    pub kv_cache_usage_perc: Option<f64>,
-    pub prompt_tokens_per_second: Option<f64>,
-    pub generation_tokens_per_second: Option<f64>,
-    pub request_success_total: Option<f64>,
-    pub request_error_total: Option<f64>,
-    pub request_abort_total: Option<f64>,
-    pub ttft_p95_seconds: Option<f64>,
-    pub tpot_p95_seconds: Option<f64>,
-    pub prefix_cache_hit_rate: Option<f64>,
-    pub queue_time_p95_seconds: Option<f64>,
-    pub num_preemptions_total: Option<f64>,
+use crate::probes::{Probe, ProbeKind};
+
+// ---------------------------------------------------------------------------
+// define_metrics! — single source of truth for all metric definitions.
+// ---------------------------------------------------------------------------
+//
+// The macro accepts three sections:
+//   direct   — one probe → one snapshot field → one Direct spec → one Signal
+//   ratio    — two probes → one snapshot field → one Ratio spec → one Signal
+//   computed — signals with no backing field (derived in SignalGraph::evaluate)
+//
+// From this table the macro generates:
+//   * `Signal` enum + `Display` impl  (re-exported by signals.rs)
+//   * `MetricSeriesSnapshot` struct + `from_raw` + `fields`
+//   * `PROBES` static                   (re-exported by probes.rs)
+//   * `METRIC_SPECS` static             (re-exported by specs.rs)
+//   * `evaluate_direct` helper           (used by SignalGraph::evaluate)
+//   * `extract_by_output` / `series_by_output` helpers (used by MetricSpec)
+//
+// Adding a metric means adding ONE entry to the table below.
+//
+// Each `direct`/`ratio` entry uses an `:ident` for the Rust field/variant name
+// and `stringify!` produces the matching string literal for probe names, spec
+// outputs, and `Display` formatting.
+
+/// Recursive token-count helper usable in `const` / array-size contexts.
+macro_rules! count {
+    () => { 0usize };
+    ($_h:tt $($t:tt)*) => { 1usize + count!($($t)*) };
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct MetricSeriesSnapshot {
-    pub num_requests_running: MetricSeries,
-    pub num_requests_waiting: MetricSeries,
-    pub kv_cache_usage_perc: MetricSeries,
-    pub prompt_tokens_per_second: MetricSeries,
-    pub generation_tokens_per_second: MetricSeries,
-    pub request_success_total: MetricSeries,
-    pub request_error_total: MetricSeries,
-    pub request_abort_total: MetricSeries,
-    pub ttft_p95_seconds: MetricSeries,
-    pub tpot_p95_seconds: MetricSeries,
-    pub prefix_cache_hit_rate: MetricSeries,
-    pub queue_time_p95_seconds: MetricSeries,
-    pub num_preemptions_total: MetricSeries,
-}
+macro_rules! define_metrics {
+    (
+        direct {
+            $(
+                $d_field:ident, $d_signal:ident,
+                probe: $d_probe_kind:ident, $d_probe_metric:literal,
+                labels: $d_probe_labels:expr,
+                quantile: $d_probe_quantile:expr,
+                aggregate: $d_agg:expr,
+                display: $d_title:literal, $d_fmt:literal, $d_bar:expr
+            );* $(;)?
+        }
+        ratio {
+            $(
+                $r_field:ident, $r_signal:ident,
+                probes: [
+                    ($p1_name:literal, $p1_kind:ident, $p1_metric:literal, $p1_labels:expr, $p1_quantile:expr),
+                    ($p2_name:literal, $p2_kind:ident, $p2_metric:literal, $p2_labels:expr, $p2_quantile:expr)
+                ],
+                display: $r_title:literal, $r_fmt:literal, $r_bar:expr
+            );* $(;)?
+        }
+        computed {
+            $( $c_signal:ident, $c_name:literal );* $(;)?
+        }
+    ) => {
+        // -- Signal enum ------------------------------------------------------
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+        pub enum Signal {
+            $($d_signal,)*
+            $($r_signal,)*
+            $($c_signal,)*
+        }
 
-impl MetricSeriesSnapshot {
-    pub fn from_raw(raw: std::collections::HashMap<String, MetricSeries>) -> Self {
-        let mut snapshot = Self::default();
-        for spec in METRIC_SPECS.iter() {
-            let series = spec.compute(&raw);
-            match spec.output() {
-                "num_requests_running" => snapshot.num_requests_running = series,
-                "num_requests_waiting" => snapshot.num_requests_waiting = series,
-                "kv_cache_usage_perc" => snapshot.kv_cache_usage_perc = series,
-                "prompt_tokens_per_second" => snapshot.prompt_tokens_per_second = series,
-                "generation_tokens_per_second" => snapshot.generation_tokens_per_second = series,
-                "request_success_total" => snapshot.request_success_total = series,
-                "request_error_total" => snapshot.request_error_total = series,
-                "request_abort_total" => snapshot.request_abort_total = series,
-                "ttft_p95_seconds" => snapshot.ttft_p95_seconds = series,
-                "tpot_p95_seconds" => snapshot.tpot_p95_seconds = series,
-                "prefix_cache_hit_rate" => snapshot.prefix_cache_hit_rate = series,
-                "queue_time_p95_seconds" => snapshot.queue_time_p95_seconds = series,
-                "num_preemptions_total" => snapshot.num_preemptions_total = series,
-                _ => {}
+        impl std::fmt::Display for Signal {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let s = match self {
+                    $(Signal::$d_signal => stringify!($d_field),)*
+                    $(Signal::$r_signal => stringify!($r_field),)*
+                    $(Signal::$c_signal => $c_name,)*
+                };
+                write!(f, "{s}")
             }
         }
-        snapshot
-    }
 
-    pub fn to_metrics(&self) -> Metrics {
-        Metrics {
-            num_requests_running: self.num_requests_running.value(),
-            num_requests_waiting: self.num_requests_waiting.value(),
-            kv_cache_usage_perc: self.kv_cache_usage_perc.value(),
-            prompt_tokens_per_second: self.prompt_tokens_per_second.value(),
-            generation_tokens_per_second: self.generation_tokens_per_second.value(),
-            request_success_total: self.request_success_total.value(),
-            request_error_total: self.request_error_total.value(),
-            request_abort_total: self.request_abort_total.value(),
-            ttft_p95_seconds: self.ttft_p95_seconds.value(),
-            tpot_p95_seconds: self.tpot_p95_seconds.value(),
-            prefix_cache_hit_rate: self.prefix_cache_hit_rate.value(),
-            queue_time_p95_seconds: self.queue_time_p95_seconds.value(),
-            num_preemptions_total: self.num_preemptions_total.value(),
+        // -- MetricSeriesSnapshot struct -------------------------------------
+        #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+        pub struct MetricSeriesSnapshot {
+            $(
+                pub $d_field: MetricSeries,
+            )*
+            $(
+                pub $r_field: MetricSeries,
+            )*
         }
+
+        impl MetricSeriesSnapshot {
+            pub fn from_raw(raw: std::collections::HashMap<String, MetricSeries>) -> Self {
+                let mut snapshot = Self::default();
+                for spec in METRIC_SPECS.iter() {
+                    let series = spec.compute(&raw);
+                    match spec.output() {
+                        $(stringify!($d_field) => snapshot.$d_field = series,)*
+                        $(stringify!($r_field) => snapshot.$r_field = series,)*
+                        _ => {}
+                    }
+                }
+                snapshot
+            }
+
+            pub(crate) fn fields(&self) -> [&MetricSeries; count!($($d_field)* $($r_field)*)] {
+                [
+                    $(&self.$d_field,)*
+                    $(&self.$r_field,)*
+                ]
+            }
+        }
+
+        // -- evaluate_direct --------------------------------------------------
+        pub(crate) fn evaluate_direct(signal: Signal, snapshot: &MetricSeriesSnapshot) -> Option<f64> {
+            match signal {
+                $(Signal::$d_signal => snapshot.$d_field.value(),)*
+                $(Signal::$r_signal => snapshot.$r_field.value(),)*
+                _ => None,
+            }
+        }
+
+        // -- extract_by_output / series_by_output -----------------------------
+        pub(crate) fn extract_by_output(output: &str, snapshot: &MetricSeriesSnapshot) -> Option<f64> {
+            match output {
+                $(stringify!($d_field) => snapshot.$d_field.value(),)*
+                $(stringify!($r_field) => snapshot.$r_field.value(),)*
+                _ => None,
+            }
+        }
+
+        pub(crate) fn series_by_output<'a>(
+            output: &str,
+            snapshot: &'a MetricSeriesSnapshot,
+        ) -> Option<&'a MetricSeries> {
+            match output {
+                $(stringify!($d_field) => Some(&snapshot.$d_field),)*
+                $(stringify!($r_field) => Some(&snapshot.$r_field),)*
+                _ => None,
+            }
+        }
+
+        // -- PROBES static ----------------------------------------------------
+        pub static PROBES: LazyLock<[(&str, Probe); count!($($d_field)* $($p1_name)* $($p2_name)*)]> =
+            LazyLock::new(|| {
+                [
+                    $((
+                        stringify!($d_field),
+                        Probe::new(ProbeKind::$d_probe_kind, $d_probe_metric)
+                            .with_quantile($d_probe_quantile)
+                            .with_labels($d_probe_labels),
+                    ),)*
+                    $((
+                        $p1_name,
+                        Probe::new(ProbeKind::$p1_kind, $p1_metric)
+                            .with_quantile($p1_quantile)
+                            .with_labels($p1_labels),
+                    ),)*
+                    $((
+                        $p2_name,
+                        Probe::new(ProbeKind::$p2_kind, $p2_metric)
+                            .with_quantile($p2_quantile)
+                            .with_labels($p2_labels),
+                    ),)*
+                ]
+            });
+
+        // -- METRIC_SPECS static ---------------------------------------------
+        pub static METRIC_SPECS: LazyLock<
+            [Box<dyn MetricSpec + Send + Sync>; count!($($d_field)* $($r_field)*)],
+        > = LazyLock::new(|| {
+            [
+                $(Box::new({
+                    let mut d = Direct::new(
+                        stringify!($d_field),
+                        stringify!($d_field),
+                        MetricDisplay::new($d_title).with_fmt($d_fmt),
+                    );
+                    if $d_bar {
+                        d.display = d.display.with_bar();
+                    }
+                    d.with_aggregate($d_agg)
+                }) as Box<dyn MetricSpec + Send + Sync>,)*
+                $(Box::new({
+                    let mut r = Ratio::new(
+                        stringify!($r_field),
+                        $p1_name,
+                        $p2_name,
+                        MetricDisplay::new($r_title).with_fmt($r_fmt),
+                    );
+                    if $r_bar {
+                        r.display = r.display.with_bar();
+                    }
+                    r
+                }) as Box<dyn MetricSpec + Send + Sync>,)*
+            ]
+        });
+    };
+}
+
+define_metrics! {
+    direct {
+        num_requests_running, NumRequestsRunning,
+        probe: Gauge, "vllm:num_requests_running",
+        labels: std::collections::HashMap::new(),
+        quantile: 0.0,
+        aggregate: Aggregate::Sum,
+        display: "Requests Running", ".0f", false;
+
+        num_requests_waiting, NumRequestsWaiting,
+        probe: Gauge, "vllm:num_requests_waiting",
+        labels: std::collections::HashMap::new(),
+        quantile: 0.0,
+        aggregate: Aggregate::Sum,
+        display: "Requests Waiting", ".0f", false;
+
+        kv_cache_usage_perc, KvCacheUsagePerc,
+        probe: Gauge, "vllm:kv_cache_usage_perc",
+        labels: std::collections::HashMap::new(),
+        quantile: 0.0,
+        aggregate: Aggregate::Max,
+        display: "GPU Cache Usage", ".0%", true;
+
+        prompt_tokens_per_second, PromptTokensPerSecond,
+        probe: Gauge, "vllm:prompt_tokens_per_second",
+        labels: std::collections::HashMap::new(),
+        quantile: 0.0,
+        aggregate: Aggregate::Sum,
+        display: "Prefill Tokens/s", ".1f", false;
+
+        generation_tokens_per_second, GenerationTokensPerSecond,
+        probe: Gauge, "vllm:generation_tokens_per_second",
+        labels: std::collections::HashMap::new(),
+        quantile: 0.0,
+        aggregate: Aggregate::Sum,
+        display: "Decode Tokens/s", ".1f", false;
+
+        request_success_total, RequestSuccessTotal,
+        probe: Increase, "vllm:request_success_total",
+        labels: std::collections::HashMap::from([
+            ("finished_reason".to_string(), "stop".to_string()),
+        ]),
+        quantile: 0.0,
+        aggregate: Aggregate::Sum,
+        display: "Requests Success", ".0f", false;
+
+        request_error_total, RequestErrorTotal,
+        probe: Increase, "vllm:request_success_total",
+        labels: std::collections::HashMap::from([
+            ("finished_reason".to_string(), "error".to_string()),
+        ]),
+        quantile: 0.0,
+        aggregate: Aggregate::Sum,
+        display: "Requests Error", ".0f", false;
+
+        request_abort_total, RequestAbortTotal,
+        probe: Increase, "vllm:request_success_total",
+        labels: std::collections::HashMap::from([
+            ("finished_reason".to_string(), "abort".to_string()),
+        ]),
+        quantile: 0.0,
+        aggregate: Aggregate::Sum,
+        display: "Requests Aborted", ".0f", false;
+
+        ttft_p95_seconds, TtftP95Seconds,
+        probe: Percentile, "vllm:time_to_first_token_seconds",
+        labels: std::collections::HashMap::new(),
+        quantile: 0.95,
+        aggregate: Aggregate::Max,
+        display: "TTFT p95 (s)", ".3f", false;
+
+        tpot_p95_seconds, TpotP95Seconds,
+        probe: Percentile, "vllm:request_time_per_output_token_seconds",
+        labels: std::collections::HashMap::new(),
+        quantile: 0.95,
+        aggregate: Aggregate::Max,
+        display: "TPOT p95 (s)", ".3f", false;
+
+        queue_time_p95_seconds, QueueTimeP95Seconds,
+        probe: Percentile, "vllm:request_queue_time_seconds",
+        labels: std::collections::HashMap::new(),
+        quantile: 0.95,
+        aggregate: Aggregate::Max,
+        display: "Queue Time p95 (s)", ".3f", false;
+
+        num_preemptions_total, NumPreemptionsTotal,
+        probe: Increase, "vllm:num_preemptions_total",
+        labels: std::collections::HashMap::new(),
+        quantile: 0.0,
+        aggregate: Aggregate::Sum,
+        display: "Preemptions Total", ".0f", false;
+    }
+    ratio {
+        prefix_cache_hit_rate, PrefixCacheHitRate,
+        probes: [
+            ("prefix_hits", Increase, "vllm:prefix_cache_hits_total", std::collections::HashMap::new(), 0.0),
+            ("prefix_queries", Increase, "vllm:prefix_cache_queries_total", std::collections::HashMap::new(), 0.0)
+        ],
+        display: "Prefix Cache Hit Rate", ".0%", false;
+    }
+    computed {
+        TotalRequests, "total_requests";
+        ErrorRate, "error_rate";
+        AbortRate, "abort_rate";
+        ReplicaRunningImbalance, "replica_running_imbalance";
     }
 }
 
@@ -123,26 +354,6 @@ pub fn detect_replica_label(snapshot: &MetricSeriesSnapshot) -> Option<&str> {
         .find(|&label| label_values(snapshot, label).len() > 1)
 }
 
-impl MetricSeriesSnapshot {
-    fn fields(&self) -> [&MetricSeries; 13] {
-        [
-            &self.num_requests_running,
-            &self.num_requests_waiting,
-            &self.kv_cache_usage_perc,
-            &self.prompt_tokens_per_second,
-            &self.generation_tokens_per_second,
-            &self.request_success_total,
-            &self.request_error_total,
-            &self.request_abort_total,
-            &self.ttft_p95_seconds,
-            &self.tpot_p95_seconds,
-            &self.prefix_cache_hit_rate,
-            &self.queue_time_p95_seconds,
-            &self.num_preemptions_total,
-        ]
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -175,9 +386,7 @@ mod tests {
 
         let snapshot = MetricSeriesSnapshot::from_raw(raw);
         assert_eq!(snapshot.kv_cache_usage_perc.value(), Some(0.9));
-
-        let metrics = snapshot.to_metrics();
-        assert_eq!(metrics.prefix_cache_hit_rate, Some(0.8));
+        assert_eq!(snapshot.prefix_cache_hit_rate.value(), Some(0.8));
     }
 
     #[test]

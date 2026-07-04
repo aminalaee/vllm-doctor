@@ -61,13 +61,27 @@ impl Rule for PreemptionPressureRule {
             return DiagnosisState::Healthy;
         }
 
+        let confidence = if cache_high(signals, &self.cfg).is_some() {
+            Confidence::High
+        } else {
+            Confidence::Medium
+        };
         DiagnosisState::firing(
             Severity::Warning,
-            Confidence::Medium,
+            confidence,
             Signal::NumPreemptionsTotal,
             preemptions,
         )
     }
+}
+
+/// KV cache is currently under pressure (usage at or above the high threshold).
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn cache_high(graph: &SignalGraph<'_>, cfg: &PreemptionPressureConfig) -> Option<f64> {
+    graph
+        .evaluate(Signal::KvCacheUsagePerc)
+        .filter(|&c| c >= cfg.high_cache_usage)
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -77,13 +91,6 @@ pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
             config.rules.preemption_pressure.clone(),
         )),
     )
-}
-
-impl PreemptionPressureRule {
-    #[allow(dead_code)]
-    fn high_cache_usage(&self) -> f64 {
-        self.cfg.high_cache_usage
-    }
 }
 
 #[cfg(test)]
@@ -118,11 +125,26 @@ mod tests {
 
     #[test]
     fn fires_warning_when_preemptions_present() {
+        // cache=0.5 < high_cache_usage=0.80 → cache_high=false → Medium confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 0.5))),
             DiagnosisState::firing(
                 Severity::Warning,
                 Confidence::Medium,
+                Signal::NumPreemptionsTotal,
+                5.0
+            )
+        );
+    }
+
+    #[test]
+    fn high_confidence_when_cache_high() {
+        // cache=0.90 >= high_cache_usage=0.80 → cache_high=true → High confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(5.0, 0.90))),
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::High,
                 Signal::NumPreemptionsTotal,
                 5.0
             )

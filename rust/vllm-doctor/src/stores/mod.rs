@@ -31,6 +31,7 @@ pub enum StoreError {
 /// from denormalized columns so it stays readable even if the report blob is an
 /// incompatible version.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[must_use]
 pub struct RunSummary {
     pub run_id: Uuid,
     pub saved_at: DateTime<Utc>,

@@ -21,6 +21,13 @@ impl SqliteHistoryStore {
         let options = if url == "sqlite:///:memory:" {
             SqliteConnectOptions::new().in_memory(true)
         } else {
+            if let Some(parent) = url
+                .strip_prefix("sqlite://")
+                .and_then(|p| std::path::Path::new(p).parent())
+                .filter(|p| !p.as_os_str().is_empty())
+            {
+                std::fs::create_dir_all(parent).ok();
+            }
             SqliteConnectOptions::from_str(url)?.create_if_missing(true)
         };
         let pool = SqlitePoolOptions::new()
@@ -147,12 +154,13 @@ mod tests {
             kv_cache_usage_perc: MetricSeries::from_samples(vec![MetricSample::new(0.95)]),
             ..Default::default()
         };
-        let registry = build_registry(&Config::default());
+        let config = Config::default();
+        let registry = build_registry(&config);
         DiagnosisResult {
             context: DiagnosisContext::new("5m")
                 .with_client_mode(ClientMode::Scrape)
                 .with_model_name("llama"),
-            checks: registry.run_all(&snapshot),
+            checks: registry.run_all(&snapshot, &config),
             metric_series: snapshot,
         }
     }
@@ -242,8 +250,9 @@ mod tests {
             kv_cache_usage_perc: MetricSeries::from_samples(vec![MetricSample::new(0.95)]),
             ..Default::default()
         };
-        let registry = build_registry(&Config::default());
-        let result = diagnose(&StubProvider(snapshot), &registry, "5m", None)
+        let config = Config::default();
+        let registry = build_registry(&config);
+        let result = diagnose(&StubProvider(snapshot), &registry, "5m", None, &config)
             .await
             .unwrap();
         let id = store.save(&result).await.unwrap();

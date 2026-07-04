@@ -4,27 +4,15 @@ use std::sync::Arc;
 use crate::clients::Client;
 use crate::clients::error::ClientError;
 use crate::metrics::METRIC_SPECS;
-use crate::metrics::{MetricSeriesSnapshot, Metrics};
+use crate::metrics::MetricSeriesSnapshot;
 use crate::probes::run_probes;
-
-/// Raw + derived metric series from a single collection pass.
-#[derive(Debug, Clone, PartialEq)]
-pub struct MetricCollection {
-    pub series: MetricSeriesSnapshot,
-}
-
-impl MetricCollection {
-    pub fn metrics(&self) -> Metrics {
-        self.series.to_metrics()
-    }
-}
 
 /// Collect metrics for the requested window and optional model filter.
 pub async fn collect(
     client: Arc<dyn Client + Send + Sync>,
     since: &str,
     model: Option<&str>,
-) -> Result<MetricCollection, ClientError> {
+) -> Result<MetricSeriesSnapshot, ClientError> {
     let since = if since == "now" { "5m" } else { since };
     let needed: std::collections::HashSet<String> = METRIC_SPECS
         .iter()
@@ -32,7 +20,7 @@ pub async fn collect(
         .collect();
     let raw = run_probes(client, needed, since, model).await?;
     let series = MetricSeriesSnapshot::from_raw(raw);
-    Ok(MetricCollection { series })
+    Ok(series)
 }
 
 #[cfg(test)]
@@ -89,11 +77,10 @@ mod tests {
             return_value: 10.0,
             ..Default::default()
         });
-        let collection = collect(client, "1h", None).await.unwrap();
-        let metrics = collection.metrics();
-        assert_eq!(metrics.num_requests_running, Some(10.0));
-        assert_eq!(metrics.num_requests_waiting, Some(10.0));
-        assert_eq!(metrics.kv_cache_usage_perc, Some(10.0));
+        let snapshot = collect(client, "1h", None).await.unwrap();
+        assert_eq!(snapshot.num_requests_running.value(), Some(10.0));
+        assert_eq!(snapshot.num_requests_waiting.value(), Some(10.0));
+        assert_eq!(snapshot.kv_cache_usage_perc.value(), Some(10.0));
     }
 
     #[tokio::test]
@@ -110,9 +97,8 @@ mod tests {
             return_value: 0.0,
             ..Default::default()
         });
-        let collection = collect(client, "1h", None).await.unwrap();
-        let metrics = collection.metrics();
-        assert_eq!(metrics.num_requests_running, Some(0.0));
-        assert_eq!(metrics.prefix_cache_hit_rate, None);
+        let snapshot = collect(client, "1h", None).await.unwrap();
+        assert_eq!(snapshot.num_requests_running.value(), Some(0.0));
+        assert_eq!(snapshot.prefix_cache_hit_rate.value(), None);
     }
 }

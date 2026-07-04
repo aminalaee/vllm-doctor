@@ -57,13 +57,28 @@ impl Rule for QueuePressureRule {
             return DiagnosisState::Healthy;
         }
 
+        let confidence = if running_high(signals, &self.cfg).is_some() {
+            Confidence::High
+        } else {
+            Confidence::Low
+        };
         DiagnosisState::firing(
             Severity::Warning,
-            Confidence::Medium,
+            confidence,
             Signal::NumRequestsWaiting,
             waiting,
         )
     }
+}
+
+/// Running concurrency exceeds the high-running threshold.
+///
+/// Shared by the rule (for confidence) and the template (for evidence) so the
+/// threshold comparison lives in one place.
+pub(crate) fn running_high(graph: &SignalGraph<'_>, cfg: &QueuePressureConfig) -> Option<f64> {
+    graph
+        .evaluate(Signal::NumRequestsRunning)
+        .filter(|&r| r > cfg.high_running as f64)
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -106,11 +121,26 @@ mod tests {
 
     #[test]
     fn fires_warning_when_waiting_high() {
+        // running=10 < high_running=50 → running_high=false → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(10.0, 10.0))),
             DiagnosisState::firing(
                 Severity::Warning,
-                Confidence::Medium,
+                Confidence::Low,
+                Signal::NumRequestsWaiting,
+                10.0
+            )
+        );
+    }
+
+    #[test]
+    fn high_confidence_when_running_high() {
+        // running=60 > high_running=50 → running_high=true → High confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(10.0, 60.0))),
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::High,
                 Signal::NumRequestsWaiting,
                 10.0
             )

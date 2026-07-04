@@ -60,9 +60,15 @@ impl Rule for PrefixCacheEfficiencyRule {
             return DiagnosisState::Healthy;
         }
 
+        const HIGH_CONFIDENCE_MAX_RATE: f64 = 0.2;
+        let confidence = if hit_rate < HIGH_CONFIDENCE_MAX_RATE {
+            Confidence::High
+        } else {
+            Confidence::Medium
+        };
         DiagnosisState::firing(
             Severity::Warning,
-            Confidence::Medium,
+            confidence,
             Signal::PrefixCacheHitRate,
             hit_rate,
         )
@@ -107,6 +113,7 @@ mod tests {
 
     #[test]
     fn fires_warning_when_hit_rate_low() {
+        // hit_rate=0.30 >= 0.2 → Medium confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.30))),
             DiagnosisState::firing(
@@ -114,6 +121,20 @@ mod tests {
                 Confidence::Medium,
                 Signal::PrefixCacheHitRate,
                 0.30
+            )
+        );
+    }
+
+    #[test]
+    fn high_confidence_when_hit_rate_very_low() {
+        // hit_rate=0.10 < 0.2 → High confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.10))),
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::High,
+                Signal::PrefixCacheHitRate,
+                0.10
             )
         );
     }

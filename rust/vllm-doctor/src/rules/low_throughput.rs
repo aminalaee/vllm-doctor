@@ -65,10 +65,10 @@ impl Rule for LowThroughputRule {
             return DiagnosisState::unknown_signal(Signal::PromptTokensPerSecond);
         }
 
-        let prompt_low = prompt.is_some_and(|v| v < self.cfg.low_prompt_tps);
-        let gen_low = gen_tps.is_some_and(|v| v < self.cfg.low_gen_tps);
+        let prompt_low_v = prompt_low(signals, &self.cfg);
+        let gen_low_v = gen_low(signals, &self.cfg);
 
-        if !prompt_low && !gen_low {
+        if prompt_low_v.is_none() && gen_low_v.is_none() {
             return DiagnosisState::Healthy;
         }
 
@@ -77,22 +77,56 @@ impl Rule for LowThroughputRule {
             return DiagnosisState::Healthy;
         }
 
-        if prompt_low {
+        let running_low_v = running_low(signals, &self.cfg);
+        let confidence =
+            if (prompt_low_v.is_some() && gen_low_v.is_some()) || running_low_v.is_some() {
+                Confidence::Medium
+            } else {
+                Confidence::Low
+            };
+        if prompt_low_v.is_some() {
             DiagnosisState::firing(
                 Severity::Warning,
-                Confidence::Medium,
+                confidence,
                 Signal::PromptTokensPerSecond,
                 prompt.unwrap_or(0.0),
             )
         } else {
             DiagnosisState::firing(
                 Severity::Warning,
-                Confidence::Medium,
+                confidence,
                 Signal::GenerationTokensPerSecond,
                 gen_tps.unwrap_or(0.0),
             )
         }
     }
+}
+
+/// Prompt token throughput is below the configured threshold.
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn prompt_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64> {
+    graph
+        .evaluate(Signal::PromptTokensPerSecond)
+        .filter(|&v| v < cfg.low_prompt_tps)
+}
+
+/// Generation token throughput is below the configured threshold.
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn gen_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64> {
+    graph
+        .evaluate(Signal::GenerationTokensPerSecond)
+        .filter(|&v| v < cfg.low_gen_tps)
+}
+
+/// Running concurrency is very low, indicating underutilization.
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn running_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64> {
+    graph
+        .evaluate(Signal::NumRequestsRunning)
+        .filter(|&r| r < cfg.low_running as f64)
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -148,8 +182,40 @@ mod tests {
 
     #[test]
     fn warns_when_prompt_low() {
+        // prompt=5 < 10 → prompt_low; gen=100 >= 50 → not gen_low; running=5 >= 2 → not running_low
+        // only one signal low → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 100.0, 5.0, 0.0))),
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Low,
+                Signal::PromptTokensPerSecond,
+                5.0
+            )
+        );
+    }
+
+    #[test]
+    fn warns_when_gen_low() {
+        // prompt=100 >= 10 → not prompt_low; gen=20 < 50 → gen_low; running=5 >= 2 → not running_low
+        // only one signal low → Low confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(100.0, 20.0, 5.0, 0.0))),
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::Low,
+                Signal::GenerationTokensPerSecond,
+                20.0
+            )
+        );
+    }
+
+    #[test]
+    fn warns_when_both_low() {
+        // prompt=5 < 10 → prompt_low; gen=20 < 50 → gen_low; running=5 >= 2 → not running_low
+        // both prompt and gen low → Medium confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(5.0, 20.0, 5.0, 0.0))),
             DiagnosisState::firing(
                 Severity::Warning,
                 Confidence::Medium,
@@ -160,22 +226,11 @@ mod tests {
     }
 
     #[test]
-    fn warns_when_gen_low() {
+    fn medium_confidence_when_running_low() {
+        // prompt=5 < 10 → prompt_low; gen=100 >= 50 → not gen_low; running=1 < 2 → running_low
+        // running_low → Medium confidence
         assert_eq!(
-            rule().run(&SignalGraph::new(&snapshot(100.0, 20.0, 5.0, 0.0))),
-            DiagnosisState::firing(
-                Severity::Warning,
-                Confidence::Medium,
-                Signal::GenerationTokensPerSecond,
-                20.0
-            )
-        );
-    }
-
-    #[test]
-    fn warns_when_both_low() {
-        assert_eq!(
-            rule().run(&SignalGraph::new(&snapshot(5.0, 20.0, 5.0, 0.0))),
+            rule().run(&SignalGraph::new(&snapshot(5.0, 100.0, 1.0, 0.0))),
             DiagnosisState::firing(
                 Severity::Warning,
                 Confidence::Medium,

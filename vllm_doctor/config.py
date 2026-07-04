@@ -66,7 +66,6 @@ class ReplicaImbalanceConfig(_StrictModel):
     imbalance_factor: float = 2.0
     cache_gap: float = 0.30
     min_total_running: float = 5.0
-    critical_factor: float = 3.0
 
 
 def default_vllm_doctor_db_url() -> str:

@@ -38,8 +38,9 @@ async fn save_sample(store: &SqliteHistoryStore) -> uuid::Uuid {
         kv_cache_usage_perc: MetricSeries::from_samples(vec![MetricSample::new(0.95)]),
         ..Default::default()
     };
-    let registry = build_registry(&Config::default());
-    let result = diagnose(&StubProvider(snapshot), &registry, "5m", None)
+    let config = Config::default();
+    let registry = build_registry(&config);
+    let result = diagnose(&StubProvider(snapshot), &registry, "5m", None, &config)
         .await
         .unwrap();
     store.save(&result).await.unwrap()
@@ -143,7 +144,7 @@ async fn diagnose_save_persists_run() {
         ..Default::default()
     };
     let registry = build_registry(&config);
-    let result = diagnose(&StubProvider(snapshot), &registry, "5m", None)
+    let result = diagnose(&StubProvider(snapshot), &registry, "5m", None, &config)
         .await
         .unwrap();
 

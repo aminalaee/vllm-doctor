@@ -29,6 +29,7 @@ impl Default for RenderOptions {
 }
 
 /// A rendered or renderable diagnosis report.
+#[must_use]
 pub struct Report {
     pub diagnosis: DiagnosisResult,
 }
@@ -82,8 +83,9 @@ mod tests {
     #[test]
     fn registry_to_report_to_renderers() {
         let snapshot = pressure_snapshot();
-        let registry = build_registry(&crate::config::Config::default());
-        let checks = registry.run_all(&snapshot);
+        let config = crate::config::Config::default();
+        let registry = build_registry(&config);
+        let checks = registry.run_all(&snapshot, &config);
         let diagnosis = DiagnosisResult {
             context: DiagnosisContext::new("5m"),
             checks,
