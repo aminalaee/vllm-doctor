@@ -56,13 +56,38 @@ impl Rule for TtftBottleneckRule {
             return DiagnosisState::Healthy;
         }
 
-        DiagnosisState::firing(
-            Severity::Warning,
-            Confidence::Medium,
-            Signal::TtftP95Seconds,
-            ttft,
-        )
+        // TTFT exceeding threshold is always True (rule fired).
+        let tpot_stable = tpot_stable(signals, &self.cfg).is_some();
+        let waiting_confirmed = waiting_backlog(signals).is_some();
+        let signals_count = 1 + tpot_stable as i32 + waiting_confirmed as i32;
+        let confidence = if signals_count >= 3 {
+            Confidence::High
+        } else if signals_count == 2 {
+            Confidence::Medium
+        } else {
+            Confidence::Low
+        };
+        DiagnosisState::firing(Severity::Warning, confidence, Signal::TtftP95Seconds, ttft)
     }
+}
+
+/// TPOT is healthy (finite and below the high-TPOT threshold), ruling out a
+/// general decode bottleneck.
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn tpot_stable(graph: &SignalGraph<'_>, cfg: &TtftBottleneckConfig) -> Option<f64> {
+    graph
+        .evaluate(Signal::TpotP95Seconds)
+        .filter(|&v| v.is_finite() && v < cfg.high_tpot_p95)
+}
+
+/// Active backlog confirmed: requests are waiting in the queue.
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
+    graph
+        .evaluate(Signal::NumRequestsWaiting)
+        .filter(|&w| w > 0.0)
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -108,11 +133,43 @@ mod tests {
 
     #[test]
     fn fires_warning_when_ttft_high() {
+        // ttft=3.0 >= 2.0 → fires; tpot=0.5 >= 0.2 → not stable; waiting=0.0 → not confirmed
+        // signals_count=1 → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(3.0, 0.5, 0.0))),
             DiagnosisState::firing(
                 Severity::Warning,
+                Confidence::Low,
+                Signal::TtftP95Seconds,
+                3.0
+            )
+        );
+    }
+
+    #[test]
+    fn medium_confidence_when_one_secondary_signal() {
+        // ttft=3.0 >= 2.0 → fires; tpot=0.1 < 0.2 → stable; waiting=0.0 → not confirmed
+        // signals_count=2 → Medium confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(3.0, 0.1, 0.0))),
+            DiagnosisState::firing(
+                Severity::Warning,
                 Confidence::Medium,
+                Signal::TtftP95Seconds,
+                3.0
+            )
+        );
+    }
+
+    #[test]
+    fn high_confidence_when_both_secondary_signals() {
+        // ttft=3.0 >= 2.0 → fires; tpot=0.1 < 0.2 → stable; waiting=5.0 > 0 → confirmed
+        // signals_count=3 → High confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(3.0, 0.1, 5.0))),
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::High,
                 Signal::TtftP95Seconds,
                 3.0
             )

@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
 use super::series::{Aggregate, MetricSeries};
-use crate::metrics::MetricSeriesSnapshot;
+use crate::metrics::{MetricSeriesSnapshot, extract_by_output, series_by_output};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct MetricDisplay {
@@ -40,48 +40,18 @@ pub trait MetricSpec: std::fmt::Debug + Send + Sync {
 
     /// Extract the aggregated value for this metric from a snapshot.
     fn extract(&self, snapshot: &MetricSeriesSnapshot) -> Option<f64> {
-        match self.output() {
-            "num_requests_running" => snapshot.num_requests_running.value(),
-            "num_requests_waiting" => snapshot.num_requests_waiting.value(),
-            "kv_cache_usage_perc" => snapshot.kv_cache_usage_perc.value(),
-            "prompt_tokens_per_second" => snapshot.prompt_tokens_per_second.value(),
-            "generation_tokens_per_second" => snapshot.generation_tokens_per_second.value(),
-            "request_success_total" => snapshot.request_success_total.value(),
-            "request_error_total" => snapshot.request_error_total.value(),
-            "request_abort_total" => snapshot.request_abort_total.value(),
-            "ttft_p95_seconds" => snapshot.ttft_p95_seconds.value(),
-            "tpot_p95_seconds" => snapshot.tpot_p95_seconds.value(),
-            "prefix_cache_hit_rate" => snapshot.prefix_cache_hit_rate.value(),
-            "queue_time_p95_seconds" => snapshot.queue_time_p95_seconds.value(),
-            "num_preemptions_total" => snapshot.num_preemptions_total.value(),
-            _ => None,
-        }
+        extract_by_output(self.output(), snapshot)
     }
 
     /// Borrow the raw series backing this metric, for per-label breakdowns.
     fn series<'a>(&self, snapshot: &'a MetricSeriesSnapshot) -> Option<&'a MetricSeries> {
-        Some(match self.output() {
-            "num_requests_running" => &snapshot.num_requests_running,
-            "num_requests_waiting" => &snapshot.num_requests_waiting,
-            "kv_cache_usage_perc" => &snapshot.kv_cache_usage_perc,
-            "prompt_tokens_per_second" => &snapshot.prompt_tokens_per_second,
-            "generation_tokens_per_second" => &snapshot.generation_tokens_per_second,
-            "request_success_total" => &snapshot.request_success_total,
-            "request_error_total" => &snapshot.request_error_total,
-            "request_abort_total" => &snapshot.request_abort_total,
-            "ttft_p95_seconds" => &snapshot.ttft_p95_seconds,
-            "tpot_p95_seconds" => &snapshot.tpot_p95_seconds,
-            "prefix_cache_hit_rate" => &snapshot.prefix_cache_hit_rate,
-            "queue_time_p95_seconds" => &snapshot.queue_time_p95_seconds,
-            "num_preemptions_total" => &snapshot.num_preemptions_total,
-            _ => return None,
-        })
+        series_by_output(self.output(), snapshot)
     }
 }
 
 /// Return all defined metric specs.
 pub fn all_specs() -> &'static [Box<dyn MetricSpec + Send + Sync>] {
-    &*METRIC_SPECS
+    &*super::METRIC_SPECS
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -189,94 +159,9 @@ impl MetricSpec for Ratio {
     }
 }
 
-pub static METRIC_SPECS: LazyLock<[Box<dyn MetricSpec + Send + Sync>; 13]> = LazyLock::new(|| {
-    [
-        Box::new(Direct::new(
-            "num_requests_running",
-            "num_requests_running",
-            MetricDisplay::new("Requests Running"),
-        )),
-        Box::new(Direct::new(
-            "num_requests_waiting",
-            "num_requests_waiting",
-            MetricDisplay::new("Requests Waiting"),
-        )),
-        Box::new(
-            Direct::new(
-                "kv_cache_usage_perc",
-                "kv_cache_usage_perc",
-                MetricDisplay::new("GPU Cache Usage")
-                    .with_fmt(".0%")
-                    .with_bar(),
-            )
-            .with_aggregate(Aggregate::Max),
-        ),
-        Box::new(Direct::new(
-            "prompt_tokens_per_second",
-            "prompt_tokens_per_second",
-            MetricDisplay::new("Prefill Tokens/s").with_fmt(".1f"),
-        )),
-        Box::new(Direct::new(
-            "generation_tokens_per_second",
-            "generation_tokens_per_second",
-            MetricDisplay::new("Decode Tokens/s").with_fmt(".1f"),
-        )),
-        Box::new(Direct::new(
-            "request_success_total",
-            "request_success_total",
-            MetricDisplay::new("Requests Success"),
-        )),
-        Box::new(Direct::new(
-            "request_error_total",
-            "request_error_total",
-            MetricDisplay::new("Requests Error"),
-        )),
-        Box::new(Direct::new(
-            "request_abort_total",
-            "request_abort_total",
-            MetricDisplay::new("Requests Aborted"),
-        )),
-        Box::new(
-            Direct::new(
-                "ttft_p95_seconds",
-                "ttft_p95_seconds",
-                MetricDisplay::new("TTFT p95 (s)").with_fmt(".3f"),
-            )
-            .with_aggregate(Aggregate::Max),
-        ),
-        Box::new(
-            Direct::new(
-                "tpot_p95_seconds",
-                "tpot_p95_seconds",
-                MetricDisplay::new("TPOT p95 (s)").with_fmt(".3f"),
-            )
-            .with_aggregate(Aggregate::Max),
-        ),
-        Box::new(
-            Direct::new(
-                "queue_time_p95_seconds",
-                "queue_time_p95_seconds",
-                MetricDisplay::new("Queue Time p95 (s)").with_fmt(".3f"),
-            )
-            .with_aggregate(Aggregate::Max),
-        ),
-        Box::new(Direct::new(
-            "num_preemptions_total",
-            "num_preemptions_total",
-            MetricDisplay::new("Preemptions Total"),
-        )),
-        Box::new(Ratio::new(
-            "prefix_cache_hit_rate",
-            "prefix_hits",
-            "prefix_queries",
-            MetricDisplay::new("Prefix Cache Hit Rate").with_fmt(".0%"),
-        )),
-    ]
-});
-
 pub static METRIC_SPECS_BY_OUTPUT: LazyLock<HashMap<&str, &(dyn MetricSpec + Send + Sync)>> =
     LazyLock::new(|| {
-        METRIC_SPECS
+        super::METRIC_SPECS
             .iter()
             .map(|spec| (spec.output(), &**spec))
             .collect()

@@ -28,6 +28,7 @@ pub(crate) fn finding_for(
     definition: &RuleDefinition,
     state: DiagnosisState,
     graph: &SignalGraph<'_>,
+    config: &Config,
 ) -> Option<Finding> {
     // Healthy and "could not evaluate" both produce no finding: a rule that
     // cannot read its signal stays quiet rather than emitting noise. Missing
@@ -39,6 +40,7 @@ pub(crate) fn finding_for(
 
     let ctx = crate::reports::templates::TemplateContext {
         graph,
+        config,
         signal: judgment.signal,
         value: judgment.value,
     };
@@ -114,7 +116,7 @@ mod tests {
         let config = Config::default();
         let registry = build_registry(&config);
         let snapshot = snapshot_with_queue(10.0, 60.0);
-        let results = registry.run_all(&snapshot);
+        let results = registry.run_all(&snapshot, &config);
         assert_eq!(results.len(), 10);
         let queue_result = results.iter().find(|r| r.id == "queue_pressure").unwrap();
         assert!(queue_result.is_significant());

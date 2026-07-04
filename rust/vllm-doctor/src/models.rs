@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::metrics::{MetricSeriesSnapshot, Metrics};
+use crate::metrics::MetricSeriesSnapshot;
 use crate::signals::Signal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -204,16 +204,8 @@ impl DiagnosisContext {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct FindingData {
-    pub confidence: Confidence,
-    pub summary: String,
-    pub signals: Vec<String>,
-    pub evidence: Vec<String>,
-    pub severity: Option<Severity>,
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[must_use]
 pub struct Finding {
     pub severity: Severity,
     pub confidence: Confidence,
@@ -227,6 +219,7 @@ pub struct Finding {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[must_use]
 pub struct RuleResult {
     pub id: String,
     pub name: String,
@@ -242,6 +235,7 @@ impl RuleResult {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[must_use]
 pub struct DiagnosisResult {
     pub context: DiagnosisContext,
     pub metric_series: MetricSeriesSnapshot,
@@ -249,10 +243,6 @@ pub struct DiagnosisResult {
 }
 
 impl DiagnosisResult {
-    pub fn metrics(&self) -> Metrics {
-        self.metric_series.to_metrics()
-    }
-
     pub fn health(&self) -> Health {
         self.checks
             .iter()

@@ -26,7 +26,7 @@ pub enum Command {
     Diagnose {
         /// vLLM /metrics or Prometheus URL (e.g. http://host:8000/metrics)
         url: String,
-        /// Time window, e.g. 1h, 30m, now
+        /// Time window, e.g. 1h, 30m, or now (now means last 5m)
         #[arg(short, long, default_value = "now")]
         since: String,
         /// Filter metrics by model_name label

@@ -62,8 +62,7 @@ impl Rule for KVCachePressureRule {
 
         // Cache exhaustion is always critical; confidence rises to high once it is
         // actively blocking admission (requests waiting).
-        let waiting = signals.evaluate(Signal::NumRequestsWaiting).unwrap_or(0.0);
-        let confidence = if waiting > 0.0 {
+        let confidence = if waiting_backlog(signals).is_some() {
             Confidence::High
         } else {
             Confidence::Medium
@@ -75,6 +74,15 @@ impl Rule for KVCachePressureRule {
             cache,
         )
     }
+}
+
+/// Active backlog confirmed: requests are waiting, blocked by full cache.
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
+    graph
+        .evaluate(Signal::NumRequestsWaiting)
+        .filter(|&w| w > 0.0)
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {

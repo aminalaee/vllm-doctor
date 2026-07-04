@@ -1,24 +1,14 @@
 //! Probes: raw Prometheus queries that feed the collector.
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use crate::clients::Client;
 use crate::clients::error::ClientError;
 use crate::clients::label_selector;
 use crate::metrics::series::MetricSeries;
 
-const NUM_REQUESTS_RUNNING: &str = "vllm:num_requests_running";
-const NUM_REQUESTS_WAITING: &str = "vllm:num_requests_waiting";
-const GPU_CACHE_USAGE_PERC: &str = "vllm:kv_cache_usage_perc";
-const REQUEST_SUCCESS_TOTAL: &str = "vllm:request_success_total";
-const PROMPT_TOKENS_PER_SECOND: &str = "vllm:prompt_tokens_per_second";
-const GENERATION_TOKENS_PER_SECOND: &str = "vllm:generation_tokens_per_second";
-const TIME_TO_FIRST_TOKEN_SECONDS: &str = "vllm:time_to_first_token_seconds";
-const TIME_PER_OUTPUT_TOKEN_SECONDS: &str = "vllm:request_time_per_output_token_seconds";
-const PREFIX_CACHE_HITS_TOTAL: &str = "vllm:prefix_cache_hits_total";
-const PREFIX_CACHE_QUERIES_TOTAL: &str = "vllm:prefix_cache_queries_total";
-const REQUEST_QUEUE_TIME_SECONDS: &str = "vllm:request_queue_time_seconds";
-const NUM_PREEMPTIONS_TOTAL: &str = "vllm:num_preemptions_total";
+/// Probes are generated from the metric table in `crate::metrics`.
+pub use crate::metrics::PROBES;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProbeKind {
@@ -36,7 +26,7 @@ pub struct Probe {
 }
 
 impl Probe {
-    fn new(kind: ProbeKind, metric: impl Into<String>) -> Self {
+    pub(crate) fn new(kind: ProbeKind, metric: impl Into<String>) -> Self {
         Self {
             kind,
             metric: metric.into(),
@@ -45,85 +35,16 @@ impl Probe {
         }
     }
 
-    fn with_quantile(mut self, quantile: f64) -> Self {
+    pub(crate) fn with_quantile(mut self, quantile: f64) -> Self {
         self.quantile = quantile;
         self
     }
 
-    fn with_labels(mut self, labels: HashMap<String, String>) -> Self {
+    pub(crate) fn with_labels(mut self, labels: HashMap<String, String>) -> Self {
         self.labels = labels;
         self
     }
 }
-
-pub static PROBES: LazyLock<[(&str, Probe); 14]> =
-    LazyLock::new(|| {
-        [
-            (
-                "num_requests_running",
-                Probe::new(ProbeKind::Gauge, NUM_REQUESTS_RUNNING),
-            ),
-            (
-                "num_requests_waiting",
-                Probe::new(ProbeKind::Gauge, NUM_REQUESTS_WAITING),
-            ),
-            (
-                "kv_cache_usage_perc",
-                Probe::new(ProbeKind::Gauge, GPU_CACHE_USAGE_PERC),
-            ),
-            (
-                "prompt_tokens_per_second",
-                Probe::new(ProbeKind::Gauge, PROMPT_TOKENS_PER_SECOND),
-            ),
-            (
-                "generation_tokens_per_second",
-                Probe::new(ProbeKind::Gauge, GENERATION_TOKENS_PER_SECOND),
-            ),
-            (
-                "request_success_total",
-                Probe::new(ProbeKind::Increase, REQUEST_SUCCESS_TOTAL).with_labels(HashMap::from(
-                    [("finished_reason".to_string(), "stop".to_string())],
-                )),
-            ),
-            (
-                "request_error_total",
-                Probe::new(ProbeKind::Increase, REQUEST_SUCCESS_TOTAL).with_labels(HashMap::from(
-                    [("finished_reason".to_string(), "error".to_string())],
-                )),
-            ),
-            (
-                "request_abort_total",
-                Probe::new(ProbeKind::Increase, REQUEST_SUCCESS_TOTAL).with_labels(HashMap::from(
-                    [("finished_reason".to_string(), "abort".to_string())],
-                )),
-            ),
-            (
-                "ttft_p95_seconds",
-                Probe::new(ProbeKind::Percentile, TIME_TO_FIRST_TOKEN_SECONDS).with_quantile(0.95),
-            ),
-            (
-                "tpot_p95_seconds",
-                Probe::new(ProbeKind::Percentile, TIME_PER_OUTPUT_TOKEN_SECONDS)
-                    .with_quantile(0.95),
-            ),
-            (
-                "queue_time_p95_seconds",
-                Probe::new(ProbeKind::Percentile, REQUEST_QUEUE_TIME_SECONDS).with_quantile(0.95),
-            ),
-            (
-                "num_preemptions_total",
-                Probe::new(ProbeKind::Increase, NUM_PREEMPTIONS_TOTAL),
-            ),
-            (
-                "prefix_hits",
-                Probe::new(ProbeKind::Increase, PREFIX_CACHE_HITS_TOTAL),
-            ),
-            (
-                "prefix_queries",
-                Probe::new(ProbeKind::Increase, PREFIX_CACHE_QUERIES_TOTAL),
-            ),
-        ]
-    });
 
 fn probe_expr(probe: &Probe, model: Option<&str>) -> String {
     let extra: Vec<(&str, &str)> = probe
@@ -146,7 +67,7 @@ async fn run_probe(
         ProbeKind::Increase => {
             let samples = match client.query_increase(&expr, since).await? {
                 Some(samples) => samples,
-                None => client.query(&expr).await.unwrap_or_default(),
+                None => client.query(&expr).await?,
             };
             Ok(MetricSeries::from_samples(samples))
         }

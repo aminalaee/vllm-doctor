@@ -1,5 +1,6 @@
 //! Diagnosis orchestration: fetch a metric snapshot and evaluate the rule
 //! registry into a single, ordered result.
+use crate::config::Config;
 use crate::models::{ClientMode, DiagnosisContext, DiagnosisResult};
 use crate::providers::{Provider, ProviderError};
 use crate::rules::RuleRegistry;
@@ -13,9 +14,10 @@ pub async fn diagnose(
     registry: &RuleRegistry,
     since: &str,
     model: Option<&str>,
+    config: &Config,
 ) -> Result<DiagnosisResult, ProviderError> {
     let snapshot = provider.fetch_snapshot().await?;
-    let checks = registry.run_all(&snapshot);
+    let checks = registry.run_all(&snapshot, config);
 
     let client_mode = match provider.metadata().id {
         "scrape" => ClientMode::Scrape,
@@ -98,8 +100,9 @@ mod tests {
             id: "scrape",
             snapshot: pressured_snapshot(),
         };
-        let registry = build_registry(&Config::default());
-        let result = diagnose(&provider, &registry, "10m", Some("llama"))
+        let config = Config::default();
+        let registry = build_registry(&config);
+        let result = diagnose(&provider, &registry, "10m", Some("llama"), &config)
             .await
             .unwrap();
 
@@ -112,7 +115,8 @@ mod tests {
 
     #[tokio::test]
     async fn client_mode_follows_provider_id() {
-        let registry = build_registry(&Config::default());
+        let config = Config::default();
+        let registry = build_registry(&config);
         for (id, expected) in [
             ("scrape", ClientMode::Scrape),
             ("prometheus", ClientMode::Prometheus),
@@ -121,7 +125,9 @@ mod tests {
                 id,
                 snapshot: MetricSeriesSnapshot::default(),
             };
-            let result = diagnose(&provider, &registry, "5m", None).await.unwrap();
+            let result = diagnose(&provider, &registry, "5m", None, &config)
+                .await
+                .unwrap();
             assert_eq!(result.context.client_mode, expected);
             assert_eq!(result.context.model_name, None);
         }
@@ -133,8 +139,11 @@ mod tests {
             id: "prometheus",
             snapshot: pressured_snapshot(),
         };
-        let registry = build_registry(&Config::default());
-        let result = diagnose(&provider, &registry, "5m", None).await.unwrap();
+        let config = Config::default();
+        let registry = build_registry(&config);
+        let result = diagnose(&provider, &registry, "5m", None, &config)
+            .await
+            .unwrap();
 
         // Findings precede non-firing checks, and severities are non-decreasing.
         let mut last = (0u8, 0u8);
@@ -160,8 +169,9 @@ mod tests {
 
     #[tokio::test]
     async fn propagates_provider_errors() {
-        let registry = build_registry(&Config::default());
-        let err = diagnose(&FailingProvider, &registry, "5m", None)
+        let config = Config::default();
+        let registry = build_registry(&config);
+        let err = diagnose(&FailingProvider, &registry, "5m", None, &config)
             .await
             .unwrap_err();
         assert!(err.to_string().contains("forced"));

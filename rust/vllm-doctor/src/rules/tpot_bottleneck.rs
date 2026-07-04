@@ -57,13 +57,39 @@ impl Rule for TpotBottleneckRule {
             return DiagnosisState::Healthy;
         }
 
-        DiagnosisState::firing(
-            Severity::Warning,
-            Confidence::Medium,
-            Signal::TpotP95Seconds,
-            tpot,
-        )
+        // TPOT exceeding threshold is always True (rule fired).
+        let gen_low_v = gen_low(signals, &self.cfg).is_some();
+        let ttft_normal_v = ttft_normal(signals).is_some();
+        let signals_count = 1 + gen_low_v as i32 + ttft_normal_v as i32;
+        let confidence = if signals_count >= 3 {
+            Confidence::High
+        } else if signals_count == 2 {
+            Confidence::Medium
+        } else {
+            Confidence::Low
+        };
+        DiagnosisState::firing(Severity::Warning, confidence, Signal::TpotP95Seconds, tpot)
     }
+}
+
+/// Generation throughput is below the configured threshold, corroborating
+/// decode pressure.
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn gen_low(graph: &SignalGraph<'_>, cfg: &TpotBottleneckConfig) -> Option<f64> {
+    graph
+        .evaluate(Signal::GenerationTokensPerSecond)
+        .filter(|&v| v.is_finite() && v < cfg.low_gen_tokens_per_sec)
+}
+
+/// TTFT is not elevated (finite and below 2.0s), isolating the bottleneck to
+/// decode rather than prefill or queue saturation.
+///
+/// Shared by the rule (for confidence) and the template (for evidence).
+pub(crate) fn ttft_normal(graph: &SignalGraph<'_>) -> Option<f64> {
+    graph
+        .evaluate(Signal::TtftP95Seconds)
+        .filter(|&v| v.is_finite() && v < 2.0)
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -111,11 +137,43 @@ mod tests {
 
     #[test]
     fn fires_warning_when_tpot_high() {
+        // tpot=0.3 >= 0.2 → fires; gen=100 >= 50 → not gen_low; ttft=5.0 >= 2.0 → not ttft_normal
+        // signals_count=1 → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.3, 5.0, 100.0))),
             DiagnosisState::firing(
                 Severity::Warning,
+                Confidence::Low,
+                Signal::TpotP95Seconds,
+                0.3
+            )
+        );
+    }
+
+    #[test]
+    fn medium_confidence_when_one_secondary_signal() {
+        // tpot=0.3 >= 0.2 → fires; gen=20 < 50 → gen_low; ttft=5.0 >= 2.0 → not ttft_normal
+        // signals_count=2 → Medium confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.3, 5.0, 20.0))),
+            DiagnosisState::firing(
+                Severity::Warning,
                 Confidence::Medium,
+                Signal::TpotP95Seconds,
+                0.3
+            )
+        );
+    }
+
+    #[test]
+    fn high_confidence_when_both_secondary_signals() {
+        // tpot=0.3 >= 0.2 → fires; gen=20 < 50 → gen_low; ttft=1.0 < 2.0 → ttft_normal
+        // signals_count=3 → High confidence
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.3, 1.0, 20.0))),
+            DiagnosisState::firing(
+                Severity::Warning,
+                Confidence::High,
                 Signal::TpotP95Seconds,
                 0.3
             )

@@ -50,6 +50,10 @@ async fn run(args: Args) -> Result<(), i32> {
                     eprintln!("Error: failed to save run: {e}");
                     return Err(1);
                 }
+                Err(DiagnoseError::Render(e)) => {
+                    eprintln!("Error: failed to render report: {e}");
+                    return Err(1);
+                }
             }
         }
         Command::Migrate { config } => {
@@ -80,6 +84,7 @@ fn history_config(command: &HistoryCommand) -> Option<std::path::PathBuf> {
 enum DiagnoseError {
     Fetch(Box<dyn std::error::Error>),
     Save(Box<dyn std::error::Error>),
+    Render(Box<dyn std::error::Error>),
 }
 
 async fn run_diagnose(
@@ -95,7 +100,7 @@ async fn run_diagnose(
     let provider = resolve_provider(url, 10.0, since, model)
         .await
         .map_err(|e| DiagnoseError::Fetch(e.into()))?;
-    let result = diagnose(provider.as_ref(), &registry, since, model)
+    let result = diagnose(provider.as_ref(), &registry, since, model, config)
         .await
         .map_err(|e| DiagnoseError::Fetch(e.into()))?;
     let report = Report::new(result);
@@ -114,7 +119,7 @@ async fn run_diagnose(
         Format::Json => println!(
             "{}",
             serde_json::to_string_pretty(&json::render(&report, verbose))
-                .map_err(|e| DiagnoseError::Fetch(e.into()))?
+                .map_err(|e| DiagnoseError::Render(e.into()))?
         ),
     }
 
@@ -197,7 +202,7 @@ async fn run_watch(
 
     let mut prev: Option<DiagnosisResult> = None;
     loop {
-        let result = diagnose(provider.as_ref(), &registry, since, model)
+        let result = diagnose(provider.as_ref(), &registry, since, model, config)
             .await
             .map_err(|e| DiagnoseError::Fetch(e.into()))?;
         let report = Report::new(result.clone());
@@ -211,7 +216,7 @@ async fn run_watch(
             }
             Format::Json => {
                 let json = serde_json::to_string(&json::render(&report, verbose))
-                    .map_err(|e| DiagnoseError::Fetch(e.into()))?;
+                    .map_err(|e| DiagnoseError::Render(e.into()))?;
                 println!("{json}");
             }
         }
@@ -227,8 +232,12 @@ async fn run_watch(
         }
 
         prev = Some(result);
-        tokio::time::sleep(WATCH_INTERVAL).await;
+        tokio::select! {
+            _ = tokio::time::sleep(WATCH_INTERVAL) => {}
+            _ = tokio::signal::ctrl_c() => break,
+        }
     }
+    Ok(())
 }
 
 async fn run_history(command: HistoryCommand, config: &Config) -> Result<(), i32> {
