@@ -1,14 +1,5 @@
 <img src="https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/docs/assets/wordmark.svg" alt="vLLM Doctor" width="360">
 
-<p>
-<a href="https://pypi.org/project/vllm-doctor/">
-    <img src="https://badge.fury.io/py/vllm-doctor.svg" alt="Package version">
-</a>
-<a href="https://pypi.org/project/vllm-doctor/">
-    <img src="https://img.shields.io/pypi/pyversions/vllm-doctor.svg?color=%2334D058" alt="Supported Python versions">
-</a>
-</p>
-
 Diagnose vLLM server bottlenecks from live metrics.
 
 ![vllm-doctor demo](https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/docs/demo.png)
@@ -50,16 +41,22 @@ Used together, GuideLLM can create or replay load while vLLM Doctor helps explai
 
 ## Installation
 
-With pip:
+Quick install (Linux & macOS):
 
 ```shell
-pip install vllm-doctor
+curl -fsSL https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/scripts/install.sh | sh
 ```
 
-With uv:
+With Cargo:
 
 ```shell
-uv tool install vllm-doctor
+cargo install vllm-doctor
+```
+
+With Docker:
+
+```shell
+docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
 ```
 
 ## Quickstart

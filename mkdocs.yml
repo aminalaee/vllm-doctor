@@ -57,7 +57,6 @@ markdown_extensions:
   - attr_list
 
 watch:
-  - vllm_doctor/
   - docs/
 
 plugins:

@@ -1,66 +1,50 @@
----
-name: Test Suite
+name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   pull_request:
-    branches: ["main"]
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  tests:
-    name: "Python ${{ matrix.python-version }}"
-    runs-on: "ubuntu-latest"
-
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
-
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: vllm-doctor
-          POSTGRES_PASSWORD: vllm-doctor
-          POSTGRES_DB: vllm-doctor
-        ports:
-          - 54322:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 2s
-          --health-timeout 5s
-          --health-retries 10
-
+  check:
+    name: Checks
+    runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v4"
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "${{ matrix.python-version }}"
-      - name: "Install dependencies"
-        run: uv sync --all-groups
-      - name: "Run linting checks"
-        run: make lint
-      - name: "Build package & docs"
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Test
+        run: cargo test
+      - name: Build release
+        run: cargo build --release
+      - name: Smoke — version
+        run: ./target/release/vllm-doctor --version
+      - name: Smoke — diagnose fixture
         run: |
-          make build
-          make docs-build
-      - name: "Run tests with SQLite"
-        run: make test
-      - name: "Run tests with PostgreSQL"
-        env:
-          TEST_DATABASE_URI: "postgresql+psycopg://vllm-doctor:vllm-doctor@localhost:54322/vllm-doctor"
-        run: make test
+          python3 scripts/serve_metrics.py tests/fixtures/prometheus/demo.json --port 8000 &
+          SERVER_PID=$!
+          sleep 1
+          ./target/release/vllm-doctor diagnose http://localhost:8000 --output json | tee /tmp/out.json
+          kill $SERVER_PID
+          grep -q '"schema_version"' /tmp/out.json
+          grep -q '"replica_imbalance"' /tmp/out.json
 
   docker:
-    name: "Docker image"
-    runs-on: "ubuntu-latest"
-
+    name: Docker image
+    runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v4"
-      - name: "Set up Buildx"
+      - uses: actions/checkout@v4
+      - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
-      - name: "Build image"
+      - name: Build image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -68,19 +52,7 @@ jobs:
           tags: vllm-doctor:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: "Smoke test (CLI runs)"
+      - name: Smoke test
         run: |
           docker run --rm vllm-doctor:ci --version
           docker run --rm vllm-doctor:ci --help
-      - name: "Install uv"
-        uses: astral-sh/setup-uv@v5
-        with:
-          python-version: "3.14"
-      - name: "Functional test (diagnose a served fixture)"
-        run: |
-          uv sync --all-groups
-          uv run python scripts/serve_metrics.py tests/fixtures/prometheus/demo.json > /dev/null 2>&1 &
-          sleep 2
-          docker run --rm --network host vllm-doctor:ci diagnose http://localhost:8000 --output json | tee /tmp/out.json
-          grep -q '"schema_version"' /tmp/out.json
-          grep -q '"replica_imbalance"' /tmp/out.json

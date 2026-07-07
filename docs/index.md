@@ -44,16 +44,22 @@ Used together, GuideLLM can create or replay load while vLLM Doctor helps explai
 
 ## Installation
 
-=== "pip"
+=== "Quick install (Linux & macOS)"
 
     ```shell
-    pip install vllm-doctor
+    curl -fsSL https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/scripts/install.sh | sh
     ```
 
-=== "uv"
+=== "Cargo"
 
     ```shell
-    uv tool install vllm-doctor
+    cargo install vllm-doctor
+    ```
+
+=== "Docker"
+
+    ```shell
+    docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
     ```
 
 ## Quickstart

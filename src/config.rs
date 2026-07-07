@@ -276,10 +276,6 @@ mod tests {
     #[test]
     fn full_config_fixture_loads() {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
             .join("tests")
             .join("fixtures")
             .join("full-config.toml");

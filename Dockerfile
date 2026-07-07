@@ -1,19 +1,18 @@
 # syntax=docker/dockerfile:1
 
-# Build the wheel with uv.
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS build
+FROM rust:1.88-bookworm AS build
 WORKDIR /src
 COPY . .
-RUN uv build --wheel --out-dir /dist
+RUN cargo build --release
 
-# Minimal runtime: install the wheel and its dependencies, run as non-root.
-FROM python:3.14-slim
+FROM debian:bookworm-slim
 LABEL org.opencontainers.image.source="https://github.com/aminalaee/vllm-doctor"
 LABEL org.opencontainers.image.description="Diagnostic tool for vLLM inference servers"
 
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --uid 1000 vllm-doctor
-COPY --from=build /dist/*.whl /tmp/
-RUN pip install --no-cache-dir /tmp/*.whl && rm -rf /tmp/*.whl
+COPY --from=build /src/target/release/vllm-doctor /usr/local/bin/vllm-doctor
 
 USER vllm-doctor
 ENTRYPOINT ["vllm-doctor"]

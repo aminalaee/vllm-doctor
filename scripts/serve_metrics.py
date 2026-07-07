@@ -1,32 +1,35 @@
 """Serve a metrics fixture file over HTTP for local testing.
 
 Usage:
-    python scripts/serve_metrics.py tests/fixtures/scrape/kv-pressure.txt
-    python scripts/serve_metrics.py tests/fixtures/prometheus/demo.json --port 9090
+    python3 scripts/serve_metrics.py tests/fixtures/scrape/kv-pressure.txt
+    python3 scripts/serve_metrics.py tests/fixtures/prometheus/demo.json --port 9090
 
 Then in another terminal:
     vllm-doctor diagnose http://localhost:8000 --verbose
 """
 
+import argparse
 import http.server
 import json
-from collections.abc import Mapping
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-import typer
 
-
-def _prometheus_response(fixture: Mapping[str, list[dict]], query: str) -> bytes:
+def _prometheus_response(fixture, query):
     result = next((value for key, value in fixture.items() if key in query), [])
     body = {"status": "success", "data": {"resultType": "vector", "result": result}}
     return json.dumps(body).encode()
 
 
-def main(
-    fixture: Path = typer.Argument(..., help="Path to the fixture .txt or .json file."),
-    port: int = typer.Option(8000, help="Port to listen on."),
-) -> None:
+def main():
+    parser = argparse.ArgumentParser(description="Serve a metrics fixture over HTTP.")
+    parser.add_argument("fixture", type=Path, help="Path to the fixture .txt or .json file.")
+    parser.add_argument("--port", type=int, default=8000, help="Port to listen on.")
+    args = parser.parse_args()
+
+    fixture = args.fixture
+    port = args.port
+
     if fixture.suffix == ".json":
         prometheus_fixture = json.loads(fixture.read_text())
         scrape_content = None
@@ -35,7 +38,7 @@ def main(
         scrape_content = fixture.read_bytes()
 
     class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self) -> None:
+        def do_GET(self):
             if prometheus_fixture is not None and self.path.startswith("/api/v1/query"):
                 parsed = urlparse(self.path)
                 query = parse_qs(parsed.query).get("query", [""])[0]
@@ -55,14 +58,14 @@ def main(
                 self.send_response(404)
                 self.end_headers()
 
-        def log_message(self, fmt: str, *args: object) -> None:
-            pass  # suppress request logs
+        def log_message(self, fmt, *args):
+            pass
 
     server = http.server.HTTPServer(("", port), Handler)
     url = f"http://localhost:{port}" if prometheus_fixture is not None else f"http://localhost:{port}/metrics"
-    typer.echo(f"Serving {fixture} on {url}")
-    typer.echo(f"Run: vllm-doctor diagnose {url} --verbose")
-    typer.echo("Press Ctrl+C to stop.")
+    print(f"Serving {fixture} on {url}")
+    print(f"Run: vllm-doctor diagnose {url} --verbose")
+    print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()
     finally:
@@ -70,4 +73,4 @@ def main(
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    main()

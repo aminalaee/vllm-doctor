@@ -58,11 +58,8 @@ This rule monitors `error` and `abort` rates. A high `error` rate indicates the 
 
 ## Configuration
 
-```python
-from vllm_doctor.rules.error_rate import ErrorRateRule
-
-rule = ErrorRateRule(
-    high_error_rate=0.02,   # default: 0.05
-    high_abort_rate=0.05,   # default: 0.10
-)
+```toml
+[rules.error_rate]
+high_error_rate = 0.02   # default: 0.05
+high_abort_rate = 0.05   # default: 0.10
 ```
