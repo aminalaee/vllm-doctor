@@ -19,30 +19,44 @@ jobs:
     name: Build and upload binaries
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-musl
-            archive: vllm-doctor-x86_64-linux-musl.tar.gz
+            archive: vllm-doctor-x86_64-linux.tar.gz
+            use_cross: true
           - os: ubuntu-22.04
             target: aarch64-unknown-linux-musl
-            archive: vllm-doctor-aarch64-linux-musl.tar.gz
+            archive: vllm-doctor-aarch64-linux.tar.gz
+            use_cross: true
           - os: macos-14
             target: x86_64-apple-darwin
             archive: vllm-doctor-x86_64-macos.tar.gz
+            use_cross: false
           - os: macos-14
             target: aarch64-apple-darwin
             archive: vllm-doctor-aarch64-macos.tar.gz
+            use_cross: false
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             archive: vllm-doctor-x86_64-windows.zip
+            use_cross: false
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
-      - name: Build
+        if: matrix.use_cross == false
+      - name: Install cross
+        if: matrix.use_cross == true
+        run: cargo install cross --git https://github.com/cross-rs/cross
+      - name: Build (cross)
+        if: matrix.use_cross == true
+        run: cross build --release --target ${{ matrix.target }}
+      - name: Build (native)
+        if: matrix.use_cross == false
         run: cargo build --release --target ${{ matrix.target }}
       - name: Archive (Unix)
         if: matrix.os != 'windows-latest'
