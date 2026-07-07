@@ -86,81 +86,95 @@ docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
 ## Example verbose output
 
 ```shell
-─────────────────────────────────── vLLM Doctor  ·  Health: CRITICAL  ·  Since: now ────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────
+                vLLM Doctor  ·  Health: CRITICAL  ·  Since: now                 
+────────────────────────────────────────────────────────────────────────────────
 
-╭─ ✖ KV cache pressure  [high confidence] ─────────────────────────────────────────────────────────────────────────────╮
-│   GPU KV cache usage: 94% (threshold: 90%)  ·  Waiting requests: 7 (blocked by full cache)                           │
-│                                                                                                                      │
-│   → Reduce max_num_seqs to limit concurrent sequences                                                                │
-│   → Reduce max_num_batched_tokens to cap memory per step                                                             │
-│   → Increase gpu_memory_utilization if GPU memory headroom exists                                                    │
-│   → Route long-context requests to a dedicated replica                                                               │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ ⚠ High time to first token (TTFT)  [high confidence] ───────────────────────────────────────────────────────────────╮
-│   TTFT p95: 3.200s  ·  TPOT p95: 0.050s  ·  Waiting requests: 7                                                      │
-│                                                                                                                      │
-│   → Enable or tune chunked prefill (--enable-chunked-prefill)                                                        │
-│   → Reduce max prompt length or filter long requests                                                                 │
-│   → Inspect queue depth — consider adding replicas                                                                   │
-│   → Separate long-context traffic to dedicated instances                                                             │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ ⚠ Replica imbalance  [high confidence] ─────────────────────────────────────────────────────────────────────────────╮
-│   meta-llama/Llama-3.1-8B: running vllm-1=10 vs vllm-0=2; cache 94% vs 41%; waiting vllm-1=7 vs vllm-0=0             │
-│                                                                                                                      │
-│   → Check the load balancer / service routing and session affinity settings                                          │
-│   → Verify readiness probes — an unready replica receives no traffic                                                 │
-│   → Compare per-replica latency and restart any unhealthy replica                                                    │
-│   → Confirm newly added replicas are registered with the load balancer                                               │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ ⚠ Queue pressure  [low confidence] ─────────────────────────────────────────────────────────────────────────────────╮
-│   Waiting requests: 7 (threshold: 5)                                                                                 │
-│                                                                                                                      │
-│   → Add replicas or increase concurrency limits                                                                      │
-│   → Inspect autoscaling thresholds                                                                                   │
-│   → Separate long-context traffic to a dedicated replica                                                             │
-│   → Reduce incoming request rate                                                                                     │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                    ✖ KV cache pressure  [high confidence]                    │
+│                                                                              │
+│  GPU KV cache usage: 94% (threshold: 90%)  ·  Waiting requests: 7 (blocked   │
+│  by full cache)                                                              │
+│                                                                              │
+│  → Reduce max_num_seqs to limit concurrent sequences                         │
+│  → Reduce max_num_batched_tokens to cap memory per step                      │
+│  → Increase gpu_memory_utilization if GPU memory headroom exists             │
+│  → Route long-context requests to a dedicated replica                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│             ⚠ High time to first token (TTFT)  [high confidence]             │
+│                                                                              │
+│  TTFT p95: 3.200s  ·  TPOT p95: 0.050s  ·  Waiting requests: 7               │
+│                                                                              │
+│  → Enable or tune chunked prefill (--enable-chunked-prefill)                 │
+│  → Reduce max prompt length or filter long requests                          │
+│  → Inspect queue depth — consider adding replicas                            │
+│  → Separate long-context traffic to dedicated instances                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                    ⚠ Replica imbalance  [high confidence]                    │
+│                                                                              │
+│  meta-llama/Llama-3.1-8B: running vllm-1=10 vs vllm-0=2; cache 94% vs 41%;   │
+│  waiting vllm-1=7 vs vllm-0=0                                                │
+│                                                                              │
+│  → Check the load balancer / service routing and session affinity settings   │
+│  → Verify readiness probes — an unready replica receives no traffic          │
+│  → Compare per-replica latency and restart any unhealthy replica             │
+│  → Confirm newly added replicas are registered with the load balancer        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────╮
+│                      ⚠ Queue pressure  [low confidence]                      │
+│                                                                              │
+│  Waiting requests: 7 (threshold: 5)                                          │
+│                                                                              │
+│  → Add replicas or increase concurrency limits                               │
+│  → Inspect autoscaling thresholds                                            │
+│  → Separate long-context traffic to a dedicated replica                      │
+│  → Reduce incoming request rate                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
 
-  KV Cache Pressure          ✖ critical    [high]
-  High TTFT                  ⚠ warning     [high]
-  Replica Imbalance          ⚠ warning     [high]
-  Queue Pressure             ⚠ warning     [low]
-  Queue Latency              ✓ ok
-  Preemption Pressure        ✓ ok
-  Low Throughput             ✓ ok
-  Error Rate                 ✓ ok
-  High TPOT                  ✓ ok
-  Prefix Cache Efficiency    ✓ ok
+ KV Cache Pressure        ✖ critical  [high] 
+ High TTFT                ⚠ warning   [high] 
+ Replica Imbalance        ⚠ warning   [high] 
+ Queue Pressure           ⚠ warning   [low]  
+ Queue Latency            ✓ ok              
+ Preemption Pressure      ✓ ok              
+ Low Throughput           ✓ ok              
+ Error Rate               ✓ ok              
+ High TPOT                ✓ ok              
+ Prefix Cache Efficiency  ✓ ok              
 
-─────────────────────────────────────────────────── Observed Metrics ───────────────────────────────────────────────────
+⚠ TTFT, TPOT and Queue Latency rules require Prometheus — connect to Prometheus for full analysis.
 
-  Summary
-  Requests Running                               12
-  Requests Waiting                                7
-  GPU Cache Usage          ███████████████████░ 94%
-  Prefill Tokens/s                            390.0
-  Decode Tokens/s                             252.0
-  Requests Success                              114
-  Requests Error                                  0
-  Requests Aborted                                0
-  TTFT p95 (s)                                3.200
-  TPOT p95 (s)                                0.050
-  Queue Time p95 (s)                          0.800
-  Preemptions Total                               0
-  Prefix Cache Hit Rate                         50%
+Observed Metrics:
 
-─────────────────────────────────────────────── Observed Metrics per pod ───────────────────────────────────────────────
+ Metric                                    Value 
+ Requests Running                             12 
+ Requests Waiting                              7 
+ GPU Cache Usage        ███████████████████░ 94% 
+ Prefill Tokens/s                          390.0 
+ Decode Tokens/s                           252.0 
+ Requests Success                            114 
+ Requests Error                                0 
+ Requests Aborted                              0 
+ TTFT p95 (s)                              3.200 
+ TPOT p95 (s)                              0.050 
+ Queue Time p95 (s)                        0.800 
+ Preemptions Total                             0 
+ Prefix Cache Hit Rate                       50% 
 
-                       vllm-1    vllm-0
-  Requests Running         10         2
-  Requests Waiting          7         0
-  GPU Cache Usage         94%       41%
-  Prefill Tokens/s       80.0     310.0
-  Decode Tokens/s        42.0     210.0
-  Requests Success         30        84
-  Requests Error            0         0
-  Requests Aborted          0         0
-  Preemptions Total         0         0
+Observed Metrics per pod:
+
+                    vllm-1  vllm-0 
+ Requests Running       10       2 
+ Requests Waiting        7       0 
+ GPU Cache Usage       94%     41% 
+ Prefill Tokens/s     80.0   310.0 
+ Decode Tokens/s      42.0   210.0 
+ Requests Success       30      84 
+ Requests Error          0       0 
+ Requests Aborted        0       0 
+ Preemptions Total       0       0 
 ```
 
 ## Documentation

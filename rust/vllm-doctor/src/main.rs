@@ -105,13 +105,12 @@ async fn run_diagnose(
         .map_err(|e| DiagnoseError::Fetch(e.into()))?;
     let report = Report::new(result);
 
-    let stdout = std::io::stdout();
     let opts = RenderOptions {
         verbose,
         width: terminal_size::terminal_size()
             .map(|(w, _)| w.0 as usize)
             .unwrap_or(80),
-        color: stdout.is_terminal(),
+        color: std::io::stdout().is_terminal(),
     };
 
     match output {
@@ -191,13 +190,12 @@ async fn run_watch(
         None
     };
 
-    let stdout = std::io::stdout();
     let opts = RenderOptions {
         verbose,
         width: terminal_size::terminal_size()
             .map(|(w, _)| w.0 as usize)
             .unwrap_or(80),
-        color: stdout.is_terminal(),
+        color: std::io::stdout().is_terminal(),
     };
 
     let mut prev: Option<DiagnosisResult> = None;
@@ -294,13 +292,12 @@ async fn run_history(command: HistoryCommand, config: &Config) -> Result<(), i32
                 return Err(1);
             };
             let report = Report::new(result);
-            let stdout = std::io::stdout();
             let opts = RenderOptions {
                 verbose,
                 width: terminal_size::terminal_size()
                     .map(|(w, _)| w.0 as usize)
                     .unwrap_or(80),
-                color: stdout.is_terminal(),
+                color: std::io::stdout().is_terminal(),
             };
             match output {
                 Format::Text => print!("{}", text::render(&report, &opts)),
@@ -319,8 +316,7 @@ async fn run_history(command: HistoryCommand, config: &Config) -> Result<(), i32
 }
 
 fn print_history_table(runs: &[vllm_doctor::stores::RunSummary], verbose: bool) {
-    let stdout = std::io::stdout();
-    let color = stdout.is_terminal();
+    let color = std::io::stdout().is_terminal();
 
     let mut table = Table::new();
     table

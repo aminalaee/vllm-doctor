@@ -81,8 +81,8 @@ fn render_findings(
 
     for finding in fired {
         render_finding_panel(finding, opts, outer, inner, out);
-        out.push('\n');
     }
+    out.push('\n');
 }
 
 fn render_finding_panel(
@@ -111,11 +111,11 @@ fn render_finding_panel(
     out.push('\n');
     let title_cell = paint(&pad_center(&title, inner), color, true, opts.color);
     out.push_str(&content(&title_cell));
+    out.push_str(&content(&pad_right("", inner)));
 
-    for line in &finding.evidence {
-        for wrapped in textwrap::wrap(line, inner) {
-            out.push_str(&content(&pad_right(&wrapped, inner)));
-        }
+    let evidence_line = finding.evidence.join("  ·  ");
+    for wrapped in textwrap::wrap(&evidence_line, inner) {
+        out.push_str(&content(&pad_right(&wrapped, inner)));
     }
 
     if !finding.recommendations.is_empty() {

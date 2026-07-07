@@ -104,7 +104,7 @@ Verbose JSON includes observed metrics:
 | ---------------- | ----------------------------------------------------------------------------------------------------------- |
 | `schema_version` | JSON schema version. Current value: `1`.                                                                    |
 | `metadata`       | Report metadata, including generation time and target                                                       |
-| `health`         | Overall health: `ok`, `info`, `warning`, `critical`                                                         |
+| `health`         | Overall health: `healthy`, `info`, `warning`, `critical`                                                    |
 | `notices`        | Advisory caveats about reading the report (scrape-mode limits, multi-model blending); empty when none apply |
 | `checks`         | Rule results, sorted by severity and confidence                                                             |
 | `metrics`        | Observed metrics; included only with `--verbose`                                                            |
