@@ -14,11 +14,12 @@ vllm-doctor diagnose [OPTIONS] URL
 
 | Option            | Default | Description                                                                            |
 | ----------------- | ------- | -------------------------------------------------------------------------------------- |
-| `-s`, `--since`   | `now`   | Time window (e.g. `1h`, `30m`, `now`).                                                 |
+| `-s`, `--since`   | `now`   | Time window (e.g. `1h`, `30m`, `now` — `now` means last 5 minutes).                    |
 | `-m`, `--model`   | —       | Filter metrics by `model_name` label. Useful when several models share one Prometheus. |
 | `-w`, `--watch`   | False   | Refresh continuously every 5 seconds.                                                  |
 | `-o`, `--output`  | `text`  | Output format: `text` or `json`.                                                       |
 | `-v`, `--verbose` | False   | Show observed metrics and per-replica breakdown.                                       |
+| `--save`          | False   | Persist this diagnosis run to the local database.                                      |
 | `-c`, `--config`  | —       | Path to config file (default: `vllm-doctor.toml`).                                     |
 
 For persistence and the watch change-log, see the [history guide](history.md).
@@ -42,6 +43,17 @@ Refresh every 5 seconds until interrupted:
 ```shell
 vllm-doctor diagnose http://localhost:8000/metrics --watch
 ```
+
+## Save runs
+
+Persist a diagnosis run to the local database. Combine with `--watch` to log only on state transitions:
+
+```shell
+vllm-doctor diagnose http://localhost:8000/metrics --save
+vllm-doctor diagnose http://localhost:8000/metrics --watch --save
+```
+
+Review saved runs with [`vllm-doctor history`](history.md).
 
 ## Filter by model
 

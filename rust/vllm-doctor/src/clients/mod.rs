@@ -70,12 +70,9 @@ pub async fn resolve_client(
                 )?))
             }
         }
-        Ok(response) => {
-            response.error_for_status()?;
-            Ok(ResolvedClient::Prometheus(PrometheusClient::with_client(
-                url, client,
-            )?))
-        }
+        Ok(_) => Ok(ResolvedClient::Prometheus(PrometheusClient::with_client(
+            url, client,
+        )?)),
         Err(e) => Err(ClientError::from(e)),
     }
 }
