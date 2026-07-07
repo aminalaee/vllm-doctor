@@ -1,42 +1,33 @@
 all: lint test
 
 setup:
-	uv sync --all-groups
+	cargo build
 
 test:
-	cd rust/vllm-doctor && cargo test
-	uv run pytest tests --cov=vllm_doctor --cov-report=term-missing --cov-fail-under=95
+	cargo test
 
 lint:
-	cd rust/vllm-doctor && cargo clippy --all-targets -- -D warnings
-	cd rust/vllm-doctor && cargo fmt --check
-	uv run ruff check vllm_doctor tests
-	uv run ruff format --check vllm_doctor tests
+	cargo clippy --all-targets -- -D warnings
+	cargo fmt --check
 
 format:
-	cd rust/vllm-doctor && cargo fmt
-	uv run ruff format vllm_doctor tests
-	uv run ruff check --fix vllm_doctor tests
+	cargo fmt
 
 demo:
 	# requires: brew install charmbracelet/tap/freeze
-	uv run python scripts/serve_metrics.py tests/fixtures/prometheus/demo.json > /dev/null 2>&1 & \
+	python3 scripts/serve_metrics.py tests/fixtures/prometheus/demo.json > /dev/null 2>&1 & \
 	sleep 0.5 && \
-	{ printf '$$ vllm-doctor diagnose http://localhost:8000\n\n'; NO_COLOR= FORCE_COLOR=1 CLICOLOR_FORCE=1 TERM=xterm-256color COLUMNS=120 uv run vllm-doctor diagnose http://localhost:8000; } \
+	{ printf '$$ vllm-doctor diagnose http://localhost:8000\n\n'; NO_COLOR= FORCE_COLOR=1 CLICOLOR_FORCE=1 TERM=xterm-256color COLUMNS=120 ./target/release/vllm-doctor diagnose http://localhost:8000; } \
 		| freeze - --language ansi --output docs/demo.png --window --shadow.blur 20 --shadow.x 0 --shadow.y 8; \
 	kill %1 2>/dev/null || true
 
+build:
+	cargo build --release
+
 docs:
-	uv run zensical serve
+	pip install zensical~=0.0.42 2>/dev/null; python3 -m zensical serve
 
 docs-build:
-	uv run zensical build
+	pip install zensical~=0.0.42 2>/dev/null; python3 -m zensical build
 
-build:
-	cd rust/vllm-doctor && cargo build --release
-	uv build
-
-publish:
-	uv publish
-
-.PHONY: all setup test lint format demo docs docs-build build publish
+.PHONY: all setup test lint format demo build docs docs-build

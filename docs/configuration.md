@@ -56,7 +56,7 @@ min_total_running = 5.0     # minimum total running load before the running sign
 
 ## Database
 
-History persistence is configured under a `[database]` section. The single setting is `url`, a SQLAlchemy database URL.
+History persistence is configured under a `[database]` section. The single setting is `url`, a SQLite database URL.
 
 ```toml
 [database]
@@ -65,7 +65,7 @@ url = "sqlite:///~/.vllm-doctor/vllm_doctor.db"
 
 | Key   | Default                                   | Description                                                                                |
 | ----- | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `url` | `sqlite:///~/.vllm-doctor/vllm_doctor.db` | SQLAlchemy URL — SQLite (local file) or PostgreSQL. The directory is created on first run. |
+| `url` | `sqlite:///~/.vllm-doctor/vllm_doctor.db` | SQLite URL — local file path. The directory is created on first run. |
 
 After changing `url` (or after installing vllm-doctor for the first time), run [`vllm-doctor migrate`](../commands/migrate.md) once to create or update the schema. The command is idempotent.
 

@@ -44,12 +44,9 @@ This rule is suppressed when `num_requests_waiting > 0` — a queue means the lo
 
 ## Configuration
 
-```python
-from vllm_doctor.rules.low_throughput import LowThroughputRule
-
-rule = LowThroughputRule(
-    low_prompt_tps=20.0,    # default: 10.0
-    low_gen_tps=100.0,      # default: 50.0
-    low_running=3,          # default: 2
-)
+```toml
+[rules.low_throughput]
+low_prompt_tps = 20.0    # default: 10.0
+low_gen_tps = 100.0      # default: 50.0
+low_running = 3          # default: 2
 ```
