@@ -32,13 +32,24 @@ async fn run(args: Args) -> Result<(), i32> {
             verbose,
             save,
             watch,
+            timeout,
             config,
         } => {
             let cfg = load_config_or_default(config.as_deref());
+            let params = DiagnoseParams {
+                url: &url,
+                since: &since,
+                model: model.as_deref(),
+                output,
+                verbose,
+                save,
+                timeout,
+                config: &cfg,
+            };
             let result = if watch {
-                run_watch(&url, &since, model.as_deref(), output, verbose, save, &cfg).await
+                run_watch(params).await
             } else {
-                run_diagnose(&url, &since, model.as_deref(), output, verbose, save, &cfg).await
+                run_diagnose(params).await
             };
             match result {
                 Ok(()) => {}
@@ -87,17 +98,31 @@ enum DiagnoseError {
     Render(Box<dyn std::error::Error>),
 }
 
-async fn run_diagnose(
-    url: &str,
-    since: &str,
-    model: Option<&str>,
+#[derive(Clone, Copy)]
+struct DiagnoseParams<'a> {
+    url: &'a str,
+    since: &'a str,
+    model: Option<&'a str>,
     output: Format,
     verbose: bool,
     save: bool,
-    config: &Config,
-) -> Result<(), DiagnoseError> {
+    timeout: f64,
+    config: &'a Config,
+}
+
+async fn run_diagnose(params: DiagnoseParams<'_>) -> Result<(), DiagnoseError> {
+    let DiagnoseParams {
+        url,
+        since,
+        model,
+        output,
+        verbose,
+        save,
+        timeout,
+        config,
+    } = params;
     let registry = build_registry(config);
-    let provider = resolve_provider(url, 10.0, since, model)
+    let provider = resolve_provider(url, timeout, since, model)
         .await
         .map_err(|e| DiagnoseError::Fetch(e.into()))?;
     let result = diagnose(provider.as_ref(), &registry, since, model, config)
@@ -166,17 +191,19 @@ fn transition_label(prev: Option<&DiagnosisResult>, curr: &DiagnosisResult) -> O
     }
 }
 
-async fn run_watch(
-    url: &str,
-    since: &str,
-    model: Option<&str>,
-    output: Format,
-    verbose: bool,
-    save: bool,
-    config: &Config,
-) -> Result<(), DiagnoseError> {
+async fn run_watch(params: DiagnoseParams<'_>) -> Result<(), DiagnoseError> {
+    let DiagnoseParams {
+        url,
+        since,
+        model,
+        output,
+        verbose,
+        save,
+        timeout,
+        config,
+    } = params;
     let registry = build_registry(config);
-    let provider = resolve_provider(url, 10.0, since, model)
+    let provider = resolve_provider(url, timeout, since, model)
         .await
         .map_err(|e| DiagnoseError::Fetch(e.into()))?;
 
