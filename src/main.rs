@@ -14,6 +14,16 @@ use vllm_doctor::stores::{HistoryStore, SqliteHistoryStore};
 
 const WATCH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
+const EXIT_UNHEALTHY: i32 = 1;
+const EXIT_ERROR: i32 = 2;
+
+fn exit_code_for(health: Option<Health>) -> i32 {
+    match health {
+        Some(Health::Critical) => EXIT_UNHEALTHY,
+        _ => 0,
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let args = Args::parse();
@@ -47,23 +57,28 @@ async fn run(args: Args) -> Result<(), i32> {
                 config: &cfg,
             };
             let result = if watch {
-                run_watch(params).await
+                run_watch(params).await.map(|()| None)
             } else {
-                run_diagnose(params).await
+                run_diagnose(params).await.map(Some)
             };
             match result {
-                Ok(()) => {}
+                Ok(health) => {
+                    let code = exit_code_for(health);
+                    if code != 0 {
+                        return Err(code);
+                    }
+                }
                 Err(DiagnoseError::Fetch(e)) => {
                     eprintln!("Error: could not read metrics from {url}: {e}");
-                    return Err(1);
+                    return Err(EXIT_ERROR);
                 }
                 Err(DiagnoseError::Save(e)) => {
                     eprintln!("Error: failed to save run: {e}");
-                    return Err(1);
+                    return Err(EXIT_ERROR);
                 }
                 Err(DiagnoseError::Render(e)) => {
                     eprintln!("Error: failed to render report: {e}");
-                    return Err(1);
+                    return Err(EXIT_ERROR);
                 }
             }
         }
@@ -71,7 +86,7 @@ async fn run(args: Args) -> Result<(), i32> {
             let cfg = load_config_or_default(config.as_deref());
             if let Err(err) = run_migrate(&cfg).await {
                 eprintln!("Error: migration failed: {err}");
-                return Err(1);
+                return Err(EXIT_ERROR);
             }
         }
         Command::History { command } => {
@@ -110,7 +125,7 @@ struct DiagnoseParams<'a> {
     config: &'a Config,
 }
 
-async fn run_diagnose(params: DiagnoseParams<'_>) -> Result<(), DiagnoseError> {
+async fn run_diagnose(params: DiagnoseParams<'_>) -> Result<Health, DiagnoseError> {
     let DiagnoseParams {
         url,
         since,
@@ -158,7 +173,7 @@ async fn run_diagnose(params: DiagnoseParams<'_>) -> Result<(), DiagnoseError> {
         eprintln!("Saved run: {id}");
     }
 
-    Ok(())
+    Ok(report.health())
 }
 
 async fn run_migrate(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
@@ -270,7 +285,7 @@ async fn run_history(command: HistoryCommand, config: &Config) -> Result<(), i32
         Ok(s) => s,
         Err(e) => {
             eprintln!("Error: {e}");
-            return Err(1);
+            return Err(EXIT_ERROR);
         }
     };
     match command {
@@ -281,7 +296,7 @@ async fn run_history(command: HistoryCommand, config: &Config) -> Result<(), i32
                 Ok(r) => r,
                 Err(e) => {
                     eprintln!("Error: {e}");
-                    return Err(1);
+                    return Err(EXIT_ERROR);
                 }
             };
             match output {
@@ -289,7 +304,7 @@ async fn run_history(command: HistoryCommand, config: &Config) -> Result<(), i32
                     Ok(s) => println!("{s}"),
                     Err(e) => {
                         eprintln!("Error: {e}");
-                        return Err(1);
+                        return Err(EXIT_ERROR);
                     }
                 },
                 Format::Text => {
@@ -311,12 +326,12 @@ async fn run_history(command: HistoryCommand, config: &Config) -> Result<(), i32
                 Ok(r) => r,
                 Err(e) => {
                     eprintln!("Error: {e}");
-                    return Err(1);
+                    return Err(EXIT_ERROR);
                 }
             };
             let Some(result) = result else {
                 eprintln!("Error: run {run_id} not found.");
-                return Err(1);
+                return Err(EXIT_ERROR);
             };
             let report = Report::new(result);
             let opts = RenderOptions {
@@ -333,7 +348,7 @@ async fn run_history(command: HistoryCommand, config: &Config) -> Result<(), i32
                     Ok(s) => println!("{s}"),
                     Err(e) => {
                         eprintln!("Error: {e}");
-                        return Err(1);
+                        return Err(EXIT_ERROR);
                     }
                 },
             }
@@ -468,5 +483,14 @@ mod tests {
         let prev = result_with(vec![Some(finding(Severity::Warning))]);
         let curr = result_with(vec![Some(finding(Severity::Warning))]);
         assert_eq!(transition_label(Some(&prev), &curr), None);
+    }
+
+    #[test]
+    fn exit_code_unhealthy_only_on_critical() {
+        assert_eq!(exit_code_for(Some(Health::Critical)), EXIT_UNHEALTHY);
+        assert_eq!(exit_code_for(Some(Health::Warning)), 0);
+        assert_eq!(exit_code_for(Some(Health::Info)), 0);
+        assert_eq!(exit_code_for(Some(Health::Ok)), 0);
+        assert_eq!(exit_code_for(None), 0);
     }
 }
