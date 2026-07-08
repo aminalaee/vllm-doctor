@@ -44,6 +44,9 @@ pub enum Command {
         /// Refresh continuously every 5s
         #[arg(short, long)]
         watch: bool,
+        /// HTTP request timeout in seconds
+        #[arg(short = 't', long, default_value_t = 10.0)]
+        timeout: f64,
         /// Path to config file (default: vllm-doctor.toml)
         #[arg(short, long)]
         config: Option<PathBuf>,
@@ -116,6 +119,8 @@ mod tests {
             "json",
             "--verbose",
             "--save",
+            "--timeout",
+            "30",
         ]);
         match args.command {
             Command::Diagnose {
@@ -126,6 +131,7 @@ mod tests {
                 verbose,
                 save,
                 watch,
+                timeout,
                 ..
             } => {
                 assert_eq!(url, "http://localhost:8000/metrics");
@@ -135,6 +141,7 @@ mod tests {
                 assert!(verbose);
                 assert!(save);
                 assert!(!watch);
+                assert_eq!(timeout, 30.0);
             }
             _ => panic!("expected diagnose command"),
         }
@@ -151,6 +158,7 @@ mod tests {
                 model,
                 save,
                 watch,
+                timeout,
                 config,
                 ..
             } => {
@@ -160,6 +168,7 @@ mod tests {
                 assert_eq!(model, None);
                 assert!(!save);
                 assert!(!watch);
+                assert_eq!(timeout, 10.0);
                 assert_eq!(config, None);
             }
             _ => panic!("expected diagnose command"),
