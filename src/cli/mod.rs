@@ -20,6 +20,15 @@ pub enum Format {
     Json,
 }
 
+fn positive_seconds(s: &str) -> Result<f64, String> {
+    let value: f64 = s.parse().map_err(|_| format!("`{s}` is not a number"))?;
+    if value.is_finite() && value > 0.0 {
+        Ok(value)
+    } else {
+        Err("must be a positive number of seconds".to_string())
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Diagnose a vLLM /metrics or Prometheus endpoint
@@ -41,11 +50,14 @@ pub enum Command {
         /// Persist this diagnosis run to the local database
         #[arg(long)]
         save: bool,
-        /// Refresh continuously every 5s
+        /// Refresh continuously (interval set by --interval)
         #[arg(short, long)]
         watch: bool,
+        /// Seconds between refreshes in --watch mode
+        #[arg(short = 'i', long, default_value_t = 5.0, value_parser = positive_seconds)]
+        interval: f64,
         /// HTTP request timeout in seconds
-        #[arg(short = 't', long, default_value_t = 10.0)]
+        #[arg(short = 't', long, default_value_t = 10.0, value_parser = positive_seconds)]
         timeout: f64,
         /// Path to config file (default: vllm-doctor.toml)
         #[arg(short, long)]
@@ -119,6 +131,8 @@ mod tests {
             "json",
             "--verbose",
             "--save",
+            "--interval",
+            "2",
             "--timeout",
             "30",
         ]);
@@ -131,6 +145,7 @@ mod tests {
                 verbose,
                 save,
                 watch,
+                interval,
                 timeout,
                 ..
             } => {
@@ -141,6 +156,7 @@ mod tests {
                 assert!(verbose);
                 assert!(save);
                 assert!(!watch);
+                assert_eq!(interval, 2.0);
                 assert_eq!(timeout, 30.0);
             }
             _ => panic!("expected diagnose command"),
@@ -158,6 +174,7 @@ mod tests {
                 model,
                 save,
                 watch,
+                interval,
                 timeout,
                 config,
                 ..
@@ -168,6 +185,7 @@ mod tests {
                 assert_eq!(model, None);
                 assert!(!save);
                 assert!(!watch);
+                assert_eq!(interval, 5.0);
                 assert_eq!(timeout, 10.0);
                 assert_eq!(config, None);
             }
@@ -178,6 +196,25 @@ mod tests {
     #[test]
     fn diagnose_requires_url() {
         assert!(Args::try_parse_from(["vllm-doctor", "diagnose"]).is_err());
+    }
+
+    #[test]
+    fn diagnose_rejects_non_positive_seconds() {
+        for arg in ["--interval", "--timeout"] {
+            for value in ["0", "-1", "nan"] {
+                assert!(
+                    Args::try_parse_from([
+                        "vllm-doctor",
+                        "diagnose",
+                        "http://host/metrics",
+                        arg,
+                        value
+                    ])
+                    .is_err(),
+                    "{arg} {value} should be rejected"
+                );
+            }
+        }
     }
 
     #[test]
