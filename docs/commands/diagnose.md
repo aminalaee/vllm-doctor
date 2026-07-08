@@ -63,3 +63,26 @@ When a Prometheus target serves several models, aggregate metrics blend across t
 ```shell
 vllm-doctor diagnose http://localhost:9090 --model meta-llama/Llama-3.1-8B
 ```
+
+## Exit codes
+
+`diagnose` follows the convention used by linters like Ruff — the result is reflected in the exit code so it can gate CI and scripts:
+
+| Code | Meaning                                              |
+| ---- | ---------------------------------------------------- |
+| `0`  | Ran successfully; health is not critical.            |
+| `1`  | Ran successfully, but a critical finding fired.      |
+| `2`  | Operational error (could not reach or read metrics). |
+
+This lets a pipeline distinguish "vLLM is critically unhealthy" (`1`) from "the tool itself failed" (`2`):
+
+```shell
+vllm-doctor diagnose http://localhost:8000/metrics
+case $? in
+  0) echo "healthy" ;;
+  1) echo "critical finding — alert" ;;
+  2) echo "tool error — could not diagnose" ;;
+esac
+```
+
+Watch mode runs until interrupted and does not gate on health.

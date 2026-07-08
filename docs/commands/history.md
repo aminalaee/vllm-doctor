@@ -134,4 +134,4 @@ vllm-doctor history show <run-id> --output json
 
 ### Not found
 
-If the run ID does not exist, exits with code 1 and prints an error to stderr.
+If the run ID does not exist, exits with code 2 and prints an error to stderr.
