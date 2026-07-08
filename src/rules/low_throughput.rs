@@ -77,6 +77,11 @@ impl Rule for LowThroughputRule {
             return DiagnosisState::Healthy;
         }
 
+        let running = signals.evaluate(Signal::NumRequestsRunning).unwrap_or(0.0);
+        if running == 0.0 && waiting == 0.0 {
+            return DiagnosisState::Healthy;
+        }
+
         let running_low_v = running_low(signals, &self.cfg);
         let confidence =
             if (prompt_low_v.is_some() && gen_low_v.is_some()) || running_low_v.is_some() {
@@ -176,6 +181,14 @@ mod tests {
     fn healthy_when_waiting_exists() {
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 5.0, 5.0, 1.0))),
+            DiagnosisState::Healthy
+        );
+    }
+
+    #[test]
+    fn healthy_when_idle() {
+        assert_eq!(
+            rule().run(&SignalGraph::new(&snapshot(0.0, 0.0, 0.0, 0.0))),
             DiagnosisState::Healthy
         );
     }
