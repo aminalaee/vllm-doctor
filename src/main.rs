@@ -1,4 +1,5 @@
 use std::io::IsTerminal;
+use std::time::Duration;
 
 use clap::Parser;
 use comfy_table::{Cell, Color, ContentArrangement, Table, presets::UTF8_BORDERS_ONLY};
@@ -11,8 +12,6 @@ use vllm_doctor::providers::resolve_provider;
 use vllm_doctor::reports::{RenderOptions, Report, json, text};
 use vllm_doctor::rules::build_registry;
 use vllm_doctor::stores::{HistoryStore, SqliteHistoryStore};
-
-const WATCH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(5);
 
 const EXIT_UNHEALTHY: i32 = 1;
 const EXIT_ERROR: i32 = 2;
@@ -42,6 +41,7 @@ async fn run(args: Args) -> Result<(), i32> {
             verbose,
             save,
             watch,
+            interval,
             timeout,
             config,
         } => {
@@ -54,6 +54,7 @@ async fn run(args: Args) -> Result<(), i32> {
                 verbose,
                 save,
                 timeout,
+                interval: Duration::from_secs_f64(interval),
                 config: &cfg,
             };
             let result = if watch {
@@ -122,6 +123,7 @@ struct DiagnoseParams<'a> {
     verbose: bool,
     save: bool,
     timeout: f64,
+    interval: Duration,
     config: &'a Config,
 }
 
@@ -134,6 +136,7 @@ async fn run_diagnose(params: DiagnoseParams<'_>) -> Result<Health, DiagnoseErro
         verbose,
         save,
         timeout,
+        interval: _,
         config,
     } = params;
     let registry = build_registry(config);
@@ -215,6 +218,7 @@ async fn run_watch(params: DiagnoseParams<'_>) -> Result<(), DiagnoseError> {
         verbose,
         save,
         timeout,
+        interval,
         config,
     } = params;
     let registry = build_registry(config);
@@ -273,7 +277,7 @@ async fn run_watch(params: DiagnoseParams<'_>) -> Result<(), DiagnoseError> {
 
         prev = Some(result);
         tokio::select! {
-            _ = tokio::time::sleep(WATCH_INTERVAL) => {}
+            _ = tokio::time::sleep(interval) => {}
             _ = tokio::signal::ctrl_c() => break,
         }
     }

@@ -12,16 +12,17 @@ vllm-doctor diagnose [OPTIONS] URL
 
 ## Options
 
-| Option            | Default | Description                                                                            |
-| ----------------- | ------- | -------------------------------------------------------------------------------------- |
-| `-s`, `--since`   | `now`   | Time window (e.g. `1h`, `30m`, `now` — `now` means last 5 minutes).                    |
-| `-m`, `--model`   | —       | Filter metrics by `model_name` label. Useful when several models share one Prometheus. |
-| `-w`, `--watch`   | False   | Refresh continuously every 5 seconds.                                                  |
-| `-o`, `--output`  | `text`  | Output format: `text` or `json`.                                                       |
-| `-v`, `--verbose` | False   | Show observed metrics and per-replica breakdown.                                       |
-| `--save`          | False   | Persist this diagnosis run to the local database.                                      |
-| `-t`, `--timeout` | `10`    | HTTP request timeout in seconds. Raise it for slow or overloaded targets.              |
-| `-c`, `--config`  | —       | Path to config file (default: `vllm-doctor.toml`).                                     |
+| Option             | Default | Description                                                                            |
+| ------------------ | ------- | -------------------------------------------------------------------------------------- |
+| `-s`, `--since`    | `now`   | Time window (e.g. `1h`, `30m`, `now` — `now` means last 5 minutes).                    |
+| `-m`, `--model`    | —       | Filter metrics by `model_name` label. Useful when several models share one Prometheus. |
+| `-w`, `--watch`    | False   | Refresh continuously until interrupted (interval set by `--interval`).                 |
+| `-i`, `--interval` | `5`     | Seconds between refreshes in `--watch` mode. Only applies with `--watch`.              |
+| `-o`, `--output`   | `text`  | Output format: `text` or `json`.                                                       |
+| `-v`, `--verbose`  | False   | Show observed metrics and per-replica breakdown.                                       |
+| `--save`           | False   | Persist this diagnosis run to the local database.                                      |
+| `-t`, `--timeout`  | `10`    | HTTP request timeout in seconds. Raise it for slow or overloaded targets.              |
+| `-c`, `--config`   | —       | Path to config file (default: `vllm-doctor.toml`).                                     |
 
 For persistence and the watch change-log, see the [history guide](history.md).
 
@@ -39,10 +40,11 @@ vllm-doctor diagnose http://localhost:8000/metrics --output json
 
 ## Watch mode
 
-Refresh every 5 seconds until interrupted:
+Refresh until interrupted. The default interval is 5 seconds; change it with `--interval`:
 
 ```shell
 vllm-doctor diagnose http://localhost:8000/metrics --watch
+vllm-doctor diagnose http://localhost:8000/metrics --watch --interval 2
 ```
 
 ## Save runs
