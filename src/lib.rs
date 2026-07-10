@@ -1,3 +1,4 @@
+pub mod assessment;
 pub mod cli;
 pub mod clients;
 pub mod collector;

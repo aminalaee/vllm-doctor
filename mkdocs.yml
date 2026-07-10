@@ -24,6 +24,7 @@ edit_uri: ""
 
 nav:
   - Introduction: "index.md"
+  - Assessment: "assessment.md"
   - Commands:
       - diagnose: "commands/diagnose.md"
       - history: "commands/history.md"

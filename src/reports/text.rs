@@ -25,6 +25,7 @@ pub fn render(report: &Report, opts: &RenderOptions) -> String {
 
     let mut out = String::new();
     render_header(report, opts, outer, &mut out);
+    render_assessment(report, opts, inner, &mut out);
     render_findings(report, opts, outer, inner, &mut out);
     render_check_list(report, opts, &mut out);
     render_notices(report, opts, &mut out);
@@ -59,6 +60,56 @@ fn render_header(report: &Report, opts: &RenderOptions, outer: usize, out: &mut 
     out.push('\n');
     out.push_str(&rule);
     out.push_str("\n\n");
+}
+
+fn render_assessment(report: &Report, opts: &RenderOptions, inner: usize, out: &mut String) {
+    let assessment = report.assessment();
+    let label = paint(
+        assessment.likely_bottleneck.label(),
+        AnsiColors::Cyan,
+        true,
+        opts.color,
+    );
+    out.push_str(&format!("Likely bottleneck: {label}\n"));
+    out.push_str(&format!("Confidence: {}\n", assessment.confidence));
+
+    if !assessment.evidence.is_empty() {
+        out.push_str("\nEvidence:\n");
+        for line in &assessment.evidence {
+            let wrap_opts = textwrap::Options::new(inner)
+                .initial_indent("  • ")
+                .subsequent_indent("    ");
+            for wrapped in textwrap::wrap(line, &wrap_opts) {
+                out.push_str(&wrapped);
+                out.push('\n');
+            }
+        }
+    }
+
+    if !assessment.interpretation.is_empty() {
+        out.push_str("\nInterpretation:\n");
+        for wrapped in textwrap::wrap(&assessment.interpretation, inner) {
+            out.push_str(&wrapped);
+            out.push('\n');
+        }
+    }
+
+    if !assessment.recommended_next_actions.is_empty() {
+        out.push_str("\nRecommended next actions:\n");
+        for (i, action) in assessment.recommended_next_actions.iter().enumerate() {
+            let prefix = format!("  {}. ", i + 1);
+            let indent = " ".repeat(prefix.width());
+            let wrap_opts = textwrap::Options::new(inner)
+                .initial_indent(&prefix)
+                .subsequent_indent(&indent);
+            for wrapped in textwrap::wrap(action, &wrap_opts) {
+                out.push_str(&wrapped);
+                out.push('\n');
+            }
+        }
+    }
+
+    out.push('\n');
 }
 
 fn render_findings(
@@ -448,21 +499,21 @@ mod tests {
     }
 
     fn sample_result() -> DiagnosisResult {
-        DiagnosisResult {
-            context: DiagnosisContext::new("5m"),
-            checks: vec![RuleResult {
+        DiagnosisResult::new(
+            DiagnosisContext::new("5m"),
+            MetricSeriesSnapshot {
+                num_requests_waiting: MetricSeries::from_samples(vec![MetricSample::new(5.0)]),
+                kv_cache_usage_perc: MetricSeries::from_samples(vec![MetricSample::new(0.92)]),
+                ..Default::default()
+            },
+            vec![RuleResult {
                 id: "queue_pressure".into(),
                 name: "Queue Pressure".into(),
                 title: "Queue pressure".into(),
                 severity: Severity::Warning,
                 finding: Some(sample_finding()),
             }],
-            metric_series: MetricSeriesSnapshot {
-                num_requests_waiting: MetricSeries::from_samples(vec![MetricSample::new(5.0)]),
-                kv_cache_usage_perc: MetricSeries::from_samples(vec![MetricSample::new(0.92)]),
-                ..Default::default()
-            },
-        }
+        )
     }
 
     #[test]
@@ -474,6 +525,20 @@ mod tests {
         assert!(text.contains("Queue Pressure"));
         assert!(text.contains("Waiting requests: 5"));
         assert!(text.contains("→ Add replicas"));
+    }
+
+    #[test]
+    fn text_report_shows_assessment_before_findings() {
+        let mut result = sample_result();
+        result.assessment = crate::assessment::assess(&result);
+        let text = render(&Report::new(result), &RenderOptions::default());
+
+        assert!(text.contains("Likely bottleneck: Queue saturation"));
+        assert!(text.contains("Recommended next actions:"));
+        // The assessment appears before the detailed finding panel.
+        let assessment_at = text.find("Likely bottleneck").unwrap();
+        let finding_at = text.find("Queue Pressure").unwrap();
+        assert!(assessment_at < finding_at);
     }
 
     #[test]

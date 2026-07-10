@@ -156,13 +156,13 @@ mod tests {
         };
         let config = Config::default();
         let registry = build_registry(&config);
-        DiagnosisResult {
-            context: DiagnosisContext::new("5m")
+        DiagnosisResult::new(
+            DiagnosisContext::new("5m")
                 .with_client_mode(ClientMode::Scrape)
                 .with_model_name("llama"),
-            checks: registry.run_all(&snapshot, &config),
-            metric_series: snapshot,
-        }
+            snapshot.clone(),
+            registry.run_all(&snapshot, &config),
+        )
     }
 
     #[tokio::test]
