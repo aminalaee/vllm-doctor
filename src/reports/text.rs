@@ -5,7 +5,7 @@ use owo_colors::{AnsiColors, OwoColorize};
 use unicode_width::UnicodeWidthStr;
 
 use crate::metrics::{all_specs, detect_replica_label};
-use crate::models::{Finding, Health, Severity};
+use crate::models::{BottleneckKind, Finding, Health, Severity};
 use crate::reports::format::format_value;
 use crate::reports::{RenderOptions, Report};
 
@@ -64,6 +64,11 @@ fn render_header(report: &Report, opts: &RenderOptions, outer: usize, out: &mut 
 
 fn render_assessment(report: &Report, opts: &RenderOptions, inner: usize, out: &mut String) {
     let assessment = report.assessment();
+    // On a clean run the summary just echoes "no issues detected" — skip it and
+    // keep the headline for runs where there's an actual bottleneck to name.
+    if assessment.likely_bottleneck == BottleneckKind::NoClearBottleneck {
+        return;
+    }
     let label = paint(
         assessment.likely_bottleneck.label(),
         AnsiColors::Cyan,
@@ -525,6 +530,18 @@ mod tests {
         assert!(text.contains("Queue Pressure"));
         assert!(text.contains("Waiting requests: 5"));
         assert!(text.contains("→ Add replicas"));
+    }
+
+    #[test]
+    fn text_report_omits_assessment_when_no_clear_bottleneck() {
+        // A clean run defaults to no-clear-bottleneck; the block should be hidden.
+        let result = DiagnosisResult::new(
+            DiagnosisContext::new("5m"),
+            MetricSeriesSnapshot::default(),
+            vec![],
+        );
+        let text = render(&Report::new(result), &RenderOptions::default());
+        assert!(!text.contains("Likely bottleneck"));
     }
 
     #[test]

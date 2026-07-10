@@ -95,17 +95,25 @@ fn evidence_from(fired: &[&RuleResult], support: &[&str], kind: BottleneckKind) 
     if kind == BottleneckKind::Idle {
         return vec!["No running or waiting requests were observed".to_string()];
     }
+    // Several findings often cite the same metric (e.g. waiting requests), so
+    // dedupe by the line's leading label to keep the evidence concise.
     let mut lines = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for id in support {
         let finding = fired
             .iter()
             .find(|c| c.id.as_str() == *id)
             .and_then(|c| c.finding.as_ref());
-        if let Some(f) = finding {
-            if f.evidence.is_empty() {
-                lines.push(f.summary.clone());
-            } else {
-                lines.extend(f.evidence.iter().cloned());
+        let Some(f) = finding else { continue };
+        let source = if f.evidence.is_empty() {
+            std::slice::from_ref(&f.summary)
+        } else {
+            f.evidence.as_slice()
+        };
+        for line in source {
+            let key = line.split(':').next().unwrap_or(line).trim().to_string();
+            if seen.insert(key) {
+                lines.push(line.clone());
             }
         }
     }
