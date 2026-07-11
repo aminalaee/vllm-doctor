@@ -11,21 +11,9 @@ The assessment never replaces or hides the findings — it sits on top of them.
 ## Example
 
 ```text
-Likely bottleneck: KV cache saturation
-Confidence: high
-
-Evidence:
-  • GPU KV cache usage: 95% (threshold: 90%)
-  • Waiting requests: 7 (blocked by full cache)
-
-Interpretation:
-Requests are likely waiting because the server has limited KV cache
-headroom, often caused by high concurrency or long-context requests.
-
-Recommended next actions:
-  1. Check max_num_seqs and max_num_batched_tokens
-  2. Route long-context traffic separately
-  3. Add capacity or reduce concurrency if this happens during expected traffic
+Likely bottleneck: KV cache saturation (high confidence)
+  Cache is full (94%), so requests queue and TTFT climbs. The queue and TTFT
+  findings are likely downstream — start with the KV cache.
 ```
 
 The same summary appears as a top-level `assessment` object in `--output json`

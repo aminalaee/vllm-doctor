@@ -1,4 +1,5 @@
-//! Plain-text report renderer: comfy-table for column layouts, hand-rolled panels.
+//! Plain-text report renderer: structured, compact default output with verbose
+//! panels for detailed inspection.
 use comfy_table::presets::NOTHING;
 use comfy_table::{Cell, CellAlignment, Table};
 use owo_colors::{AnsiColors, OwoColorize};
@@ -26,14 +27,17 @@ pub fn render(report: &Report, opts: &RenderOptions) -> String {
     let mut out = String::new();
     render_header(report, opts, outer, &mut out);
     render_assessment(report, opts, inner, &mut out);
-    render_findings(report, opts, outer, inner, &mut out);
-    render_check_list(report, opts, &mut out);
-    render_notices(report, opts, &mut out);
     if opts.verbose {
+        render_findings_verbose(report, opts, outer, inner, &mut out);
+        render_check_list_verbose(report, opts, &mut out);
+        render_notices(report, opts, &mut out);
         render_metrics(report, opts, &mut out);
         if let Some(label) = detect_replica_label(report.metric_series()) {
             render_replica_metrics(report, opts, label, &mut out);
         }
+    } else {
+        render_findings_compact(report, opts, inner, &mut out);
+        render_check_list_compact(report, &mut out);
     }
     out
 }
@@ -64,60 +68,96 @@ fn render_header(report: &Report, opts: &RenderOptions, outer: usize, out: &mut 
 
 fn render_assessment(report: &Report, opts: &RenderOptions, inner: usize, out: &mut String) {
     let assessment = report.assessment();
-    // On a clean run the summary just echoes "no issues detected" — skip it and
-    // keep the headline for runs where there's an actual bottleneck to name.
+
     if assessment.likely_bottleneck == BottleneckKind::NoClearBottleneck {
+        if report.health() == Health::Ok {
+            return;
+        }
+        // Non-OK runs with no clear pattern still get a short heads-up.
+        out.push_str("No clear bottleneck detected. Review the findings below.\n\n");
         return;
     }
+
     let label = paint(
         assessment.likely_bottleneck.label(),
         AnsiColors::Cyan,
         true,
         opts.color,
     );
-    out.push_str(&format!("Likely bottleneck: {label}\n"));
-    out.push_str(&format!("Confidence: {}\n", assessment.confidence));
-
-    if !assessment.evidence.is_empty() {
-        out.push_str("\nEvidence:\n");
-        for line in &assessment.evidence {
-            let wrap_opts = textwrap::Options::new(inner)
-                .initial_indent("  • ")
-                .subsequent_indent("    ");
-            for wrapped in textwrap::wrap(line, &wrap_opts) {
-                out.push_str(&wrapped);
-                out.push('\n');
-            }
-        }
-    }
+    let confidence = paint(
+        &format!("({} confidence)", assessment.confidence),
+        AnsiColors::Cyan,
+        false,
+        opts.color,
+    );
+    out.push_str(&format!("Likely bottleneck: {label} {confidence}\n"));
 
     if !assessment.interpretation.is_empty() {
-        out.push_str("\nInterpretation:\n");
-        for wrapped in textwrap::wrap(&assessment.interpretation, inner) {
+        let wrap_opts = textwrap::Options::new(inner)
+            .initial_indent("  ")
+            .subsequent_indent("  ");
+        for wrapped in textwrap::wrap(&assessment.interpretation, &wrap_opts) {
             out.push_str(&wrapped);
             out.push('\n');
-        }
-    }
-
-    if !assessment.recommended_next_actions.is_empty() {
-        out.push_str("\nRecommended next actions:\n");
-        for (i, action) in assessment.recommended_next_actions.iter().enumerate() {
-            let prefix = format!("  {}. ", i + 1);
-            let indent = " ".repeat(prefix.width());
-            let wrap_opts = textwrap::Options::new(inner)
-                .initial_indent(&prefix)
-                .subsequent_indent(&indent);
-            for wrapped in textwrap::wrap(action, &wrap_opts) {
-                out.push_str(&wrapped);
-                out.push('\n');
-            }
         }
     }
 
     out.push('\n');
 }
 
-fn render_findings(
+fn render_findings_compact(report: &Report, opts: &RenderOptions, inner: usize, out: &mut String) {
+    let fired = report.fired();
+    if fired.is_empty() {
+        out.push_str("No issues detected.\n\n");
+        return;
+    }
+
+    let icon_pad = "  ";
+    for check in fired {
+        let finding = check.finding.as_ref().unwrap();
+        let icon = paint(
+            severity_icon(finding.severity),
+            severity_color(finding.severity),
+            true,
+            opts.color,
+        );
+        let one_liner = finding.summary.clone();
+        let line = format!(
+            "{icon_pad}{icon} {}  {}",
+            paint(&finding.title, AnsiColors::White, true, opts.color),
+            one_liner
+        );
+        let wrap_opts = textwrap::Options::new(inner)
+            .initial_indent("")
+            .subsequent_indent("       ");
+        for wrapped in textwrap::wrap(&line, &wrap_opts) {
+            out.push_str(&wrapped);
+            out.push('\n');
+        }
+    }
+
+    out.push('\n');
+}
+
+fn render_check_list_compact(report: &Report, out: &mut String) {
+    let passing = report
+        .checks()
+        .iter()
+        .filter(|c| c.finding.is_none())
+        .count();
+    let total = report.checks().len();
+    if passing > 0 {
+        out.push_str(&format!(
+            "{passing} check{} passed · run -v for evidence, fixes, and per-replica metrics",
+            if passing == 1 { "" } else { "s" }
+        ));
+    } else if total > 0 {
+        out.push_str("All checks reported findings.");
+    }
+    out.push_str("\n\n");
+}
+
+fn render_findings_verbose(
     report: &Report,
     opts: &RenderOptions,
     outer: usize,
@@ -131,10 +171,10 @@ fn render_findings(
         .collect();
 
     if fired.is_empty() {
-        out.push_str("No issues detected.\n\n");
         return;
     }
 
+    out.push_str("Findings\n\n");
     for finding in fired {
         render_finding_panel(finding, opts, outer, inner, out);
     }
@@ -151,8 +191,8 @@ fn render_finding_panel(
     let color = severity_color(finding.severity);
     let icon = severity_icon(finding.severity);
     let title = format!(
-        "{} {}  [{} confidence]",
-        icon, finding.title, finding.confidence
+        "{} {}  [{}]   {}",
+        icon, finding.title, finding.confidence, finding.summary
     );
 
     let bar = paint("│", color, false, opts.color);
@@ -165,7 +205,7 @@ fn render_finding_panel(
         opts.color,
     ));
     out.push('\n');
-    let title_cell = paint(&pad_center(&title, inner), color, true, opts.color);
+    let title_cell = paint(&pad_right(&title, inner), color, true, opts.color);
     out.push_str(&content(&title_cell));
     out.push_str(&content(&pad_right("", inner)));
 
@@ -182,7 +222,6 @@ fn render_finding_panel(
             .subsequent_indent("  ");
         for rec in &finding.recommendations {
             for wrapped in textwrap::wrap(rec, &wrap_opts) {
-                // Tint the arrow to match the finding's severity color.
                 let padded = pad_right(&wrapped, inner);
                 let line = if opts.color {
                     padded.replacen('→', &paint("→", color, false, true), 1)
@@ -203,31 +242,37 @@ fn render_finding_panel(
     out.push('\n');
 }
 
-fn render_check_list(report: &Report, opts: &RenderOptions, out: &mut String) {
-    if report.checks().is_empty() {
+fn render_check_list_verbose(report: &Report, opts: &RenderOptions, out: &mut String) {
+    let passing: Vec<&str> = report
+        .checks()
+        .iter()
+        .filter(|c| c.finding.is_none())
+        .map(|c| c.name.as_str())
+        .collect();
+    if passing.is_empty() {
         return;
     }
 
+    out.push_str("Passed\n\n");
+    let columns = 3;
     let mut table = colored_table(opts);
-    for check in report.checks() {
-        if let Some(finding) = &check.finding {
-            let status = Cell::new(format!(
-                "{} {}",
-                severity_icon(finding.severity),
-                finding.severity
-            ));
-            table.add_row(vec![
-                Cell::new(&check.name),
-                paint_cell(status, finding.severity, opts),
-                Cell::new(format!("[{}]", finding.confidence)),
-            ]);
-        } else {
-            let mut ok = Cell::new("✓ ok");
-            if opts.color {
-                ok = ok.fg(comfy_table::Color::Green);
-            }
-            table.add_row(vec![Cell::new(&check.name), ok, Cell::new("")]);
+    let mut row = Vec::new();
+    for (i, name) in passing.iter().enumerate() {
+        let mut cell = Cell::new(format!("✓ {name}"));
+        if opts.color {
+            cell = cell.fg(comfy_table::Color::Green);
         }
+        row.push(cell);
+        if (i + 1) % columns == 0 {
+            table.add_row(row);
+            row = Vec::new();
+        }
+    }
+    if !row.is_empty() {
+        while row.len() < columns {
+            row.push(Cell::new(""));
+        }
+        table.add_row(row);
     }
     out.push_str(&table.to_string());
     out.push_str("\n\n");
@@ -411,23 +456,7 @@ fn bar_color(value: f64) -> comfy_table::Color {
     }
 }
 
-fn comfy_severity(severity: Severity) -> comfy_table::Color {
-    match severity {
-        Severity::Critical => comfy_table::Color::Red,
-        Severity::Warning => comfy_table::Color::Yellow,
-        Severity::Info => comfy_table::Color::Blue,
-    }
-}
-
-fn paint_cell(cell: Cell, severity: Severity, opts: &RenderOptions) -> Cell {
-    if opts.color {
-        cell.fg(comfy_severity(severity))
-    } else {
-        cell
-    }
-}
-
-/// A borderless table that sizes columns to their content, with styling forced
+/// A borderless table that sizes columns to its content, with styling forced
 /// on when color is requested (otherwise comfy-table may strip it off a pipe).
 fn colored_table(opts: &RenderOptions) -> Table {
     let mut table = Table::new();
@@ -462,25 +491,14 @@ fn pad_right(s: &str, width: usize) -> String {
     }
 }
 
-/// Center `s` within a given terminal-column width.
-fn pad_center(s: &str, width: usize) -> String {
-    let visible = s.width();
-    if visible >= width {
-        return s.to_string();
-    }
-    let total_pad = width - visible;
-    let left_pad = total_pad / 2;
-    let right_pad = total_pad - left_pad;
-    format!("{}{}{}", " ".repeat(left_pad), s, " ".repeat(right_pad))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
-    use crate::models::RuleResult;
-    use crate::models::{Confidence, DiagnosisContext, DiagnosisResult, Severity};
+    use crate::models::{
+        Confidence, DiagnosisContext, DiagnosisResult, Finding, RuleResult, Severity,
+    };
 
     fn verbose() -> RenderOptions {
         RenderOptions {
@@ -493,7 +511,7 @@ mod tests {
         Finding {
             severity: Severity::Warning,
             confidence: Confidence::Medium,
-            title: "Queue Pressure".to_string(),
+            title: "Queue pressure".to_string(),
             summary: "5 requests are waiting in the queue".to_string(),
             signals: vec!["num_requests_waiting".to_string()],
             evidence: vec!["Waiting requests: 5".to_string()],
@@ -527,14 +545,26 @@ mod tests {
         let text = render(&report, &RenderOptions::default());
 
         assert!(text.contains("Health: WARNING"));
-        assert!(text.contains("Queue Pressure"));
-        assert!(text.contains("Waiting requests: 5"));
+        assert!(text.contains("Queue pressure"));
+        assert!(text.contains("5 requests are waiting in the queue"));
+    }
+
+    #[test]
+    fn compact_mode_hides_recommendations() {
+        let report = Report::new(sample_result());
+        let text = render(&report, &RenderOptions::default());
+        assert!(!text.contains("→ Add replicas"));
+    }
+
+    #[test]
+    fn verbose_mode_shows_recommendations_in_panels() {
+        let report = Report::new(sample_result());
+        let text = render(&report, &verbose());
         assert!(text.contains("→ Add replicas"));
     }
 
     #[test]
     fn text_report_omits_assessment_when_no_clear_bottleneck() {
-        // A clean run defaults to no-clear-bottleneck; the block should be hidden.
         let result = DiagnosisResult::new(
             DiagnosisContext::new("5m"),
             MetricSeriesSnapshot::default(),
@@ -550,12 +580,24 @@ mod tests {
         result.assessment = crate::assessment::assess(&result);
         let text = render(&Report::new(result), &RenderOptions::default());
 
-        assert!(text.contains("Likely bottleneck: Queue saturation"));
-        assert!(text.contains("Recommended next actions:"));
-        // The assessment appears before the detailed finding panel.
+        assert!(text.contains("Likely bottleneck:"));
         let assessment_at = text.find("Likely bottleneck").unwrap();
-        let finding_at = text.find("Queue Pressure").unwrap();
+        let finding_at = text.find("Queue pressure").unwrap();
         assert!(assessment_at < finding_at);
+    }
+
+    #[test]
+    fn compact_passing_checks_collapsed_to_count() {
+        let mut result = sample_result();
+        result.checks.push(RuleResult {
+            id: "error_rate".into(),
+            name: "Error Rate".into(),
+            title: "Error rate".into(),
+            severity: Severity::Info,
+            finding: None,
+        });
+        let text = render(&Report::new(result), &RenderOptions::default());
+        assert!(text.contains("1 check passed"));
     }
 
     #[test]
@@ -576,7 +618,6 @@ mod tests {
 
         assert!(text.contains("Health: HEALTHY"));
         assert!(text.contains("No issues detected"));
-        assert!(text.contains("✓ ok"));
     }
 
     #[test]
@@ -586,11 +627,9 @@ mod tests {
             latencies and increase them where requests are being aborted before completion";
         result.checks[0].finding.as_mut().unwrap().recommendations = vec![long.to_string()];
         let report = Report::new(result);
-        let text = render(&report, &RenderOptions::default());
+        let text = render(&report, &verbose());
 
-        // The tail of the sentence must survive (no truncation), on a continuation line.
         assert!(text.contains("completion"));
-        // Every rendered panel row stays within the default panel width.
         for line in text.lines().filter(|l| l.starts_with('│')) {
             assert!(line.chars().count() <= RenderOptions::default().width);
         }
@@ -603,6 +642,7 @@ mod tests {
             &report,
             &RenderOptions {
                 width: 100,
+                verbose: true,
                 ..Default::default()
             },
         );
@@ -646,20 +686,21 @@ mod tests {
         assert!(text.contains("Observed Metrics per pod"));
         assert!(text.contains("pod-a"));
         assert!(text.contains("pod-b"));
-        // Most-pressured replica (pod-a, 8 waiting) sorts before pod-b.
         let pos = text.find("Observed Metrics per pod").unwrap();
         let table = &text[pos..];
         assert!(table.find("pod-a").unwrap() < table.find("pod-b").unwrap());
     }
 
     #[test]
-    fn scrape_mode_renders_notice() {
+    fn scrape_mode_renders_notice_in_verbose() {
         let mut result = sample_result();
         result.context = result
             .context
             .with_client_mode(crate::models::ClientMode::Scrape);
         let report = Report::new(result);
-        let text = render(&report, &RenderOptions::default());
-        assert!(text.contains("require Prometheus"));
+        let compact = render(&report, &RenderOptions::default());
+        assert!(!compact.contains("require Prometheus"));
+        let verbose = render(&report, &verbose());
+        assert!(verbose.contains("require Prometheus"));
     }
 }

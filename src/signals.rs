@@ -81,7 +81,7 @@ impl<'a> SignalGraph<'a> {
     /// Evaluate a signal, returning `default` when absent or non-finite.
     pub fn evaluate_finite(&self, signal: Signal, default: f64) -> f64 {
         self.evaluate(signal)
-            .and_then(|v| if v.is_finite() { Some(v) } else { None })
+            .filter(|v| v.is_finite())
             .unwrap_or(default)
     }
 

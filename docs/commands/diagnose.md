@@ -19,12 +19,24 @@ vllm-doctor diagnose [OPTIONS] URL
 | `-w`, `--watch`    | False   | Refresh continuously until interrupted (interval set by `--interval`).                 |
 | `-i`, `--interval` | `5`     | Seconds between refreshes in `--watch` mode. Only applies with `--watch`.              |
 | `-o`, `--output`   | `text`  | Output format: `text` or `json`.                                                       |
-| `-v`, `--verbose`  | False   | Show observed metrics and per-replica breakdown.                                       |
+| `-v`, `--verbose`  | False   | Show full evidence, recommendations, observed metrics, and per-replica breakdown. |
 | `--save`           | False   | Persist this diagnosis run to the local database.                                      |
 | `-t`, `--timeout`  | `10`    | HTTP request timeout in seconds. Raise it for slow or overloaded targets.              |
 | `-c`, `--config`   | —       | Path to config file (default: `vllm-doctor.toml`).                                     |
 
 For persistence and the watch change-log, see the [history guide](history.md).
+
+## Default vs verbose output
+
+By default `diagnose` prints a compact triage summary: the most likely bottleneck, one line per firing finding, and a count of passing checks. Use `--verbose` (`-v`) for the full detail — evidence, recommended actions, observed metrics tables, and any notices.
+
+```shell
+# Compact (default)
+vllm-doctor diagnose http://localhost:8000/metrics
+
+# Full detail
+vllm-doctor diagnose http://localhost:8000/metrics --verbose
+```
 
 ## One-shot diagnosis
 
