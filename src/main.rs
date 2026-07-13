@@ -425,11 +425,11 @@ mod tests {
                 finding,
             })
             .collect();
-        DiagnosisResult {
-            context: vllm_doctor::models::DiagnosisContext::new("5m"),
-            metric_series: MetricSeriesSnapshot::default(),
+        DiagnosisResult::new(
+            vllm_doctor::models::DiagnosisContext::new("5m"),
+            MetricSeriesSnapshot::default(),
             checks,
-        }
+        )
     }
 
     fn finding(severity: Severity) -> Finding {

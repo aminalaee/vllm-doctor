@@ -7,7 +7,7 @@ pub mod text;
 
 use crate::metrics::MetricSeriesSnapshot;
 use crate::models::RuleResult;
-use crate::models::{DiagnosisResult, Health};
+use crate::models::{Assessment, DiagnosisResult, Health};
 
 /// How the text report should be rendered. The CLI fills these in from the
 /// terminal (width, whether stdout is a TTY); tests and pipes use the defaults.
@@ -62,6 +62,10 @@ impl Report {
     pub fn since(&self) -> &str {
         &self.diagnosis.context.since
     }
+
+    pub fn assessment(&self) -> &Assessment {
+        &self.diagnosis.assessment
+    }
 }
 
 #[cfg(test)]
@@ -86,17 +90,13 @@ mod tests {
         let config = crate::config::Config::default();
         let registry = build_registry(&config);
         let checks = registry.run_all(&snapshot, &config);
-        let diagnosis = DiagnosisResult {
-            context: DiagnosisContext::new("5m"),
-            checks,
-            metric_series: snapshot.clone(),
-        };
+        let diagnosis = DiagnosisResult::new(DiagnosisContext::new("5m"), snapshot.clone(), checks);
         let report = Report::new(diagnosis);
 
         let text = crate::reports::text::render(&report, &RenderOptions::default());
         assert!(text.contains("Health:"));
         // Queue pressure fires; rules that cannot evaluate stay quiet (no panel).
-        assert!(text.contains("Queue Pressure"));
+        assert!(text.contains("Queue pressure"));
         assert!(!text.contains("could not be evaluated"));
 
         let json = crate::reports::json::render(&report, false);

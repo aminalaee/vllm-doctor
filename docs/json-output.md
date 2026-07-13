@@ -20,6 +20,19 @@ Default JSON output:
     }
   },
   "health": "warning",
+  "assessment": {
+    "likely_bottleneck": "kv_cache_saturation",
+    "confidence": "high",
+    "evidence": [
+      "GPU KV cache usage: 95% (threshold: 90%)",
+      "Waiting requests: 7 (blocked by full cache)"
+    ],
+    "interpretation": "Requests are likely waiting because the server has limited KV cache headroom, often caused by high concurrency or long-context requests.",
+    "recommended_next_actions": [
+      "Check max_num_seqs and max_num_batched_tokens",
+      "Route long-context traffic separately"
+    ]
+  },
   "notices": [],
   "checks": [
     {
@@ -105,6 +118,7 @@ Verbose JSON includes observed metrics:
 | `schema_version` | JSON schema version. Current value: `1`.                                                                    |
 | `metadata`       | Report metadata, including generation time and target                                                       |
 | `health`         | Overall health: `healthy`, `info`, `warning`, `critical`                                                    |
+| `assessment`     | Root-cause summary: the single most likely bottleneck (see [Assessment](assessment.md))                     |
 | `notices`        | Advisory caveats about reading the report (scrape-mode limits, multi-model blending); empty when none apply |
 | `checks`         | Rule results, sorted by severity and confidence                                                             |
 | `metrics`        | Observed metrics; included only with `--verbose`                                                            |
@@ -121,6 +135,18 @@ Verbose JSON includes observed metrics:
 | `target.model_name`  | Model name filter, or `null`                     |
 | `target.since`       | Query window used for Prometheus rates           |
 | `target.client_mode` | `prometheus` or `scrape`                         |
+
+## Assessment
+
+The `assessment` object is the root-cause summary. See [Assessment](assessment.md) for how it is derived.
+
+| Field                      | Description                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `likely_bottleneck`        | Machine token for the category: `queue_saturation`, `kv_cache_saturation`, `long_prefill`, `decode_bottleneck`, `replica_imbalance`, `error_issue`, `idle`, `no_clear_bottleneck` |
+| `confidence`               | `low`, `medium`, or `high`                                                                                                 |
+| `evidence`                 | Supporting bullet lines, drawn from the findings that fired this run                                                       |
+| `interpretation`           | One-line human-readable explanation                                                                                        |
+| `recommended_next_actions` | Ordered list of safe next steps                                                                                            |
 
 ## Checks
 

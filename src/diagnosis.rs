@@ -28,11 +28,9 @@ pub async fn diagnose(
         context = context.with_model_name(model);
     }
 
-    Ok(DiagnosisResult {
-        context,
-        metric_series: snapshot,
-        checks,
-    })
+    let mut result = DiagnosisResult::new(context, snapshot, checks);
+    result.assessment = crate::assessment::assess(&result);
+    Ok(result)
 }
 
 #[cfg(test)]

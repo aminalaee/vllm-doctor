@@ -4,7 +4,7 @@
 //! per-rule `checks` (each with an embedded finding or null), and an optional
 //! verbose `metrics` block.
 use crate::metrics::{MetricSpec, all_specs, detect_replica_label};
-use crate::models::{Finding, RuleResult};
+use crate::models::{Assessment, Finding, RuleResult};
 use crate::reports::Report;
 use crate::reports::notices::resolve_notices;
 use serde_json::{Map, Value, json};
@@ -27,6 +27,7 @@ pub fn render(report: &Report, verbose: bool) -> Value {
             },
         },
         "health": report.health().to_string(),
+        "assessment": assessment_json(report.assessment()),
         "notices": resolve_notices(&report.diagnosis),
         "checks": checks,
     });
@@ -36,6 +37,16 @@ pub fn render(report: &Report, verbose: bool) -> Value {
     }
 
     payload
+}
+
+fn assessment_json(assessment: &Assessment) -> Value {
+    json!({
+        "likely_bottleneck": assessment.likely_bottleneck,
+        "confidence": assessment.confidence.to_string(),
+        "evidence": assessment.evidence,
+        "interpretation": assessment.interpretation,
+        "recommended_next_actions": assessment.recommended_next_actions,
+    })
 }
 
 fn check_json(check: &RuleResult) -> Value {
@@ -112,17 +123,17 @@ mod tests {
     }
 
     fn report(metric_series: MetricSeriesSnapshot) -> Report {
-        Report::new(DiagnosisResult {
-            context: DiagnosisContext::new("5m"),
+        Report::new(DiagnosisResult::new(
+            DiagnosisContext::new("5m"),
             metric_series,
-            checks: vec![RuleResult {
+            vec![RuleResult {
                 id: "queue_pressure".into(),
                 name: "Queue Pressure".into(),
                 title: "Queue pressure".into(),
                 severity: Severity::Warning,
                 finding: Some(finding()),
             }],
-        })
+        ))
     }
 
     #[test]
@@ -137,6 +148,16 @@ mod tests {
     }
 
     #[test]
+    fn assessment_is_top_level_object() {
+        let json = render(&report(MetricSeriesSnapshot::default()), false);
+        let assessment = &json["assessment"];
+        assert!(assessment["likely_bottleneck"].is_string());
+        assert!(assessment["confidence"].is_string());
+        assert!(assessment["evidence"].is_array());
+        assert!(assessment["recommended_next_actions"].is_array());
+    }
+
+    #[test]
     fn finding_embedded_in_check_and_omits_signals() {
         let json = render(&report(MetricSeriesSnapshot::default()), false);
         let check = &json["checks"][0];
@@ -148,11 +169,11 @@ mod tests {
 
     #[test]
     fn health_ok_serializes_as_healthy() {
-        let report = Report::new(DiagnosisResult {
-            context: DiagnosisContext::new("5m"),
-            metric_series: MetricSeriesSnapshot::default(),
-            checks: vec![],
-        });
+        let report = Report::new(DiagnosisResult::new(
+            DiagnosisContext::new("5m"),
+            MetricSeriesSnapshot::default(),
+            vec![],
+        ));
         let json = render(&report, false);
         assert_eq!(json["health"], "healthy");
         assert_eq!(json["checks"][0], Value::Null);

@@ -234,15 +234,90 @@ impl RuleResult {
     }
 }
 
+/// The most likely bottleneck category a diagnosis run points to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BottleneckKind {
+    QueueSaturation,
+    KvCacheSaturation,
+    LongPrefill,
+    DecodeBottleneck,
+    ReplicaImbalance,
+    ErrorIssue,
+    Idle,
+    NoClearBottleneck,
+}
+
+impl BottleneckKind {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::QueueSaturation => "Queue saturation",
+            Self::KvCacheSaturation => "KV cache saturation",
+            Self::LongPrefill => "Long prefill / long input prompts",
+            Self::DecodeBottleneck => "Decode / TPOT bottleneck",
+            Self::ReplicaImbalance => "Replica imbalance",
+            Self::ErrorIssue => "Error or failure issue",
+            Self::Idle => "Idle / insufficient traffic",
+            Self::NoClearBottleneck => "No clear bottleneck",
+        }
+    }
+}
+
+impl fmt::Display for BottleneckKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
+/// Root-cause interpretation of a diagnosis run: which bottleneck most likely
+/// dominates, how sure we are, the evidence behind it, and what to do next.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Assessment {
+    pub likely_bottleneck: BottleneckKind,
+    pub confidence: Confidence,
+    pub evidence: Vec<String>,
+    pub interpretation: String,
+    pub recommended_next_actions: Vec<String>,
+}
+
+impl Default for Assessment {
+    fn default() -> Self {
+        Self {
+            likely_bottleneck: BottleneckKind::NoClearBottleneck,
+            confidence: Confidence::Low,
+            evidence: Vec::new(),
+            interpretation: String::new(),
+            recommended_next_actions: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[must_use]
 pub struct DiagnosisResult {
     pub context: DiagnosisContext,
     pub metric_series: MetricSeriesSnapshot,
     pub checks: Vec<RuleResult>,
+    #[serde(default)]
+    pub assessment: Assessment,
 }
 
 impl DiagnosisResult {
+    /// Assemble a result. The assessment defaults to "no clear bottleneck";
+    /// the diagnosis pipeline fills it in via [`crate::assessment::assess`].
+    pub fn new(
+        context: DiagnosisContext,
+        metric_series: MetricSeriesSnapshot,
+        checks: Vec<RuleResult>,
+    ) -> Self {
+        Self {
+            context,
+            metric_series,
+            checks,
+            assessment: Assessment::default(),
+        }
+    }
+
     pub fn health(&self) -> Health {
         self.checks
             .iter()
@@ -297,20 +372,20 @@ mod tests {
 
     #[test]
     fn diagnosis_health_is_ok_when_no_findings() {
-        let result = DiagnosisResult {
-            context: DiagnosisContext::new("5m"),
-            metric_series: MetricSeriesSnapshot::default(),
-            checks: vec![],
-        };
+        let result = DiagnosisResult::new(
+            DiagnosisContext::new("5m"),
+            MetricSeriesSnapshot::default(),
+            vec![],
+        );
         assert_eq!(result.health(), Health::Ok);
     }
 
     #[test]
     fn diagnosis_health_rolls_up_worst_finding() {
-        let result = DiagnosisResult {
-            context: DiagnosisContext::new("5m"),
-            metric_series: MetricSeriesSnapshot::default(),
-            checks: vec![
+        let result = DiagnosisResult::new(
+            DiagnosisContext::new("5m"),
+            MetricSeriesSnapshot::default(),
+            vec![
                 RuleResult {
                     id: "info-rule".into(),
                     name: "Info Rule".into(),
@@ -346,23 +421,23 @@ mod tests {
                     }),
                 },
             ],
-        };
+        );
         assert_eq!(result.health(), Health::Critical);
     }
 
     #[test]
     fn diagnosis_health_ignores_none_findings() {
-        let result = DiagnosisResult {
-            context: DiagnosisContext::new("5m"),
-            metric_series: MetricSeriesSnapshot::default(),
-            checks: vec![RuleResult {
+        let result = DiagnosisResult::new(
+            DiagnosisContext::new("5m"),
+            MetricSeriesSnapshot::default(),
+            vec![RuleResult {
                 id: "quiet".into(),
                 name: "Quiet".into(),
                 title: "Quiet".into(),
                 severity: Severity::Info,
                 finding: None,
             }],
-        };
+        );
         assert_eq!(result.health(), Health::Ok);
     }
 

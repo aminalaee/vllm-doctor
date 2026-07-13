@@ -38,11 +38,7 @@ mod tests {
         if let Some(model) = model {
             context = context.with_model_name(model);
         }
-        DiagnosisResult {
-            context,
-            metric_series: series,
-            checks: vec![],
-        }
+        DiagnosisResult::new(context, series, vec![])
     }
 
     fn multi_model_series() -> MetricSeriesSnapshot {
