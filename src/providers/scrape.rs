@@ -2,6 +2,7 @@
 use super::ProviderError;
 use super::client::ClientProvider;
 use crate::clients::ScrapeClient;
+use crate::clients::connection::ConnectionOptions;
 
 /// Fetches snapshots by scraping a vLLM `/metrics` endpoint.
 pub type ScrapeProvider = ClientProvider<ScrapeClient>;
@@ -10,12 +11,14 @@ pub type ScrapeProvider = ClientProvider<ScrapeClient>;
 pub fn new(
     url: impl Into<String>,
     timeout: f64,
+    opts: &ConnectionOptions,
     since: impl Into<String>,
     model: Option<impl Into<String>>,
 ) -> Result<ScrapeProvider, ProviderError> {
     ClientProvider::new(
         url,
         timeout,
+        opts,
         since,
         model,
         "scrape",
@@ -31,6 +34,7 @@ mod tests {
     use super::super::Provider;
     use super::ScrapeProvider;
     use super::new as scrape_provider_new;
+    use crate::clients::ConnectionOptions;
 
     const SAMPLE_METRICS: &str = "# TYPE vllm:num_requests_running gauge\nvllm:num_requests_running{model_name=\"llama\"} 10.0\n";
 
@@ -38,6 +42,7 @@ mod tests {
         scrape_provider_new(
             format!("{}/metrics", server.uri()),
             1.0,
+            &ConnectionOptions::default(),
             "5m",
             Option::<&str>::None,
         )

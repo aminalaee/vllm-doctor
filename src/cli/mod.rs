@@ -29,6 +29,21 @@ fn positive_seconds(s: &str) -> Result<f64, String> {
     }
 }
 
+/// Parse and validate a `NAME:VALUE` header. The value is never echoed in
+/// errors (it may hold a token); messages reference the header name only.
+fn parse_header(s: &str) -> Result<(String, String), String> {
+    let (name, value) = s.split_once(':').ok_or("expected NAME:VALUE")?;
+    let (name, value) = (name.trim(), value.trim());
+    if name.is_empty() {
+        return Err("header name is empty".to_string());
+    }
+    reqwest::header::HeaderName::from_bytes(name.as_bytes())
+        .map_err(|_| format!("invalid header name `{name}`"))?;
+    reqwest::header::HeaderValue::from_str(value)
+        .map_err(|_| format!("invalid value for header `{name}`"))?;
+    Ok((name.to_string(), value.to_string()))
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Diagnose a vLLM /metrics or Prometheus endpoint
@@ -59,6 +74,12 @@ pub enum Command {
         /// HTTP request timeout in seconds
         #[arg(short = 't', long, default_value_t = 10.0, value_parser = positive_seconds)]
         timeout: f64,
+        /// Extra HTTP header to send with every request (NAME:VALUE, repeatable)
+        #[arg(long = "header", value_parser = parse_header, value_name = "NAME:VALUE")]
+        headers: Vec<(String, String)>,
+        /// Path to a PEM file containing a CA certificate to trust
+        #[arg(long, value_name = "PATH")]
+        ca_cert: Option<PathBuf>,
         /// Path to config file (default: vllm-doctor.toml)
         #[arg(short, long)]
         config: Option<PathBuf>,
@@ -135,6 +156,10 @@ mod tests {
             "2",
             "--timeout",
             "30",
+            "--header",
+            "Authorization: Bearer secret",
+            "--ca-cert",
+            "/path/to/ca.pem",
         ]);
         match args.command {
             Command::Diagnose {
@@ -147,6 +172,8 @@ mod tests {
                 watch,
                 interval,
                 timeout,
+                headers,
+                ca_cert,
                 ..
             } => {
                 assert_eq!(url, "http://localhost:8000/metrics");
@@ -158,6 +185,14 @@ mod tests {
                 assert!(!watch);
                 assert_eq!(interval, 2.0);
                 assert_eq!(timeout, 30.0);
+                assert_eq!(
+                    headers,
+                    vec![("Authorization".to_string(), "Bearer secret".to_string())]
+                );
+                assert_eq!(
+                    ca_cert.as_deref(),
+                    Some(std::path::Path::new("/path/to/ca.pem"))
+                );
             }
             _ => panic!("expected diagnose command"),
         }
@@ -177,6 +212,8 @@ mod tests {
                 interval,
                 timeout,
                 config,
+                headers,
+                ca_cert,
                 ..
             } => {
                 assert_eq!(since, "now");
@@ -188,6 +225,8 @@ mod tests {
                 assert_eq!(interval, 5.0);
                 assert_eq!(timeout, 10.0);
                 assert_eq!(config, None);
+                assert!(headers.is_empty());
+                assert_eq!(ca_cert, None);
             }
             _ => panic!("expected diagnose command"),
         }
@@ -196,6 +235,23 @@ mod tests {
     #[test]
     fn diagnose_requires_url() {
         assert!(Args::try_parse_from(["vllm-doctor", "diagnose"]).is_err());
+    }
+
+    #[test]
+    fn diagnose_rejects_malformed_header() {
+        for bad in ["no-colon", ":emptyname"] {
+            assert!(
+                Args::try_parse_from([
+                    "vllm-doctor",
+                    "diagnose",
+                    "http://host/metrics",
+                    "--header",
+                    bad
+                ])
+                .is_err(),
+                "`{bad}` should be rejected"
+            );
+        }
     }
 
     #[test]

@@ -3,10 +3,12 @@ use async_trait::async_trait;
 
 use crate::metrics::series::MetricSample;
 
+pub mod connection;
 pub mod error;
 pub mod prometheus;
 pub mod scrape;
 
+pub use connection::{ConnectionOptions, build_http_client};
 pub use error::ClientError;
 pub use prometheus::PrometheusClient;
 pub use scrape::ScrapeClient;
@@ -43,11 +45,10 @@ const SCRAPE_CONTENT_TYPES: [&str; 2] = ["text/plain", "application/openmetrics-
 pub async fn resolve_client(
     url: impl Into<String>,
     timeout: f64,
+    opts: &ConnectionOptions,
 ) -> Result<ResolvedClient, ClientError> {
     let url = url.into();
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs_f64(timeout))
-        .build()?;
+    let client = build_http_client(timeout, opts)?;
 
     match client.get(&url).send().await {
         Ok(response) if response.status().is_success() => {
@@ -143,7 +144,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let resolved = resolve_client(server.uri(), 1.0).await.unwrap();
+        let resolved = resolve_client(server.uri(), 1.0, &ConnectionOptions::default())
+            .await
+            .unwrap();
         assert!(matches!(resolved, ResolvedClient::Scrape(_)));
     }
 
@@ -163,7 +166,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let resolved = resolve_client(server.uri(), 1.0).await.unwrap();
+        let resolved = resolve_client(server.uri(), 1.0, &ConnectionOptions::default())
+            .await
+            .unwrap();
         assert!(matches!(resolved, ResolvedClient::Scrape(_)));
     }
 
@@ -180,7 +185,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let resolved = resolve_client(server.uri(), 1.0).await.unwrap();
+        let resolved = resolve_client(server.uri(), 1.0, &ConnectionOptions::default())
+            .await
+            .unwrap();
         assert!(matches!(resolved, ResolvedClient::Prometheus(_)));
     }
 
@@ -190,7 +197,12 @@ mod tests {
         let port = listener.local_addr().unwrap().port();
         drop(listener);
 
-        let result = resolve_client(format!("http://127.0.0.1:{port}"), 1.0).await;
+        let result = resolve_client(
+            format!("http://127.0.0.1:{port}"),
+            1.0,
+            &ConnectionOptions::default(),
+        )
+        .await;
         assert!(result.is_err());
     }
 

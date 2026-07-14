@@ -5,6 +5,7 @@ use clap::Parser;
 use comfy_table::{Cell, Color, ContentArrangement, Table, presets::UTF8_BORDERS_ONLY};
 
 use vllm_doctor::cli::{Args, Command, Format, HistoryCommand};
+use vllm_doctor::clients::ConnectionOptions;
 use vllm_doctor::config::{Config, load_config};
 use vllm_doctor::diagnosis::diagnose;
 use vllm_doctor::models::{DiagnosisResult, Health};
@@ -43,9 +44,12 @@ async fn run(args: Args) -> Result<(), i32> {
             watch,
             interval,
             timeout,
+            headers,
+            ca_cert,
             config,
         } => {
             let cfg = load_config_or_exit(config.as_deref())?;
+            let conn_opts = build_connection_options(&headers, ca_cert);
             let params = DiagnoseParams {
                 url: &url,
                 since: &since,
@@ -56,6 +60,7 @@ async fn run(args: Args) -> Result<(), i32> {
                 timeout,
                 interval: Duration::from_secs_f64(interval),
                 config: &cfg,
+                conn_opts: &conn_opts,
             };
             let result = if watch {
                 run_watch(params).await.map(|()| None)
@@ -109,6 +114,20 @@ fn load_config_or_exit(path: Option<&std::path::Path>) -> Result<Config, i32> {
     })
 }
 
+fn build_connection_options(
+    headers: &[(String, String)],
+    ca_cert: Option<std::path::PathBuf>,
+) -> ConnectionOptions {
+    let mut opts = ConnectionOptions::new();
+    for (name, value) in headers {
+        opts = opts.with_header(name, value);
+    }
+    if let Some(path) = ca_cert {
+        opts = opts.with_ca_cert(path);
+    }
+    opts
+}
+
 fn history_config(command: &HistoryCommand) -> Option<std::path::PathBuf> {
     match command {
         HistoryCommand::List { config, .. } | HistoryCommand::Show { config, .. } => config.clone(),
@@ -132,6 +151,7 @@ struct DiagnoseParams<'a> {
     timeout: f64,
     interval: Duration,
     config: &'a Config,
+    conn_opts: &'a ConnectionOptions,
 }
 
 async fn run_diagnose(params: DiagnoseParams<'_>) -> Result<Health, DiagnoseError> {
@@ -145,9 +165,10 @@ async fn run_diagnose(params: DiagnoseParams<'_>) -> Result<Health, DiagnoseErro
         timeout,
         interval: _,
         config,
+        conn_opts,
     } = params;
     let registry = build_registry(config);
-    let provider = resolve_provider(url, timeout, since, model)
+    let provider = resolve_provider(url, timeout, conn_opts, since, model)
         .await
         .map_err(|e| DiagnoseError::Fetch(e.into()))?;
     let result = diagnose(provider.as_ref(), &registry, since, model, config)
@@ -227,9 +248,10 @@ async fn run_watch(params: DiagnoseParams<'_>) -> Result<(), DiagnoseError> {
         timeout,
         interval,
         config,
+        conn_opts,
     } = params;
     let registry = build_registry(config);
-    let provider = resolve_provider(url, timeout, since, model)
+    let provider = resolve_provider(url, timeout, conn_opts, since, model)
         .await
         .map_err(|e| DiagnoseError::Fetch(e.into()))?;
 
