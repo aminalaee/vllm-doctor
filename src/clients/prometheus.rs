@@ -15,9 +15,7 @@ impl PrometheusClient {
     pub fn new(base_url: impl Into<String>, timeout: f64) -> Result<Self, ClientError> {
         Self::with_client(
             base_url,
-            HttpClient::builder()
-                .timeout(std::time::Duration::from_secs_f64(timeout))
-                .build()?,
+            super::build_http_client(timeout, &super::ConnectionOptions::default())?,
         )
     }
 

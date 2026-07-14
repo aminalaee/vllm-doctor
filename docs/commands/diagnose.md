@@ -19,9 +19,11 @@ vllm-doctor diagnose [OPTIONS] URL
 | `-w`, `--watch`    | False   | Refresh continuously until interrupted (interval set by `--interval`).                 |
 | `-i`, `--interval` | `5`     | Seconds between refreshes in `--watch` mode. Only applies with `--watch`.              |
 | `-o`, `--output`   | `text`  | Output format: `text` or `json`.                                                       |
-| `-v`, `--verbose`  | False   | Show full evidence, recommendations, observed metrics, and per-replica breakdown. |
+| `-v`, `--verbose`  | False   | Show full evidence, recommendations, observed metrics, and per-replica breakdown.      |
 | `--save`           | False   | Persist this diagnosis run to the local database.                                      |
 | `-t`, `--timeout`  | `10`    | HTTP request timeout in seconds. Raise it for slow or overloaded targets.              |
+| `--header`         | —       | Extra HTTP header to send with every request (`NAME:VALUE`, repeatable).               |
+| `--ca-cert`        | —       | Path to a PEM file containing a CA certificate to trust.                               |
 | `-c`, `--config`   | —       | Path to config file (default: `vllm-doctor.toml`).                                     |
 
 For persistence and the watch change-log, see the [history guide](history.md).
@@ -76,6 +78,23 @@ When a Prometheus target serves several models, aggregate metrics blend across t
 
 ```shell
 vllm-doctor diagnose http://localhost:9090 --model meta-llama/Llama-3.1-8B
+```
+
+## Authenticated endpoints
+
+Pass `--header` for any HTTP header — covers bearer tokens, basic auth, and custom headers. Repeat the flag for multiple headers:
+
+```shell
+vllm-doctor diagnose https://prometheus.internal:9090 \
+  --header "Authorization: Bearer $TOKEN"
+```
+
+For endpoints using a self-signed or internal CA, pass the certificate bundle:
+
+```shell
+vllm-doctor diagnose https://prometheus.internal:9090 \
+  --header "Authorization: Bearer $TOKEN" \
+  --ca-cert /etc/ssl/certs/internal-ca.pem
 ```
 
 ## Exit codes

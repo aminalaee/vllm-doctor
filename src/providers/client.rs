@@ -1,12 +1,10 @@
 //! Generic provider backed by any `Client`: builds the HTTP client and collects
 //! a fresh snapshot per request. Shared by the scrape and Prometheus providers.
 use std::sync::Arc;
-use std::time::Duration;
-
-use reqwest::Client as HttpClient;
 
 use super::{Provider, ProviderError, ProviderMetadata};
 use crate::clients::Client;
+use crate::clients::connection::{ConnectionOptions, build_http_client};
 use crate::collector::collect;
 use crate::metrics::MetricSeriesSnapshot;
 
@@ -24,20 +22,20 @@ pub struct ClientProvider<C> {
 }
 
 impl<C: Client + Send + Sync + 'static> ClientProvider<C> {
-    /// Build a provider with a shared connection pool.
     pub fn new(
         url: impl Into<String>,
         timeout: f64,
+        opts: &ConnectionOptions,
         since: impl Into<String>,
         model: Option<impl Into<String>>,
         id: &'static str,
-        build_client: impl FnOnce(String, HttpClient) -> Result<C, crate::clients::error::ClientError>,
+        build_client: impl FnOnce(
+            String,
+            reqwest::Client,
+        ) -> Result<C, crate::clients::error::ClientError>,
     ) -> Result<Self, ProviderError> {
         let endpoint = url.into();
-        let http_client = HttpClient::builder()
-            .timeout(Duration::from_secs_f64(timeout))
-            .build()
-            .map_err(crate::clients::error::ClientError::from)?;
+        let http_client = build_http_client(timeout, opts)?;
         let client = Arc::new(build_client(endpoint.clone(), http_client)?);
         Ok(Self {
             client,

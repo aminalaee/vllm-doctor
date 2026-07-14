@@ -1,4 +1,5 @@
 //! Providers: fetch metric snapshots for the diagnostic engine.
+use crate::clients::ConnectionOptions;
 use crate::metrics::MetricSeriesSnapshot;
 
 pub mod client;
@@ -41,16 +42,19 @@ pub trait Provider: Send + Sync {
 pub async fn resolve_provider(
     url: &str,
     timeout: f64,
+    opts: &ConnectionOptions,
     since: &str,
     model: Option<&str>,
 ) -> Result<Box<dyn Provider>, ProviderError> {
     use crate::clients::{ResolvedClient, resolve_client};
-    let resolved = resolve_client(url, timeout)
+    let resolved = resolve_client(url, timeout, opts)
         .await
         .map_err(ProviderError::Fetch)?;
     let provider: Box<dyn Provider> = match resolved {
-        ResolvedClient::Scrape(_) => Box::new(scrape::new(url, timeout, since, model)?),
-        ResolvedClient::Prometheus(_) => Box::new(prometheus::new(url, timeout, since, model)?),
+        ResolvedClient::Scrape(_) => Box::new(scrape::new(url, timeout, opts, since, model)?),
+        ResolvedClient::Prometheus(_) => {
+            Box::new(prometheus::new(url, timeout, opts, since, model)?)
+        }
     };
     Ok(provider)
 }

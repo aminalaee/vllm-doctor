@@ -2,6 +2,7 @@
 use super::ProviderError;
 use super::client::ClientProvider;
 use crate::clients::PrometheusClient;
+use crate::clients::connection::ConnectionOptions;
 
 /// Fetches snapshots from a Prometheus query API.
 pub type PrometheusProvider = ClientProvider<PrometheusClient>;
@@ -10,12 +11,14 @@ pub type PrometheusProvider = ClientProvider<PrometheusClient>;
 pub fn new(
     base_url: impl Into<String>,
     timeout: f64,
+    opts: &ConnectionOptions,
     since: impl Into<String>,
     model: Option<impl Into<String>>,
 ) -> Result<PrometheusProvider, ProviderError> {
     ClientProvider::new(
         base_url,
         timeout,
+        opts,
         since,
         model,
         "prometheus",
@@ -32,9 +35,17 @@ mod tests {
     use super::super::Provider;
     use super::PrometheusProvider;
     use super::new as prometheus_provider_new;
+    use crate::clients::ConnectionOptions;
 
     fn provider(server: &MockServer) -> PrometheusProvider {
-        prometheus_provider_new(server.uri(), 1.0, "5m", Option::<&str>::None).unwrap()
+        prometheus_provider_new(
+            server.uri(),
+            1.0,
+            &ConnectionOptions::default(),
+            "5m",
+            Option::<&str>::None,
+        )
+        .unwrap()
     }
 
     #[tokio::test]

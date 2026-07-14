@@ -11,6 +11,10 @@ pub enum ClientError {
     Query(String),
     #[error("parse error: {0}")]
     Parse(String),
+    #[error("invalid header: {0}")]
+    InvalidHeader(String),
+    #[error("CA certificate error: {0}")]
+    CaCert(String),
 }
 
 impl ClientError {
