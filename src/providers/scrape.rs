@@ -1,12 +1,10 @@
 //! Raw vLLM `/metrics` scrape provider.
-use std::time::Duration;
-
 use super::ProviderError;
-use super::cached::CachedProvider;
+use super::client::ClientProvider;
 use crate::clients::ScrapeClient;
 
-/// Fetches snapshots by scraping a vLLM `/metrics` endpoint, with caching.
-pub type ScrapeProvider = CachedProvider<ScrapeClient>;
+/// Fetches snapshots by scraping a vLLM `/metrics` endpoint.
+pub type ScrapeProvider = ClientProvider<ScrapeClient>;
 
 /// Build a provider with a shared connection pool.
 pub fn new(
@@ -15,24 +13,12 @@ pub fn new(
     since: impl Into<String>,
     model: Option<impl Into<String>>,
 ) -> Result<ScrapeProvider, ProviderError> {
-    with_cache_ttl(url, timeout, since, model, super::DEFAULT_CACHE_TTL)
-}
-
-/// Build a provider with a custom cache TTL.
-pub fn with_cache_ttl(
-    url: impl Into<String>,
-    timeout: f64,
-    since: impl Into<String>,
-    model: Option<impl Into<String>>,
-    ttl: Duration,
-) -> Result<ScrapeProvider, ProviderError> {
-    CachedProvider::with_cache_ttl(
+    ClientProvider::new(
         url,
         timeout,
         since,
         model,
         "scrape",
-        ttl,
         ScrapeClient::with_client,
     )
 }
@@ -59,7 +45,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn caches_second_fetch() {
+    async fn each_fetch_collects_fresh() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
             .and(path("/metrics"))
@@ -74,9 +60,10 @@ mod tests {
         let provider = provider(&server);
         let _ = provider.fetch_snapshot().await.unwrap();
         let after_first = server.received_requests().await.unwrap_or_default().len();
+        // No caching: a second fetch scrapes the endpoint again.
         let _ = provider.fetch_snapshot().await.unwrap();
         let after_second = server.received_requests().await.unwrap_or_default().len();
-        assert_eq!(after_first, after_second);
+        assert!(after_second > after_first);
     }
 
     #[tokio::test]

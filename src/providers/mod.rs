@@ -1,14 +1,10 @@
-//! Providers: fetch and cache metric snapshots for the diagnostic engine.
-use std::time::Duration;
-
+//! Providers: fetch metric snapshots for the diagnostic engine.
 use crate::metrics::MetricSeriesSnapshot;
 
-pub mod cache;
-pub mod cached;
+pub mod client;
 pub mod prometheus;
 pub mod scrape;
 
-pub use cache::RequestCycleCache;
 pub use prometheus::PrometheusProvider;
 pub use scrape::ScrapeProvider;
 
@@ -33,15 +29,12 @@ pub struct ProviderMetadata {
 /// A source of `MetricSeriesSnapshot`s.
 #[async_trait::async_trait]
 pub trait Provider: Send + Sync {
-    /// Return a fresh snapshot, using the cache when possible.
+    /// Fetch a fresh snapshot.
     async fn fetch_snapshot(&self) -> Result<MetricSeriesSnapshot, ProviderError>;
 
     /// Return static metadata about this provider.
     fn metadata(&self) -> ProviderMetadata;
 }
-
-/// Default freshness window for cached snapshots.
-pub const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(15);
 
 /// Probe `url` to choose between a raw `/metrics` scrape and the Prometheus
 /// query API, then build the matching provider.
