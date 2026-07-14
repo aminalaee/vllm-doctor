@@ -16,9 +16,9 @@
 use crate::config::Config;
 use crate::config::QueueLatencyConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
-use crate::reports::templates::QueueLatencyTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
+use crate::rules::templates::QueueLatencyTemplate;
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -42,7 +42,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "vllm:request_queue_time_seconds",
         "vllm:num_requests_waiting",
     ],
-    template: &QueueLatencyTemplate as &dyn crate::reports::templates::FindingTemplate,
+    template: &QueueLatencyTemplate as &dyn crate::rules::templates::FindingTemplate,
 };
 
 pub struct QueueLatencyRule {

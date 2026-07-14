@@ -13,6 +13,7 @@ pub mod queue_latency;
 pub mod queue_pressure;
 pub mod registry;
 pub mod replica_imbalance;
+pub mod templates;
 pub mod tpot_bottleneck;
 pub mod ttft_bottleneck;
 
@@ -38,7 +39,7 @@ pub(crate) fn finding_for(
         DiagnosisState::Firing(judgment) => judgment,
     };
 
-    let ctx = crate::reports::templates::TemplateContext {
+    let ctx = crate::rules::templates::TemplateContext {
         graph,
         config,
         signal: judgment.signal,

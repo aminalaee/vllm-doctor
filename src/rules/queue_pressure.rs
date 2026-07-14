@@ -12,9 +12,9 @@
 use crate::config::Config;
 use crate::config::QueuePressureConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
-use crate::reports::templates::QueuePressureTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
+use crate::rules::templates::QueuePressureTemplate;
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -34,7 +34,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "Reduce incoming request rate",
     ],
     related_metrics: &["vllm:num_requests_waiting", "vllm:num_requests_running"],
-    template: &QueuePressureTemplate as &dyn crate::reports::templates::FindingTemplate,
+    template: &QueuePressureTemplate as &dyn crate::rules::templates::FindingTemplate,
 };
 
 pub struct QueuePressureRule {

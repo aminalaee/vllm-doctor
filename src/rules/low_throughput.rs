@@ -18,9 +18,9 @@
 use crate::config::Config;
 use crate::config::LowThroughputConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
-use crate::reports::templates::LowThroughputTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
+use crate::rules::templates::LowThroughputTemplate;
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -44,7 +44,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "vllm:generation_tokens_per_second",
         "vllm:num_requests_running",
     ],
-    template: &LowThroughputTemplate as &dyn crate::reports::templates::FindingTemplate,
+    template: &LowThroughputTemplate as &dyn crate::rules::templates::FindingTemplate,
 };
 
 pub struct LowThroughputRule {

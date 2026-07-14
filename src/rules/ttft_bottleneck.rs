@@ -6,9 +6,9 @@
 use crate::config::Config;
 use crate::config::TtftBottleneckConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
-use crate::reports::templates::TtftBottleneckTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
+use crate::rules::templates::TtftBottleneckTemplate;
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -33,7 +33,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "num_requests_waiting",
         "tpot_p95_seconds",
     ],
-    template: &TtftBottleneckTemplate as &dyn crate::reports::templates::FindingTemplate,
+    template: &TtftBottleneckTemplate as &dyn crate::rules::templates::FindingTemplate,
 };
 
 pub struct TtftBottleneckRule {

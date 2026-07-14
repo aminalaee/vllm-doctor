@@ -16,9 +16,9 @@
 use crate::config::Config;
 use crate::config::PreemptionPressureConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
-use crate::reports::templates::PreemptionPressureTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
+use crate::rules::templates::PreemptionPressureTemplate;
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -38,7 +38,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "Route long-context requests to a dedicated replica",
     ],
     related_metrics: &["vllm:num_preemptions_total", "vllm:kv_cache_usage_perc"],
-    template: &PreemptionPressureTemplate as &dyn crate::reports::templates::FindingTemplate,
+    template: &PreemptionPressureTemplate as &dyn crate::rules::templates::FindingTemplate,
 };
 
 pub struct PreemptionPressureRule {
