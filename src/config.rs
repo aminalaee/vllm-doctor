@@ -247,6 +247,19 @@ mod tests {
     }
 
     #[test]
+    fn malformed_explicit_path_is_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.toml");
+        std::fs::write(
+            &path,
+            "[rules.queue_latency]\nhigh_queue_time_p95 = \"nope\"\n",
+        )
+        .unwrap();
+        let err = load_config_with(Some(&path), None, None).unwrap_err();
+        assert!(err.to_string().contains("load error"));
+    }
+
+    #[test]
     fn auto_discovers_local_toml() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(

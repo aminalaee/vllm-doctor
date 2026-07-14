@@ -45,7 +45,7 @@ async fn run(args: Args) -> Result<(), i32> {
             timeout,
             config,
         } => {
-            let cfg = load_config_or_default(config.as_deref());
+            let cfg = load_config_or_exit(config.as_deref())?;
             let params = DiagnoseParams {
                 url: &url,
                 since: &since,
@@ -84,22 +84,29 @@ async fn run(args: Args) -> Result<(), i32> {
             }
         }
         Command::Migrate { config } => {
-            let cfg = load_config_or_default(config.as_deref());
+            let cfg = load_config_or_exit(config.as_deref())?;
             if let Err(err) = run_migrate(&cfg).await {
                 eprintln!("Error: migration failed: {err}");
                 return Err(EXIT_ERROR);
             }
         }
         Command::History { command } => {
-            let cfg = load_config_or_default(history_config(&command).as_deref());
+            let cfg = load_config_or_exit(history_config(&command).as_deref())?;
             run_history(command, &cfg).await?;
         }
     }
     Ok(())
 }
 
-fn load_config_or_default(path: Option<&std::path::Path>) -> Config {
-    load_config(path).unwrap_or_else(|_| Config::default())
+/// Load configuration, exiting with a clear error rather than silently falling
+/// back to defaults. A missing or malformed config (an explicit `--config` path,
+/// or a `vllm-doctor.toml` in scope) is a user error worth surfacing; absent
+/// discovery files still yield defaults from within `load_config`.
+fn load_config_or_exit(path: Option<&std::path::Path>) -> Result<Config, i32> {
+    load_config(path).map_err(|err| {
+        eprintln!("Error: could not load config: {err}");
+        EXIT_ERROR
+    })
 }
 
 fn history_config(command: &HistoryCommand) -> Option<std::path::PathBuf> {
