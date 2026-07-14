@@ -1,8 +1,8 @@
-"""Serve a metrics fixture file over HTTP for local testing.
+"""Serve a mock metrics scenario over HTTP for local testing.
 
 Usage:
-    python3 scripts/serve_metrics.py tests/fixtures/scrape/kv-pressure.txt
-    python3 scripts/serve_metrics.py tests/fixtures/prometheus/demo.json --port 9090
+    python3 examples/mock/serve_metrics.py examples/mock/metrics.txt
+    python3 examples/mock/serve_metrics.py examples/mock/prometheus.json --port 9090
 
 Then in another terminal:
     vllm-doctor diagnose http://localhost:8000 --verbose
@@ -22,8 +22,8 @@ def _prometheus_response(fixture, query):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Serve a metrics fixture over HTTP.")
-    parser.add_argument("fixture", type=Path, help="Path to the fixture .txt or .json file.")
+    parser = argparse.ArgumentParser(description="Serve a mock metrics scenario over HTTP.")
+    parser.add_argument("fixture", type=Path, help="Path to the scenario .txt or .json file.")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on.")
     args = parser.parse_args()
 
@@ -68,6 +68,8 @@ def main():
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")
     finally:
         server.server_close()
 

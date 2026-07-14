@@ -1,4 +1,0 @@
-# TYPE vllm:kv_cache_usage_perc gauge
-vllm:kv_cache_usage_perc{engine="0",model_name="meta-llama/Llama-3.1-8B"} 0.95
-# TYPE vllm:num_requests_waiting gauge
-vllm:num_requests_waiting{engine="0",model_name="meta-llama/Llama-3.1-8B"} 7.0

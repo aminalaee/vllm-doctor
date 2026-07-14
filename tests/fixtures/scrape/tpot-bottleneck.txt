@@ -1,4 +1,0 @@
-# Scenario: high TPOT (p95 > 0.2s), low generation throughput — decode bottleneck.
-# tpot_p95_seconds requires a Prometheus client; ScrapeClient always returns None.
-# TYPE vllm:generation_tokens_per_second gauge
-vllm:generation_tokens_per_second{engine="0",model_name="meta-llama/Llama-3.1-8B"} 20.0

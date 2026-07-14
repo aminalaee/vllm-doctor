@@ -46,6 +46,15 @@ vllm-doctor diagnose http://localhost:8000/metrics --verbose
 vllm-doctor diagnose http://localhost:8000/metrics
 ```
 
+## Try it locally
+
+The repository includes two runnable examples:
+
+- [Mock metrics](https://github.com/aminalaee/vllm-doctor/tree/main/examples/mock)
+  exercises predefined diagnoses without requiring vLLM.
+- [Live vLLM](https://github.com/aminalaee/vllm-doctor/tree/main/examples/live-vllm)
+  starts a small real model with vLLM.
+
 ## JSON output
 
 ```shell

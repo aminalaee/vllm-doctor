@@ -1,4 +1,0 @@
-# TYPE vllm:prefix_cache_hits_total counter
-vllm:prefix_cache_hits_total{engine="0",model_name="meta-llama/Llama-3.1-8B"} 100.0
-# TYPE vllm:prefix_cache_queries_total counter
-vllm:prefix_cache_queries_total{engine="0",model_name="meta-llama/Llama-3.1-8B"} 1000.0

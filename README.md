@@ -74,6 +74,10 @@ Prometheus:
 vllm-doctor diagnose http://localhost:9090
 ```
 
+To try the diagnosis without installing vLLM, run the
+[mock metrics example](examples/mock/). To test against a real local model, use
+the [live vLLM example](examples/live-vllm/).
+
 ## Run with Docker
 
 A prebuilt image is published to GitHub Container Registry:

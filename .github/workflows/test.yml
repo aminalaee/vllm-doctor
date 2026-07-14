@@ -27,15 +27,29 @@ jobs:
         run: cargo build --release
       - name: Smoke — version
         run: ./target/release/vllm-doctor --version
-      - name: Smoke — diagnose fixture
+      - name: Smoke — diagnose Prometheus
         run: |
-          python3 scripts/serve_metrics.py tests/fixtures/prometheus/demo.json --port 8000 &
+          python3 examples/mock/serve_metrics.py examples/mock/prometheus.json --port 8000 &
           SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
           sleep 1
-          ./target/release/vllm-doctor diagnose http://localhost:8000 --output json | tee /tmp/out.json
-          kill $SERVER_PID
-          grep -q '"schema_version"' /tmp/out.json
-          grep -q '"replica_imbalance"' /tmp/out.json
+          set +e
+          ./target/release/vllm-doctor diagnose http://localhost:8000 --output json | tee /tmp/prometheus.json
+          STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$STATUS" -gt 1 ]; then exit "$STATUS"; fi
+          grep -q '"schema_version"' /tmp/prometheus.json
+          grep -q '"client_mode": "prometheus"' /tmp/prometheus.json
+          grep -q '"replica_imbalance"' /tmp/prometheus.json
+      - name: Smoke — diagnose direct scrape
+        run: |
+          python3 examples/mock/serve_metrics.py examples/mock/metrics.txt --port 8000 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          sleep 1
+          ./target/release/vllm-doctor diagnose http://localhost:8000/metrics --output json | tee /tmp/scrape.json
+          grep -q '"schema_version"' /tmp/scrape.json
+          grep -q '"client_mode": "scrape"' /tmp/scrape.json
 
   docker:
     name: Docker image
