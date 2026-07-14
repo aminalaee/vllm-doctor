@@ -24,7 +24,7 @@ Default JSON output:
     "likely_bottleneck": "kv_cache_saturation",
     "confidence": "high",
     "evidence": [
-      "GPU KV cache usage: 95% (threshold: 90%)",
+      "GPU KV cache usage: 94% (threshold: 90%)",
       "Waiting requests: 7 (blocked by full cache)"
     ],
     "interpretation": "Requests are likely waiting because the server has limited KV cache headroom, often caused by high concurrency or long-context requests.",

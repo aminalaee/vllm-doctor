@@ -16,7 +16,7 @@ vllm-doctor history list
 vllm-doctor history show <run-id>
 ```
 
-The database is a single SQLite file at `~/.vllm-doctor/vllm_doctor.db` by default. See [Configuration](../configuration.md#database) to point at a different file or a PostgreSQL database.
+The database is a single SQLite file at `~/.vllm-doctor/vllm_doctor.db` by default. See [Configuration](../configuration.md#database) to point at a different file.
 
 Before the first `--save` (and after every upgrade that ships a schema change), run [`vllm-doctor migrate`](migrate.md) once to create or update the schema. It is idempotent.
 

@@ -190,10 +190,9 @@ fn render_finding_panel(
 ) {
     let color = severity_color(finding.severity);
     let icon = severity_icon(finding.severity);
-    let title = format!(
-        "{} {}  [{}]   {}",
-        icon, finding.title, finding.confidence, finding.summary
-    );
+    // Title stays within the panel: icon + name + confidence only. The summary
+    // would overflow the border, and the evidence below already carries detail.
+    let title = format!("{} {}  [{}]", icon, finding.title, finding.confidence);
 
     let bar = paint("│", color, false, opts.color);
     let content = |text: &str| format!("{bar}  {text}  {bar}\n");

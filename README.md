@@ -99,13 +99,17 @@ $ vllm-doctor diagnose http://localhost:8000/metrics
 ────────────────────────────────────────────────────────────────────────────────
 
 Likely bottleneck: KV cache saturation (high confidence)
-  Cache is full (94%), so requests queue and TTFT climbs. The queue and TTFT
-  findings are likely downstream — start with the KV cache.
+  Requests are likely waiting because the server has limited KV cache
+  headroom, often caused by high concurrency or long-context requests.
 
-  ✖ KV cache pressure     GPU KV cache usage: 94% (>90%), 7 requests waiting
-  ⚠ High TTFT             TTFT p95: 3.2s, but TPOT p95 is 0.05s — prefill bound
-  ⚠ Replica imbalance     vllm-1: 10 running / 94% cache vs vllm-0: 2 / 41%
-  ⚠ Queue pressure        7 requests waiting (threshold: 5)
+  ✖ KV cache pressure  GPU KV cache at 94% — new requests cannot be
+       admitted until sequences complete.
+  ⚠ High time to first token (TTFT)  Requests are waiting too long before
+       receiving the first token. This typically indicates prefill or
+       queue pressure.
+  ⚠ Replica imbalance  Load is unevenly distributed across replicas
+  ⚠ Queue pressure  Requests are queuing faster than the server can
+       process them.
 
 6 checks passed · run -v for evidence, fixes, and per-replica metrics
 ```
@@ -119,15 +123,16 @@ $ vllm-doctor diagnose -v http://localhost:8000/metrics
 ────────────────────────────────────────────────────────────────────────────────
 
 Likely bottleneck: KV cache saturation (high confidence)
-  Cache is full (94%), so requests queue and TTFT climbs. The queue and TTFT
-  findings are likely downstream — start with the KV cache.
+  Requests are likely waiting because the server has limited KV cache
+  headroom, often caused by high concurrency or long-context requests.
 
 Findings
 
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│              ✖ KV cache pressure  [high]   GPU cache 94%, 7 waiting          │
+│  ✖ KV cache pressure  [high]                                                 │
 │                                                                              │
-│  GPU KV cache usage: 94% (threshold: 90%)  ·  Waiting requests: 7             │
+│  GPU KV cache usage: 94% (threshold: 90%)  ·  Waiting requests: 7 (blocked   │
+│  by full cache)                                                              │
 │                                                                              │
 │  → Reduce max_num_seqs to limit concurrent sequences                         │
 │  → Reduce max_num_batched_tokens to cap memory per step                      │
@@ -135,7 +140,7 @@ Findings
 │  → Route long-context requests to a dedicated replica                        │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│           ⚠ High time to first token (TTFT)  [high]   TTFT 3.2s, TPOT 0.05s  │
+│  ⚠ High time to first token (TTFT)  [high]                                   │
 │                                                                              │
 │  TTFT p95: 3.200s  ·  TPOT p95: 0.050s  ·  Waiting requests: 7               │
 │                                                                              │
@@ -145,7 +150,7 @@ Findings
 │  → Separate long-context traffic to dedicated instances                      │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│              ⚠ Replica imbalance  [high]   vllm-1 hot, vllm-0 idle            │
+│  ⚠ Replica imbalance  [high]                                                 │
 │                                                                              │
 │  meta-llama/Llama-3.1-8B: running vllm-1=10 vs vllm-0=2; cache 94% vs 41%;   │
 │  waiting vllm-1=7 vs vllm-0=0                                                │
@@ -156,7 +161,7 @@ Findings
 │  → Confirm newly added replicas are registered with the load balancer        │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│              ⚠ Queue pressure  [low]   7 waiting (threshold: 5)              │
+│  ⚠ Queue pressure  [low]                                                     │
 │                                                                              │
 │  Waiting requests: 7 (threshold: 5)                                          │
 │                                                                              │
@@ -168,10 +173,8 @@ Findings
 
 Passed
 
- ✓ Queue Latency       ✓ Preemption Pressure   ✓ Low Throughput        
- ✓ Error Rate            ✓ High TPOT             ✓ Prefix Cache Efficiency 
-
-⚠ TTFT, TPOT and Queue Latency rules require Prometheus — connect to Prometheus for full analysis.
+ ✓ Queue Latency  ✓ Preemption Pressure  ✓ Low Throughput          
+ ✓ Error Rate     ✓ High TPOT            ✓ Prefix Cache Efficiency 
 
 Observed Metrics:
 

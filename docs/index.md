@@ -96,8 +96,14 @@ docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
                 vLLM Doctor  ·  Health: CRITICAL  ·  Since: now                 
 ────────────────────────────────────────────────────────────────────────────────
 
+Likely bottleneck: KV cache saturation (high confidence)
+  Requests are likely waiting because the server has limited KV cache
+  headroom, often caused by high concurrency or long-context requests.
+
+Findings
+
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│                    ✖ KV cache pressure  [high confidence]                    │
+│  ✖ KV cache pressure  [high]                                                 │
 │                                                                              │
 │  GPU KV cache usage: 94% (threshold: 90%)  ·  Waiting requests: 7 (blocked   │
 │  by full cache)                                                              │
@@ -108,7 +114,7 @@ docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
 │  → Route long-context requests to a dedicated replica                        │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│             ⚠ High time to first token (TTFT)  [high confidence]             │
+│  ⚠ High time to first token (TTFT)  [high]                                   │
 │                                                                              │
 │  TTFT p95: 3.200s  ·  TPOT p95: 0.050s  ·  Waiting requests: 7               │
 │                                                                              │
@@ -118,7 +124,7 @@ docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
 │  → Separate long-context traffic to dedicated instances                      │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│                    ⚠ Replica imbalance  [high confidence]                    │
+│  ⚠ Replica imbalance  [high]                                                 │
 │                                                                              │
 │  meta-llama/Llama-3.1-8B: running vllm-1=10 vs vllm-0=2; cache 94% vs 41%;   │
 │  waiting vllm-1=7 vs vllm-0=0                                                │
@@ -129,7 +135,7 @@ docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
 │  → Confirm newly added replicas are registered with the load balancer        │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭──────────────────────────────────────────────────────────────────────────────╮
-│                      ⚠ Queue pressure  [low confidence]                      │
+│  ⚠ Queue pressure  [low]                                                     │
 │                                                                              │
 │  Waiting requests: 7 (threshold: 5)                                          │
 │                                                                              │
@@ -139,18 +145,10 @@ docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
 │  → Reduce incoming request rate                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 
- KV Cache Pressure        ✖ critical  [high] 
- High TTFT                ⚠ warning   [high] 
- Replica Imbalance        ⚠ warning   [high] 
- Queue Pressure           ⚠ warning   [low]  
- Queue Latency            ✓ ok              
- Preemption Pressure      ✓ ok              
- Low Throughput           ✓ ok              
- Error Rate               ✓ ok              
- High TPOT                ✓ ok              
- Prefix Cache Efficiency  ✓ ok              
+Passed
 
-⚠ TTFT, TPOT and Queue Latency rules require Prometheus — connect to Prometheus for full analysis.
+ ✓ Queue Latency  ✓ Preemption Pressure  ✓ Low Throughput          
+ ✓ Error Rate     ✓ High TPOT            ✓ Prefix Cache Efficiency 
 
 Observed Metrics:
 

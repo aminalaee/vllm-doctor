@@ -50,6 +50,8 @@ jobs:
           ./target/release/vllm-doctor diagnose http://localhost:8000/metrics --output json | tee /tmp/scrape.json
           grep -q '"schema_version"' /tmp/scrape.json
           grep -q '"client_mode": "scrape"' /tmp/scrape.json
+      - name: Docs examples up to date
+        run: ./scripts/check-docs.sh
 
   docker:
     name: Docker image

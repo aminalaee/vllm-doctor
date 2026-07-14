@@ -18,7 +18,7 @@ demo:
 	python3 examples/mock/serve_metrics.py examples/mock/prometheus.json > /dev/null 2>&1 & \
 	sleep 0.5 && \
 	{ printf '$$ vllm-doctor diagnose http://localhost:8000\n\n'; NO_COLOR= FORCE_COLOR=1 CLICOLOR_FORCE=1 TERM=xterm-256color COLUMNS=120 ./target/release/vllm-doctor diagnose http://localhost:8000; } \
-		| freeze - --language ansi --output docs/demo.png --window --shadow.blur 20 --shadow.x 0 --shadow.y 8; \
+		| freeze - --language ansi --font.size 16 --line-height 1.4 --padding 20 --output docs/demo.png --window --shadow.blur 20 --shadow.x 0 --shadow.y 8; \
 	kill %1 2>/dev/null || true
 
 build:

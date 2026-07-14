@@ -1,6 +1,5 @@
 -- Diagnosis run history. SQLite stores uuid as BLOB and timestamps as TEXT
--- (it has no native uuid/timestamp types); the Postgres migration for server
--- mode uses native uuid + timestamptz. Summary columns are denormalized so
+-- (it has no native uuid/timestamp types). Summary columns are denormalized so
 -- `list` works without parsing the report blob, even across report versions.
 CREATE TABLE runs (
     id BLOB PRIMARY KEY NOT NULL,
