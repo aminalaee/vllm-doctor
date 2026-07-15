@@ -63,7 +63,6 @@ fn finding_json(finding: &Finding) -> Value {
         "severity": finding.severity.to_string(),
         "confidence": finding.confidence.to_string(),
         "title": finding.title,
-        "summary": finding.summary,
         "evidence": finding.evidence,
         "likely_causes": finding.likely_causes,
         "recommendations": finding.recommendations,
@@ -105,7 +104,7 @@ mod tests {
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
     use crate::models::{
-        Confidence, DiagnosisContext, DiagnosisResult, Finding, RuleResult, Severity,
+        Confidence, DiagnosisContext, DiagnosisResult, EvidenceItem, Finding, RuleResult, Severity,
     };
 
     fn finding() -> Finding {
@@ -113,9 +112,8 @@ mod tests {
             severity: Severity::Warning,
             confidence: Confidence::Medium,
             title: "Queue pressure".into(),
-            summary: "5 requests waiting".into(),
             signals: vec!["num_requests_waiting".into()],
-            evidence: vec!["Waiting requests: 5".into()],
+            evidence: vec![EvidenceItem::text("Waiting requests: 5")],
             likely_causes: vec!["Insufficient capacity".into()],
             recommendations: vec!["Add replicas".into()],
             related_metrics: vec!["vllm:num_requests_waiting".into()],

@@ -20,7 +20,7 @@
 //! Severity is overridden to `Critical` when server-side errors are high.
 use crate::config::Config;
 use crate::config::ErrorRateConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{ComparisonOperator, Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, TemplateContext};
@@ -149,11 +149,7 @@ fn request_totals(graph: &SignalGraph<'_>) -> Option<(f64, f64, f64)> {
 pub struct ErrorRateTemplate;
 
 impl FindingTemplate for ErrorRateTemplate {
-    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
-        "Server is returning errors or clients are aborting at an elevated rate.".into()
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let cfg = &ctx.config.rules.error_rate;
         let Some((errors, aborts, success)) = request_totals(ctx.graph) else {
             return vec![];
@@ -164,24 +160,26 @@ impl FindingTemplate for ErrorRateTemplate {
         }
         let error_rate = errors / total;
         let abort_rate = aborts / total;
-        let mut lines = vec![];
+        let mut items = vec![];
         if error_rate_high(ctx.graph, cfg).is_some() {
-            lines.push(format!(
-                "Error rate: {:.1}% ({errors:.0} errors out of {total:.0} requests, \
-                 threshold: {:.1}%)",
-                error_rate * 100.0,
-                cfg.high_error_rate * 100.0,
+            items.push(EvidenceItem::threshold(
+                Signal::ErrorRate.to_string(),
+                error_rate,
+                cfg.high_error_rate,
+                None::<String>,
+                ComparisonOperator::GreaterThanOrEqual,
             ));
         }
         if abort_rate_high(ctx.graph, cfg).is_some() {
-            lines.push(format!(
-                "Abort rate: {:.1}% ({aborts:.0} aborts out of {total:.0} requests, \
-                 threshold: {:.1}%)",
-                abort_rate * 100.0,
-                cfg.high_abort_rate * 100.0,
+            items.push(EvidenceItem::threshold(
+                Signal::AbortRate.to_string(),
+                abort_rate,
+                cfg.high_abort_rate,
+                None::<String>,
+                ComparisonOperator::GreaterThanOrEqual,
             ));
         }
-        lines
+        items
     }
 }
 
@@ -284,14 +282,11 @@ mod tests {
         };
         let t = ErrorRateTemplate;
         assert_eq!(
-            t.summary(&ctx),
-            "Server is returning errors or clients are aborting at an elevated rate."
+            t.evidence(&ctx)[0].summary(),
+            "error_rate: 0.05 ≥ threshold 0.05"
         );
         let evidence = t.evidence(&ctx);
-        assert_eq!(
-            evidence[0],
-            "Error rate: 5.0% (1 errors out of 20 requests, threshold: 5.0%)"
-        );
+        assert_eq!(evidence.len(), 1);
     }
 
     #[test]
@@ -307,13 +302,7 @@ mod tests {
         };
         // total = 20, error_rate = 0.15, abort_rate = 0.15.
         let evidence = ErrorRateTemplate.evidence(&ctx);
-        assert_eq!(
-            evidence[0],
-            "Error rate: 15.0% (3 errors out of 20 requests, threshold: 5.0%)"
-        );
-        assert_eq!(
-            evidence[1],
-            "Abort rate: 15.0% (3 aborts out of 20 requests, threshold: 10.0%)"
-        );
+        assert_eq!(evidence[0].summary(), "error_rate: 0.15 ≥ threshold 0.05");
+        assert_eq!(evidence[1].summary(), "abort_rate: 0.15 ≥ threshold 0.10");
     }
 }

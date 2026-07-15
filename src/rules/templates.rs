@@ -2,6 +2,7 @@
 //! `FindingTemplate` in its module; this holds only the trait, the context it
 //! receives, and a generic fallback.
 use crate::config::Config;
+use crate::models::EvidenceItem;
 use crate::signals::{Signal, SignalGraph};
 
 /// Context provided to a template when formatting a finding: the driving signal
@@ -15,23 +16,21 @@ pub struct TemplateContext<'a> {
 }
 
 pub trait FindingTemplate: Sync {
-    fn summary(&self, ctx: &TemplateContext<'_>) -> String;
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String>;
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem>;
 }
 
 /// Generic fallback template used when a rule does not provide a custom one.
 pub struct GenericTemplate;
 
 impl FindingTemplate for GenericTemplate {
-    fn summary(&self, ctx: &TemplateContext<'_>) -> String {
-        let signal = ctx.signal;
-        format!("{signal} is elevated")
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let signal = ctx.signal;
         let value = ctx.value;
-        vec![format!("{signal} = {value:.4}")]
+        vec![EvidenceItem::Value {
+            metric: signal.to_string(),
+            value,
+            unit: None,
+        }]
     }
 }
 
@@ -56,7 +55,6 @@ mod tests {
             value: 12.0,
         };
         let t = GenericTemplate;
-        assert_eq!(t.summary(&ctx), "num_requests_running is elevated");
-        assert_eq!(t.evidence(&ctx), vec!["num_requests_running = 12.0000"]);
+        assert_eq!(t.evidence(&ctx)[0].summary(), "num_requests_running: 12");
     }
 }

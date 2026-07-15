@@ -14,7 +14,7 @@
 //!   both signals       → high   (cache is full and actively blocking requests)
 use crate::config::Config;
 use crate::config::KVCachePressureConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{ComparisonOperator, Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, TemplateContext};
@@ -88,28 +88,24 @@ fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
 pub struct KvCachePressureTemplate;
 
 impl FindingTemplate for KvCachePressureTemplate {
-    fn summary(&self, ctx: &TemplateContext<'_>) -> String {
-        let cache = ctx.value;
-        format!(
-            "GPU KV cache at {:.0}% — new requests cannot be admitted until sequences complete.",
-            cache * 100.0,
-        )
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let cache = ctx.value;
         let cfg = &ctx.config.rules.kv_cache_pressure;
-        let mut lines = vec![format!(
-            "GPU KV cache usage: {usage} (threshold: {threshold})",
-            usage = format!("{:.0}%", cache * 100.0),
-            threshold = format!("{:.0}%", cfg.high_cache_usage * 100.0),
+        let mut items = vec![EvidenceItem::threshold(
+            Signal::KvCacheUsagePerc.to_string(),
+            cache,
+            cfg.high_cache_usage,
+            None::<String>,
+            ComparisonOperator::GreaterThanOrEqual,
         )];
         if let Some(waiting) = waiting_backlog(ctx.graph) {
-            lines.push(format!(
-                "Waiting requests: {waiting:.0} (blocked by full cache)"
+            items.push(EvidenceItem::value(
+                Signal::NumRequestsWaiting.to_string(),
+                waiting,
+                None::<String>,
             ));
         }
-        lines
+        items
     }
 }
 
@@ -191,11 +187,14 @@ mod tests {
         };
         let t = KvCachePressureTemplate;
         assert_eq!(
-            t.summary(&ctx),
-            "GPU KV cache at 92% — new requests cannot be admitted until sequences complete."
+            t.evidence(&ctx)[0].summary(),
+            "kv_cache_usage_perc: 0.92 ≥ threshold 0.90"
         );
         let evidence = t.evidence(&ctx);
-        assert_eq!(evidence[0], "GPU KV cache usage: 92% (threshold: 90%)");
-        assert_eq!(evidence[1], "Waiting requests: 4 (blocked by full cache)");
+        assert_eq!(
+            evidence[0].summary(),
+            "kv_cache_usage_perc: 0.92 ≥ threshold 0.90"
+        );
+        assert_eq!(evidence[1].summary(), "num_requests_waiting: 4");
     }
 }

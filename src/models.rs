@@ -210,12 +210,212 @@ pub struct Finding {
     pub severity: Severity,
     pub confidence: Confidence,
     pub title: String,
-    pub summary: String,
     pub signals: Vec<String>,
-    pub evidence: Vec<String>,
+    pub evidence: Vec<EvidenceItem>,
     pub likely_causes: Vec<String>,
     pub recommendations: Vec<String>,
     pub related_metrics: Vec<String>,
+}
+
+/// A structured piece of evidence for a finding. Rules produce data; the report
+/// layer renders it into text or JSON.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum EvidenceItem {
+    /// A metric compared against a fixed threshold.
+    Threshold {
+        metric: String,
+        value: f64,
+        threshold: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        unit: Option<String>,
+        #[serde(default)]
+        operator: ComparisonOperator,
+    },
+    /// A raw metric value without a threshold.
+    Value {
+        metric: String,
+        value: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        unit: Option<String>,
+    },
+    /// A ratio of two metrics or counts.
+    Ratio {
+        numerator_metric: String,
+        numerator_value: f64,
+        denominator_metric: String,
+        denominator_value: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        unit: Option<String>,
+    },
+    /// Distribution across replicas: how many of total are affected.
+    ReplicaDistribution {
+        affected: usize,
+        total: usize,
+        metric: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        model: Option<String>,
+    },
+    /// Free-form fallback for evidence that does not fit the typed variants.
+    Text { message: String },
+}
+
+impl EvidenceItem {
+    pub fn threshold(
+        metric: impl Into<String>,
+        value: f64,
+        threshold: f64,
+        unit: Option<impl Into<String>>,
+        operator: ComparisonOperator,
+    ) -> Self {
+        Self::Threshold {
+            metric: metric.into(),
+            value,
+            threshold,
+            unit: unit.map(|u| u.into()),
+            operator,
+        }
+    }
+
+    pub fn value(metric: impl Into<String>, value: f64, unit: Option<impl Into<String>>) -> Self {
+        Self::Value {
+            metric: metric.into(),
+            value,
+            unit: unit.map(|u| u.into()),
+        }
+    }
+
+    pub fn text(message: impl Into<String>) -> Self {
+        Self::Text {
+            message: message.into(),
+        }
+    }
+
+    pub fn ratio(
+        numerator_metric: impl Into<String>,
+        numerator_value: f64,
+        denominator_metric: impl Into<String>,
+        denominator_value: f64,
+        unit: Option<impl Into<String>>,
+    ) -> Self {
+        Self::Ratio {
+            numerator_metric: numerator_metric.into(),
+            numerator_value,
+            denominator_metric: denominator_metric.into(),
+            denominator_value,
+            unit: unit.map(|u| u.into()),
+        }
+    }
+
+    /// Dedup key based on the metric identifier.
+    pub fn metric_key(&self) -> String {
+        match self {
+            EvidenceItem::Threshold { metric, .. } => metric.clone(),
+            EvidenceItem::Value { metric, .. } => metric.clone(),
+            EvidenceItem::Ratio {
+                numerator_metric, ..
+            } => numerator_metric.clone(),
+            EvidenceItem::ReplicaDistribution { metric, model, .. } => model
+                .as_ref()
+                .map(|model| format!("{model}:{metric}"))
+                .unwrap_or_else(|| metric.clone()),
+            EvidenceItem::Text { message } => message.clone(),
+        }
+    }
+
+    /// Human-readable summary suitable for a compact one-line report.
+    pub fn summary(&self) -> String {
+        match self {
+            EvidenceItem::Threshold {
+                metric,
+                value,
+                threshold,
+                unit,
+                operator,
+            } => format!(
+                "{metric}: {} {} threshold {}",
+                format_value_with_unit(*value, unit.as_deref()),
+                operator.label(),
+                format_value_with_unit(*threshold, unit.as_deref()),
+            ),
+            EvidenceItem::Value {
+                metric,
+                value,
+                unit,
+            } => format!(
+                "{metric}: {}",
+                format_value_with_unit(*value, unit.as_deref())
+            ),
+            EvidenceItem::Ratio {
+                numerator_metric,
+                numerator_value,
+                denominator_metric,
+                denominator_value,
+                unit,
+            } => format!(
+                "{numerator_metric}/{denominator_metric}: {:.2}{}",
+                if *denominator_value == 0.0 {
+                    0.0
+                } else {
+                    numerator_value / denominator_value
+                },
+                unit.as_deref().unwrap_or("")
+            ),
+            EvidenceItem::ReplicaDistribution {
+                affected,
+                total,
+                metric,
+                model,
+            } => {
+                let model = model
+                    .as_ref()
+                    .map(|model| format!(" for {model}"))
+                    .unwrap_or_default();
+                format!("{affected}/{total} replicas show elevated {metric}{model}")
+            }
+            EvidenceItem::Text { message } => message.clone(),
+        }
+    }
+}
+
+/// How a measured value relates to its threshold.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ComparisonOperator {
+    #[default]
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
+}
+
+impl ComparisonOperator {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::GreaterThan => ">",
+            Self::GreaterThanOrEqual => "≥",
+            Self::LessThan => "<",
+            Self::LessThanOrEqual => "≤",
+        }
+    }
+}
+
+fn format_value(value: f64) -> String {
+    if value.is_finite() && value.fract() == 0.0 && value.abs() < 1_000_000.0 {
+        format!("{:.0}", value)
+    } else {
+        format!("{value:.2}")
+    }
+}
+
+fn format_value_with_unit(value: f64, unit: Option<&str>) -> String {
+    let value = format_value(value);
+    match unit {
+        None | Some("") => value,
+        Some("%") => format!("{value}%"),
+        Some(u) if u.len() == 1 => format!("{value}{u}"),
+        Some(unit) => format!("{value} {unit}"),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -275,7 +475,7 @@ impl fmt::Display for BottleneckKind {
 pub struct Assessment {
     pub likely_bottleneck: BottleneckKind,
     pub confidence: Confidence,
-    pub evidence: Vec<String>,
+    pub evidence: Vec<EvidenceItem>,
     pub interpretation: String,
     pub recommended_next_actions: Vec<String>,
 }
@@ -395,7 +595,6 @@ mod tests {
                         severity: Severity::Info,
                         confidence: Confidence::Medium,
                         title: "Info".into(),
-                        summary: "...".into(),
                         signals: vec![],
                         evidence: vec![],
                         likely_causes: vec![],
@@ -412,7 +611,6 @@ mod tests {
                         severity: Severity::Critical,
                         confidence: Confidence::High,
                         title: "Critical".into(),
-                        summary: "...".into(),
                         signals: vec![],
                         evidence: vec![],
                         likely_causes: vec![],
@@ -480,9 +678,10 @@ mod tests {
             severity: Severity::Warning,
             confidence: Confidence::High,
             title: "t".into(),
-            summary: "s".into(),
             signals: vec!["a".into()],
-            evidence: vec!["b".into()],
+            evidence: vec![EvidenceItem::Text {
+                message: "b".into(),
+            }],
             likely_causes: vec!["c".into()],
             recommendations: vec!["d".into()],
             related_metrics: vec!["e".into()],

@@ -4,7 +4,9 @@
 //! This is a downstream, read-only reducer over [`DiagnosisResult`]. It consumes
 //! rule *results* (which rules fired, and the evidence they already recorded) —
 //! it never re-runs rule thresholds, so it cannot drift from the rules layer.
-use crate::models::{Assessment, BottleneckKind, Confidence, DiagnosisResult, Health, RuleResult};
+use crate::models::{
+    Assessment, BottleneckKind, Confidence, DiagnosisResult, EvidenceItem, Health, RuleResult,
+};
 
 /// Interpret a completed diagnosis into its most likely bottleneck.
 pub fn assess(result: &DiagnosisResult) -> Assessment {
@@ -91,13 +93,17 @@ fn build(
 
 /// Evidence is drawn from the findings that actually fired for this run, so the
 /// bullets carry the run's real numbers rather than restating thresholds.
-fn evidence_from(fired: &[&RuleResult], support: &[&str], kind: BottleneckKind) -> Vec<String> {
+fn evidence_from(
+    fired: &[&RuleResult],
+    support: &[&str],
+    kind: BottleneckKind,
+) -> Vec<EvidenceItem> {
     if kind == BottleneckKind::Idle {
-        return vec!["No running or waiting requests were observed".to_string()];
+        return vec![EvidenceItem::text(
+            "No running or waiting requests were observed",
+        )];
     }
-    // Several findings often cite the same metric (e.g. waiting requests), so
-    // dedupe by the line's leading label to keep the evidence concise.
-    let mut lines = Vec::new();
+    let mut items = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for id in support {
         let finding = fired
@@ -105,19 +111,14 @@ fn evidence_from(fired: &[&RuleResult], support: &[&str], kind: BottleneckKind) 
             .find(|c| c.id.as_str() == *id)
             .and_then(|c| c.finding.as_ref());
         let Some(f) = finding else { continue };
-        let source = if f.evidence.is_empty() {
-            std::slice::from_ref(&f.summary)
-        } else {
-            f.evidence.as_slice()
-        };
-        for line in source {
-            let key = line.split(':').next().unwrap_or(line).trim().to_string();
+        for item in &f.evidence {
+            let key = item.metric_key();
             if seen.insert(key) {
-                lines.push(line.clone());
+                items.push(item.clone());
             }
         }
     }
-    lines
+    items
 }
 
 /// Confidence grows with corroboration: the primary finding's own confidence,
@@ -224,7 +225,7 @@ mod tests {
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
     use crate::models::{
-        Confidence, DiagnosisContext, DiagnosisResult, Finding, RuleResult, Severity,
+        Confidence, DiagnosisContext, DiagnosisResult, EvidenceItem, Finding, RuleResult, Severity,
     };
 
     fn snapshot(running: f64, waiting: f64) -> MetricSeriesSnapshot {
@@ -245,9 +246,8 @@ mod tests {
                 severity,
                 confidence,
                 title: id.into(),
-                summary: format!("{id} fired"),
                 signals: vec![],
-                evidence: vec![format!("{id} evidence")],
+                evidence: vec![EvidenceItem::text(format!("{id} evidence"))],
                 likely_causes: vec![],
                 recommendations: vec![],
                 related_metrics: vec![],
@@ -312,7 +312,11 @@ mod tests {
         assert_eq!(s.likely_bottleneck, BottleneckKind::KvCacheSaturation);
         assert_eq!(s.confidence, Confidence::High);
         // Evidence carries the real findings, not canned strings.
-        assert!(s.evidence.iter().any(|e| e.contains("kv_cache_pressure")));
+        assert!(
+            s.evidence
+                .iter()
+                .any(|e| e.metric_key().contains("kv_cache_pressure"))
+        );
     }
 
     #[test]

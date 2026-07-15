@@ -50,7 +50,6 @@ pub(crate) fn finding_for(
         severity: judgment.severity,
         confidence: judgment.confidence,
         title: definition.title.to_string(),
-        summary: definition.template.summary(&ctx),
         signals: vec![judgment.signal.to_string()],
         evidence: definition.template.evidence(&ctx),
         likely_causes: definition

@@ -11,7 +11,7 @@
 //!   2 signals → high
 use crate::config::Config;
 use crate::config::QueuePressureConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{ComparisonOperator, Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, TemplateContext};
@@ -84,24 +84,26 @@ fn running_high(graph: &SignalGraph<'_>, cfg: &QueuePressureConfig) -> Option<f6
 pub struct QueuePressureTemplate;
 
 impl FindingTemplate for QueuePressureTemplate {
-    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
-        "Requests are queuing faster than the server can process them.".into()
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let waiting = ctx.value;
         let cfg = &ctx.config.rules.queue_pressure;
-        let mut lines = vec![format!(
-            "Waiting requests: {waiting:.0} (threshold: {high_waiting})",
-            high_waiting = cfg.high_waiting,
+        let mut items = vec![EvidenceItem::threshold(
+            ctx.signal.to_string(),
+            waiting,
+            cfg.high_waiting as f64,
+            None::<String>,
+            ComparisonOperator::GreaterThan,
         )];
         if let Some(running) = running_high(ctx.graph, cfg) {
-            lines.push(format!(
-                "Running requests: {running:.0} (threshold: {high_running})",
-                high_running = cfg.high_running,
+            items.push(EvidenceItem::threshold(
+                Signal::NumRequestsRunning.to_string(),
+                running,
+                cfg.high_running as f64,
+                None::<String>,
+                ComparisonOperator::GreaterThan,
             ));
         }
-        lines
+        items
     }
 }
 
@@ -187,12 +189,18 @@ mod tests {
         let config = Config::default();
         let t = QueuePressureTemplate;
         assert_eq!(
-            t.summary(&ctx(&graph, &config, 8.0)),
-            "Requests are queuing faster than the server can process them."
+            t.evidence(&ctx(&graph, &config, 8.0))[0].summary(),
+            "num_requests_waiting: 8 > threshold 5"
         );
         let evidence = t.evidence(&ctx(&graph, &config, 8.0));
-        assert_eq!(evidence[0], "Waiting requests: 8 (threshold: 5)");
-        assert_eq!(evidence[1], "Running requests: 60 (threshold: 50)");
+        assert_eq!(
+            evidence[0].summary(),
+            "num_requests_waiting: 8 > threshold 5"
+        );
+        assert_eq!(
+            evidence[1].summary(),
+            "num_requests_running: 60 > threshold 50"
+        );
     }
 
     #[test]
@@ -201,6 +209,10 @@ mod tests {
         let graph = SignalGraph::new(&snap);
         let config = Config::default();
         let evidence = QueuePressureTemplate.evidence(&ctx(&graph, &config, 8.0));
-        assert_eq!(evidence, vec!["Waiting requests: 8 (threshold: 5)"]);
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(
+            evidence[0].summary(),
+            "num_requests_waiting: 8 > threshold 5"
+        );
     }
 }

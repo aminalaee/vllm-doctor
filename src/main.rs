@@ -466,7 +466,6 @@ mod tests {
             severity,
             confidence: Confidence::Medium,
             title: "Test".to_string(),
-            summary: "test".to_string(),
             signals: vec![],
             evidence: vec![],
             likely_causes: vec![],

@@ -12,7 +12,7 @@
 //!   otherwise                     → medium
 use crate::config::Config;
 use crate::config::PrefixCacheEfficiencyConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{ComparisonOperator, Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, TemplateContext};
@@ -78,20 +78,14 @@ impl Rule for PrefixCacheEfficiencyRule {
 pub struct PrefixCacheEfficiencyTemplate;
 
 impl FindingTemplate for PrefixCacheEfficiencyTemplate {
-    fn summary(&self, ctx: &TemplateContext<'_>) -> String {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let hit_rate = ctx.value;
-        format!(
-            "Prefix cache hit rate is {:.0}% — repeated prompt prefixes are not being reused, \
-             causing redundant prefill computation.",
-            hit_rate * 100.0,
-        )
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
-        let hit_rate = ctx.value;
-        vec![format!(
-            "Prefix cache hit rate: {}",
-            format!("{:.0}%", hit_rate * 100.0)
+        vec![EvidenceItem::threshold(
+            ctx.signal.to_string(),
+            hit_rate,
+            ctx.config.rules.prefix_cache_efficiency.min_hit_rate,
+            None::<String>,
+            ComparisonOperator::LessThan,
         )]
     }
 }
@@ -173,10 +167,8 @@ mod tests {
         };
         let t = PrefixCacheEfficiencyTemplate;
         assert_eq!(
-            t.summary(&ctx),
-            "Prefix cache hit rate is 12% — repeated prompt prefixes are not being reused, \
-             causing redundant prefill computation."
+            t.evidence(&ctx)[0].summary(),
+            "prefix_cache_hit_rate: 0.12 < threshold 0.50"
         );
-        assert_eq!(t.evidence(&ctx), vec!["Prefix cache hit rate: 12%"]);
     }
 }

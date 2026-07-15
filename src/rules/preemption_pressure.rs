@@ -15,7 +15,7 @@
 //!   preemptions + high cache usage → high   (actively under memory pressure)
 use crate::config::Config;
 use crate::config::PreemptionPressureConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{ComparisonOperator, Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, GenericTemplate, TemplateContext};
@@ -87,34 +87,28 @@ fn cache_high(graph: &SignalGraph<'_>, cfg: &PreemptionPressureConfig) -> Option
 pub struct PreemptionPressureTemplate;
 
 impl FindingTemplate for PreemptionPressureTemplate {
-    fn summary(&self, ctx: &TemplateContext<'_>) -> String {
-        let preemptions =
-            Some(ctx.value).or_else(|| ctx.graph.evaluate(Signal::NumPreemptionsTotal));
-        let Some(preemptions) = preemptions else {
-            return GenericTemplate.summary(ctx);
-        };
-        format!(
-            "vLLM has preempted {preemptions:.0} sequences — \
-             KV cache exhaustion is forcing sequences to be re-computed."
-        )
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let preemptions =
             Some(ctx.value).or_else(|| ctx.graph.evaluate(Signal::NumPreemptionsTotal));
         let Some(preemptions) = preemptions else {
             return GenericTemplate.evidence(ctx);
         };
-        let mut lines = vec![format!("Preemptions total: {preemptions:.0}")];
+        let mut items = vec![EvidenceItem::value(
+            Signal::NumPreemptionsTotal.to_string(),
+            preemptions,
+            None::<String>,
+        )];
         let cfg = &ctx.config.rules.preemption_pressure;
         if let Some(cache) = cache_high(ctx.graph, cfg) {
-            lines.push(format!(
-                "GPU KV cache usage: {:.0}% (threshold: {:.0}%)",
-                cache * 100.0,
-                cfg.high_cache_usage * 100.0,
+            items.push(EvidenceItem::threshold(
+                Signal::KvCacheUsagePerc.to_string(),
+                cache,
+                cfg.high_cache_usage,
+                None::<String>,
+                ComparisonOperator::GreaterThanOrEqual,
             ));
         }
-        lines
+        items
     }
 }
 
@@ -201,13 +195,15 @@ mod tests {
         let config = Config::default();
         let t = PreemptionPressureTemplate;
         assert_eq!(
-            t.summary(&ctx(&graph, &config)),
-            "vLLM has preempted 5 sequences — \
-             KV cache exhaustion is forcing sequences to be re-computed."
+            t.evidence(&ctx(&graph, &config))[0].summary(),
+            "num_preemptions_total: 5"
         );
         let evidence = t.evidence(&ctx(&graph, &config));
-        assert_eq!(evidence[0], "Preemptions total: 5");
-        assert_eq!(evidence[1], "GPU KV cache usage: 85% (threshold: 80%)");
+        assert_eq!(evidence[0].summary(), "num_preemptions_total: 5");
+        assert_eq!(
+            evidence[1].summary(),
+            "kv_cache_usage_perc: 0.85 ≥ threshold 0.80"
+        );
     }
 
     #[test]
@@ -216,6 +212,7 @@ mod tests {
         let graph = SignalGraph::new(&snap);
         let config = Config::default();
         let evidence = PreemptionPressureTemplate.evidence(&ctx(&graph, &config));
-        assert_eq!(evidence, vec!["Preemptions total: 5"]);
+        assert_eq!(evidence.len(), 1);
+        assert_eq!(evidence[0].summary(), "num_preemptions_total: 5");
     }
 }

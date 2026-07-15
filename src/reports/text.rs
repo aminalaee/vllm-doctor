@@ -121,7 +121,11 @@ fn render_findings_compact(report: &Report, opts: &RenderOptions, inner: usize, 
             true,
             opts.color,
         );
-        let one_liner = finding.summary.clone();
+        let one_liner = finding
+            .evidence
+            .first()
+            .map(|e| e.summary())
+            .unwrap_or_default();
         let line = format!(
             "{icon_pad}{icon} {}  {}",
             paint(&finding.title, AnsiColors::White, true, opts.color),
@@ -208,7 +212,12 @@ fn render_finding_panel(
     out.push_str(&content(&title_cell));
     out.push_str(&content(&pad_right("", inner)));
 
-    let evidence_line = finding.evidence.join("  ·  ");
+    let evidence_line = finding
+        .evidence
+        .iter()
+        .map(|e| e.summary())
+        .collect::<Vec<_>>()
+        .join("  ·  ");
     for wrapped in textwrap::wrap(&evidence_line, inner) {
         out.push_str(&content(&pad_right(&wrapped, inner)));
     }
@@ -496,7 +505,7 @@ mod tests {
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
     use crate::models::{
-        Confidence, DiagnosisContext, DiagnosisResult, Finding, RuleResult, Severity,
+        Confidence, DiagnosisContext, DiagnosisResult, EvidenceItem, Finding, RuleResult, Severity,
     };
 
     fn verbose() -> RenderOptions {
@@ -506,17 +515,16 @@ mod tests {
         }
     }
 
-    fn sample_finding() -> Finding {
+    fn finding() -> Finding {
         Finding {
             severity: Severity::Warning,
             confidence: Confidence::Medium,
-            title: "Queue pressure".to_string(),
-            summary: "5 requests are waiting in the queue".to_string(),
-            signals: vec!["num_requests_waiting".to_string()],
-            evidence: vec!["Waiting requests: 5".to_string()],
-            likely_causes: vec!["Insufficient capacity".to_string()],
-            recommendations: vec!["Add replicas".to_string()],
-            related_metrics: vec!["vllm:num_requests_waiting".to_string()],
+            title: "Queue pressure".into(),
+            signals: vec!["num_requests_waiting".into()],
+            evidence: vec![EvidenceItem::text("Waiting requests: 5")],
+            likely_causes: vec!["Insufficient capacity".into()],
+            recommendations: vec!["Add replicas".into()],
+            related_metrics: vec!["vllm:num_requests_waiting".into()],
         }
     }
 
@@ -533,7 +541,7 @@ mod tests {
                 name: "Queue Pressure".into(),
                 title: "Queue pressure".into(),
                 severity: Severity::Warning,
-                finding: Some(sample_finding()),
+                finding: Some(finding()),
             }],
         )
     }
@@ -545,7 +553,7 @@ mod tests {
 
         assert!(text.contains("Health: WARNING"));
         assert!(text.contains("Queue pressure"));
-        assert!(text.contains("5 requests are waiting in the queue"));
+        assert!(text.contains("Waiting requests: 5"));
     }
 
     #[test]

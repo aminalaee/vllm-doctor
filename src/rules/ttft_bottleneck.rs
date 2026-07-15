@@ -5,7 +5,7 @@
 //! — and when requests are queuing, confirming prefill pressure.
 use crate::config::Config;
 use crate::config::TtftBottleneckConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{ComparisonOperator, Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, TemplateContext};
@@ -93,26 +93,35 @@ fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
 pub struct TtftBottleneckTemplate;
 
 impl FindingTemplate for TtftBottleneckTemplate {
-    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
-        "Requests are waiting too long before receiving the first token. \
-         This typically indicates prefill or queue pressure."
-            .into()
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let ttft = ctx.value;
-        let mut lines = vec![format!("TTFT p95: {ttft:.3}s")];
+        let cfg = &ctx.config.rules.ttft_bottleneck;
+        let mut items = vec![EvidenceItem::threshold(
+            ctx.signal.to_string(),
+            ttft,
+            cfg.high_ttft_p95,
+            Some("s"),
+            ComparisonOperator::GreaterThanOrEqual,
+        )];
         if let Some(tpot) = ctx.graph.evaluate(Signal::TpotP95Seconds) {
             if tpot.is_finite() {
-                lines.push(format!("TPOT p95: {tpot:.3}s"));
+                items.push(EvidenceItem::value(
+                    Signal::TpotP95Seconds.to_string(),
+                    tpot,
+                    Some("s"),
+                ));
             }
         }
         if let Some(waiting) = ctx.graph.evaluate(Signal::NumRequestsWaiting) {
             if waiting > 0.0 {
-                lines.push(format!("Waiting requests: {}", waiting as i64));
+                items.push(EvidenceItem::value(
+                    Signal::NumRequestsWaiting.to_string(),
+                    waiting,
+                    None::<String>,
+                ));
             }
         }
-        lines
+        items
     }
 }
 
@@ -215,13 +224,15 @@ mod tests {
         };
         let t = TtftBottleneckTemplate;
         assert_eq!(
-            t.summary(&ctx),
-            "Requests are waiting too long before receiving the first token. \
-             This typically indicates prefill or queue pressure."
+            t.evidence(&ctx)[0].summary(),
+            "ttft_p95_seconds: 2.50s ≥ threshold 2s"
         );
         let evidence = t.evidence(&ctx);
-        assert_eq!(evidence[0], "TTFT p95: 2.500s");
-        assert_eq!(evidence[1], "TPOT p95: 0.100s");
-        assert_eq!(evidence[2], "Waiting requests: 3");
+        assert_eq!(
+            evidence[0].summary(),
+            "ttft_p95_seconds: 2.50s ≥ threshold 2s"
+        );
+        assert_eq!(evidence[1].summary(), "tpot_p95_seconds: 0.10s");
+        assert_eq!(evidence[2].summary(), "num_requests_waiting: 3");
     }
 }

@@ -8,7 +8,7 @@
 //!   3 signals -> high
 use crate::config::Config;
 use crate::config::ReplicaImbalanceConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, TemplateContext};
@@ -92,8 +92,14 @@ impl Rule for ReplicaImbalanceRule {
 /// (which reads `parts` for evidence) so the per-model counting logic lives in
 /// one place.
 struct ModelEvidence {
-    parts: Vec<String>,
     count: usize,
+    signals: Vec<ImbalanceSignal>,
+}
+
+struct ImbalanceSignal {
+    signal: Signal,
+    affected: usize,
+    total: usize,
 }
 
 /// Count imbalance signals for one model group and build the evidence parts.
@@ -113,19 +119,31 @@ fn model_imbalance(
     let waiting = graph.per_replica(Signal::NumRequestsWaiting, model);
     let cache = graph.per_replica(Signal::KvCacheUsagePerc, model);
 
-    let mut parts = Vec::new();
+    let mut signals = Vec::new();
     let mut count = 0;
 
     if running.len() >= 2 {
-        let (hi, hi_val) = max_entry(&running)?;
-        let (lo, lo_val) = min_entry(&running)?;
+        let (_, hi_val) = max_entry(&running)?;
+        let (_, lo_val) = min_entry(&running)?;
         let total: f64 = running.values().sum();
         if total >= cfg.min_total_running
             && ((lo_val > 0.0 && hi_val >= cfg.imbalance_factor * lo_val)
                 || (lo_val == 0.0 && hi_val > 0.0))
         {
+            let affected = if lo_val > 0.0 {
+                running
+                    .values()
+                    .filter(|&&value| value >= cfg.imbalance_factor * lo_val)
+                    .count()
+            } else {
+                running.values().filter(|&&value| value > 0.0).count()
+            };
             count += 1;
-            parts.push(format!("running {hi}={hi_val:.0} vs {lo}={lo_val:.0}"));
+            signals.push(ImbalanceSignal {
+                signal: Signal::NumRequestsRunning,
+                affected,
+                total: running.len(),
+            });
         }
     }
 
@@ -133,26 +151,35 @@ fn model_imbalance(
         let (_, hi_val) = max_entry(&cache)?;
         let (_, lo_val) = min_entry(&cache)?;
         if hi_val - lo_val >= cfg.cache_gap {
+            let affected = cache
+                .values()
+                .filter(|&&value| value - lo_val >= cfg.cache_gap)
+                .count();
             count += 1;
-            parts.push(format!(
-                "cache {:.0}% vs {:.0}%",
-                hi_val * 100.0,
-                lo_val * 100.0
-            ));
+            signals.push(ImbalanceSignal {
+                signal: Signal::KvCacheUsagePerc,
+                affected,
+                total: cache.len(),
+            });
         }
     }
 
     if waiting.len() >= 2 {
-        let (hi, hi_val) = max_entry(&waiting)?;
-        let (lo, lo_val) = min_entry(&waiting)?;
+        let (_, hi_val) = max_entry(&waiting)?;
+        let (_, lo_val) = min_entry(&waiting)?;
         if hi_val > 0.0 && lo_val == 0.0 {
+            let affected = waiting.values().filter(|&&value| value > 0.0).count();
             count += 1;
-            parts.push(format!("waiting {hi}={hi_val:.0} vs {lo}={lo_val:.0}"));
+            signals.push(ImbalanceSignal {
+                signal: Signal::NumRequestsWaiting,
+                affected,
+                total: waiting.len(),
+            });
         }
     }
 
     if count > 0 {
-        Some(ModelEvidence { parts, count })
+        Some(ModelEvidence { count, signals })
     } else {
         None
     }
@@ -175,26 +202,25 @@ fn min_entry(map: &HashMap<String, f64>) -> Option<(String, f64)> {
 pub struct ReplicaImbalanceTemplate;
 
 impl FindingTemplate for ReplicaImbalanceTemplate {
-    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
-        "Load is unevenly distributed across replicas".into()
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let cfg = &ctx.config.rules.replica_imbalance;
-        let mut lines = vec![];
+        let mut items = vec![];
         for model in ctx.graph.models() {
             if let Some(evidence) = model_imbalance(ctx.graph, model.as_deref(), cfg) {
-                let prefix = model
-                    .as_deref()
-                    .map(|m| format!("{m}: "))
-                    .unwrap_or_default();
-                lines.push(format!("{prefix}{}", evidence.parts.join("; ")));
+                for sig in &evidence.signals {
+                    items.push(EvidenceItem::ReplicaDistribution {
+                        affected: sig.affected,
+                        total: sig.total,
+                        metric: sig.signal.to_string(),
+                        model: model.clone(),
+                    });
+                }
             }
         }
-        if lines.is_empty() {
-            lines.push("Replica imbalance detected".into());
+        if items.is_empty() {
+            items.push(EvidenceItem::text("Replica imbalance detected"));
         }
-        lines
+        items
     }
 }
 
@@ -388,7 +414,48 @@ mod tests {
             value: 5.0,
         };
         let evidence = ReplicaImbalanceTemplate.evidence(&ctx);
-        assert!(evidence[0].contains("a=10"));
-        assert!(evidence[0].contains("b=2"));
+        assert_eq!(evidence.len(), 1);
+        assert!(matches!(
+            &evidence[0],
+            EvidenceItem::ReplicaDistribution {
+                affected: 1,
+                total: 2,
+                metric,
+                model: None,
+            } if metric == "num_requests_running"
+        ));
+    }
+
+    #[test]
+    fn template_counts_affected_replicas_and_keeps_model_separate() {
+        let snap = snapshot(
+            vec![
+                sample(10.0, &[("pod", "a"), ("model_name", "llama")]),
+                sample(10.0, &[("pod", "b"), ("model_name", "llama")]),
+                sample(1.0, &[("pod", "c"), ("model_name", "llama")]),
+            ],
+            vec![],
+            vec![],
+        );
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::ReplicaRunningImbalance,
+            value: 10.0,
+        };
+
+        let evidence = ReplicaImbalanceTemplate.evidence(&ctx);
+
+        assert!(matches!(
+            &evidence[0],
+            EvidenceItem::ReplicaDistribution {
+                affected: 2,
+                total: 3,
+                metric,
+                model: Some(model),
+            } if metric == "num_requests_running" && model == "llama"
+        ));
     }
 }

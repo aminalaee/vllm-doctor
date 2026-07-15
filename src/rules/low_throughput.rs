@@ -17,7 +17,7 @@
 //!   only one metric low                           → low
 use crate::config::Config;
 use crate::config::LowThroughputConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{ComparisonOperator, Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, TemplateContext};
@@ -137,29 +137,35 @@ fn running_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64
 pub struct LowThroughputTemplate;
 
 impl FindingTemplate for LowThroughputTemplate {
-    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
-        "Server is processing requests below expected throughput with no queue pressure.".into()
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let cfg = &ctx.config.rules.low_throughput;
-        let mut lines = vec![];
+        let mut items = vec![];
         if let Some(prompt) = prompt_low(ctx.graph, cfg) {
-            lines.push(format!(
-                "Prompt tokens/s: {prompt:.1} (threshold: {threshold:.1})",
-                threshold = cfg.low_prompt_tps,
+            items.push(EvidenceItem::threshold(
+                Signal::PromptTokensPerSecond.to_string(),
+                prompt,
+                cfg.low_prompt_tps,
+                None::<String>,
+                ComparisonOperator::LessThan,
             ));
         }
         if let Some(gen_tps) = gen_low(ctx.graph, cfg) {
-            lines.push(format!(
-                "Generation tokens/s: {gen_tps:.1} (threshold: {threshold:.1})",
-                threshold = cfg.low_gen_tps,
+            items.push(EvidenceItem::threshold(
+                Signal::GenerationTokensPerSecond.to_string(),
+                gen_tps,
+                cfg.low_gen_tps,
+                None::<String>,
+                ComparisonOperator::LessThan,
             ));
         }
         if let Some(running) = running_low(ctx.graph, cfg) {
-            lines.push(format!("Requests running: {running:.0}"));
+            items.push(EvidenceItem::value(
+                Signal::NumRequestsRunning.to_string(),
+                running,
+                None::<String>,
+            ));
         }
-        lines
+        items
     }
 }
 
@@ -295,12 +301,18 @@ mod tests {
         };
         let t = LowThroughputTemplate;
         assert_eq!(
-            t.summary(&ctx),
-            "Server is processing requests below expected throughput with no queue pressure."
+            t.evidence(&ctx)[0].summary(),
+            "prompt_tokens_per_second: 5 < threshold 10"
         );
         let evidence = t.evidence(&ctx);
-        assert_eq!(evidence[0], "Prompt tokens/s: 5.0 (threshold: 10.0)");
-        assert_eq!(evidence[1], "Generation tokens/s: 20.0 (threshold: 50.0)");
-        assert_eq!(evidence[2], "Requests running: 1");
+        assert_eq!(
+            evidence[0].summary(),
+            "prompt_tokens_per_second: 5 < threshold 10"
+        );
+        assert_eq!(
+            evidence[1].summary(),
+            "generation_tokens_per_second: 20 < threshold 50"
+        );
+        assert_eq!(evidence[2].summary(), "num_requests_running: 1");
     }
 }

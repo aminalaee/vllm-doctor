@@ -24,8 +24,18 @@ Default JSON output:
     "likely_bottleneck": "kv_cache_saturation",
     "confidence": "high",
     "evidence": [
-      "GPU KV cache usage: 94% (threshold: 90%)",
-      "Waiting requests: 7 (blocked by full cache)"
+      {
+        "kind": "threshold",
+        "metric": "kv_cache_usage_perc",
+        "value": 0.94,
+        "threshold": 0.90,
+        "operator": "greater_than_or_equal"
+      },
+      {
+        "kind": "value",
+        "metric": "num_requests_waiting",
+        "value": 7
+      }
     ],
     "interpretation": "Requests are likely waiting because the server has limited KV cache headroom, often caused by high concurrency or long-context requests.",
     "recommended_next_actions": [
@@ -42,8 +52,14 @@ Default JSON output:
         "severity": "warning",
         "confidence": "high",
         "title": "Replica imbalance",
-        "summary": "Load is unevenly distributed across replicas — one replica is doing more work than its peers.",
-        "evidence": ["running vllm-1=10 vs vllm-0=2; cache 94% vs 41%; waiting vllm-1=7 vs vllm-0=0"],
+        "evidence": [
+          {
+            "kind": "replica_distribution",
+            "affected": 1,
+            "total": 2,
+            "metric": "num_requests_running"
+          }
+        ],
         "likely_causes": ["Load balancer not distributing requests evenly (sticky sessions or connection reuse)"],
         "recommendations": ["Check the load balancer / service routing and session affinity settings"],
         "related_metrics": ["vllm:num_requests_running"]
@@ -56,8 +72,15 @@ Default JSON output:
         "severity": "warning",
         "confidence": "low",
         "title": "Queue pressure",
-        "summary": "Requests are queuing faster than the server can process them.",
-        "evidence": ["Waiting requests: 7"],
+        "evidence": [
+          {
+            "kind": "threshold",
+            "metric": "num_requests_waiting",
+            "value": 7,
+            "threshold": 5,
+            "operator": "greater_than"
+          }
+        ],
         "likely_causes": ["Insufficient replica capacity for current traffic"],
         "recommendations": ["Add replicas or increase concurrency limits"],
         "related_metrics": ["vllm:num_requests_waiting"]
@@ -67,7 +90,7 @@ Default JSON output:
 }
 ```
 
-When several deployments share one Prometheus target, replica imbalance evidence is prefixed with the model, e.g. `"llama-70b: running vllm-1=10 vs vllm-0=2"`, and a separate line is emitted per affected model.
+When several deployments share one Prometheus target, replica imbalance emits a `replica_distribution` evidence item per affected model. The optional `model` field identifies the deployment while `metric` remains a stable metric identifier.
 
 Verbose JSON includes observed metrics:
 
@@ -140,13 +163,13 @@ Verbose JSON includes observed metrics:
 
 The `assessment` object is the root-cause summary. See [Assessment](assessment.md) for how it is derived.
 
-| Field                      | Description                                                                                                               |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Field                      | Description                                                                                                                                                                       |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `likely_bottleneck`        | Machine token for the category: `queue_saturation`, `kv_cache_saturation`, `long_prefill`, `decode_bottleneck`, `replica_imbalance`, `error_issue`, `idle`, `no_clear_bottleneck` |
-| `confidence`               | `low`, `medium`, or `high`                                                                                                 |
-| `evidence`                 | Supporting bullet lines, drawn from the findings that fired this run                                                       |
-| `interpretation`           | One-line human-readable explanation                                                                                        |
-| `recommended_next_actions` | Ordered list of safe next steps                                                                                            |
+| `confidence`               | `low`, `medium`, or `high`                                                                                                                                                        |
+| `evidence`                 | Structured evidence items (same format as finding evidence) drawn from the findings that fired this run |
+| `interpretation`           | One-line human-readable explanation                                                                                                                                               |
+| `recommended_next_actions` | Ordered list of safe next steps                                                                                                                                                   |
 
 ## Checks
 
@@ -160,15 +183,26 @@ Each check has a stable machine-readable `id` and a human-readable `name`.
 
 Finding fields:
 
-| Field             | Description                             |
-| ----------------- | --------------------------------------- |
-| `severity`        | `info`, `warning`, or `critical`        |
-| `confidence`      | `low`, `medium`, or `high`              |
-| `title`           | Human-readable finding title            |
-| `summary`         | Short explanation of the diagnosis      |
-| `evidence`        | Observed signals supporting the finding |
-| `likely_causes`   | Possible causes to investigate          |
-| `recommendations` | Suggested next actions                  |
-| `related_metrics` | Metrics related to the finding          |
+| Field        | Description                                                                           |
+| ------------ | ------------------------------------------------------------------------------------- |
+| `severity`   | `info`, `warning`, or `critical`                                                      |
+| `confidence` | `low`, `medium`, or `high`                                                            |
+| `title`      | Human-readable finding title                                                          |
+| `evidence`   | Structured observed evidence for the finding. Each item has a `kind` and typed fields |
+| `likely_causes`   | Possible causes to investigate                                                   |
+| `recommendations` | Suggested next actions                                                           |
+| `related_metrics` | Metrics related to the finding                                                   |
+
+Evidence items:
+
+| `kind`                 | Fields                                                                                            | Rendered meaning                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `threshold`            | `metric`, `value`, `threshold`, `operator`, optional `unit`                                       | A measured value crossed a threshold                         |
+| `value`                | `metric`, `value`, optional `unit`                                                                | A simple metric reading                                      |
+| `ratio`                | `numerator_metric`, `numerator_value`, `denominator_metric`, `denominator_value`, optional `unit` | A computed ratio of two metrics                              |
+| `replica_distribution` | `affected`, `total`, `metric`, optional `model`                                                   | `affected` out of `total` replicas are elevated for `metric` |
+| `text`                 | `message`                                                                                         | Free-form detail when no typed variant fits                  |
+
+`operator` is one of `greater_than`, `greater_than_or_equal`, `less_than`, `less_than_or_equal`. Values are plain numbers when no `unit` is present; percentages are expressed as decimals (e.g. `0.94` for 94%).
 
 `signals` are intentionally omitted from JSON findings for now. They remain internal explanatory detail and may be exposed in a later schema version.

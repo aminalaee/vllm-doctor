@@ -6,7 +6,7 @@
 //! rather than prefill or queue saturation.
 use crate::config::Config;
 use crate::config::TpotBottleneckConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{ComparisonOperator, Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, TemplateContext};
@@ -95,26 +95,35 @@ fn ttft_normal(graph: &SignalGraph<'_>) -> Option<f64> {
 pub struct TpotBottleneckTemplate;
 
 impl FindingTemplate for TpotBottleneckTemplate {
-    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
-        "Each output token is taking too long to generate. \
-         This typically indicates GPU decode saturation or memory bandwidth pressure."
-            .into()
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let tpot = ctx.value;
-        let mut lines = vec![format!("TPOT p95: {tpot:.3}s")];
+        let cfg = &ctx.config.rules.tpot_bottleneck;
+        let mut items = vec![EvidenceItem::threshold(
+            ctx.signal.to_string(),
+            tpot,
+            cfg.high_tpot_p95,
+            Some("s"),
+            ComparisonOperator::GreaterThanOrEqual,
+        )];
         if let Some(gen_tps) = ctx.graph.evaluate(Signal::GenerationTokensPerSecond) {
             if gen_tps.is_finite() {
-                lines.push(format!("Generation throughput: {gen_tps:.1} tok/s"));
+                items.push(EvidenceItem::value(
+                    Signal::GenerationTokensPerSecond.to_string(),
+                    gen_tps,
+                    Some("tok/s"),
+                ));
             }
         }
         if let Some(ttft) = ctx.graph.evaluate(Signal::TtftP95Seconds) {
             if ttft.is_finite() {
-                lines.push(format!("TTFT p95: {ttft:.3}s"));
+                items.push(EvidenceItem::value(
+                    Signal::TtftP95Seconds.to_string(),
+                    ttft,
+                    Some("s"),
+                ));
             }
         }
-        lines
+        items
     }
 }
 
@@ -219,13 +228,18 @@ mod tests {
         };
         let t = TpotBottleneckTemplate;
         assert_eq!(
-            t.summary(&ctx),
-            "Each output token is taking too long to generate. \
-             This typically indicates GPU decode saturation or memory bandwidth pressure."
+            t.evidence(&ctx)[0].summary(),
+            "tpot_p95_seconds: 0.40s ≥ threshold 0.20s"
         );
         let evidence = t.evidence(&ctx);
-        assert_eq!(evidence[0], "TPOT p95: 0.400s");
-        assert_eq!(evidence[1], "Generation throughput: 30.0 tok/s");
-        assert_eq!(evidence[2], "TTFT p95: 1.000s");
+        assert_eq!(
+            evidence[0].summary(),
+            "tpot_p95_seconds: 0.40s ≥ threshold 0.20s"
+        );
+        assert_eq!(
+            evidence[1].summary(),
+            "generation_tokens_per_second: 30 tok/s"
+        );
+        assert_eq!(evidence[2].summary(), "ttft_p95_seconds: 1s");
     }
 }

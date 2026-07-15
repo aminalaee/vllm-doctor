@@ -15,7 +15,7 @@
 //!   high queue time + waiting → high (active backlog confirmed)
 use crate::config::Config;
 use crate::config::QueueLatencyConfig;
-use crate::models::{Confidence, DiagnosisState, Severity};
+use crate::models::{ComparisonOperator, Confidence, DiagnosisState, EvidenceItem, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
 use crate::rules::templates::{FindingTemplate, TemplateContext};
@@ -91,25 +91,24 @@ fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
 pub struct QueueLatencyTemplate;
 
 impl FindingTemplate for QueueLatencyTemplate {
-    fn summary(&self, ctx: &TemplateContext<'_>) -> String {
-        let queue_time = ctx.value;
-        format!(
-            "Requests are waiting {queue_time:.2}s (p95) in the queue before prefill begins \
-             — the server cannot admit requests fast enough."
-        )
-    }
-
-    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<EvidenceItem> {
         let queue_time = ctx.value;
         let cfg = &ctx.config.rules.queue_latency;
-        let mut lines = vec![format!(
-            "Queue time p95: {queue_time:.3}s (threshold: {high}s)",
-            high = cfg.high_queue_time_p95,
+        let mut items = vec![EvidenceItem::threshold(
+            ctx.signal.to_string(),
+            queue_time,
+            cfg.high_queue_time_p95,
+            Some("s"),
+            ComparisonOperator::GreaterThanOrEqual,
         )];
         if let Some(waiting) = waiting_backlog(ctx.graph) {
-            lines.push(format!("Waiting requests: {}", waiting as i64));
+            items.push(EvidenceItem::value(
+                Signal::NumRequestsWaiting.to_string(),
+                waiting,
+                None::<String>,
+            ));
         }
-        lines
+        items
     }
 }
 
@@ -191,12 +190,14 @@ mod tests {
         };
         let t = QueueLatencyTemplate;
         assert_eq!(
-            t.summary(&ctx),
-            "Requests are waiting 2.50s (p95) in the queue before prefill begins \
-             — the server cannot admit requests fast enough."
+            t.evidence(&ctx)[0].summary(),
+            "queue_time_p95_seconds: 2.50s ≥ threshold 1s"
         );
         let evidence = t.evidence(&ctx);
-        assert_eq!(evidence[0], "Queue time p95: 2.500s (threshold: 1s)");
-        assert_eq!(evidence[1], "Waiting requests: 3");
+        assert_eq!(
+            evidence[0].summary(),
+            "queue_time_p95_seconds: 2.50s ≥ threshold 1s"
+        );
+        assert_eq!(evidence[1].summary(), "num_requests_waiting: 3");
     }
 }
