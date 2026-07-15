@@ -18,7 +18,7 @@ use crate::config::PreemptionPressureConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
-use crate::rules::templates::PreemptionPressureTemplate;
+use crate::rules::templates::{FindingTemplate, GenericTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -38,7 +38,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "Route long-context requests to a dedicated replica",
     ],
     related_metrics: &["vllm:num_preemptions_total", "vllm:kv_cache_usage_perc"],
-    template: &PreemptionPressureTemplate as &dyn crate::rules::templates::FindingTemplate,
+    template: &PreemptionPressureTemplate as &dyn FindingTemplate,
 };
 
 pub struct PreemptionPressureRule {
@@ -78,10 +78,44 @@ impl Rule for PreemptionPressureRule {
 /// KV cache is currently under pressure (usage at or above the high threshold).
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn cache_high(graph: &SignalGraph<'_>, cfg: &PreemptionPressureConfig) -> Option<f64> {
+fn cache_high(graph: &SignalGraph<'_>, cfg: &PreemptionPressureConfig) -> Option<f64> {
     graph
         .evaluate(Signal::KvCacheUsagePerc)
         .filter(|&c| c >= cfg.high_cache_usage)
+}
+
+pub struct PreemptionPressureTemplate;
+
+impl FindingTemplate for PreemptionPressureTemplate {
+    fn summary(&self, ctx: &TemplateContext<'_>) -> String {
+        let preemptions =
+            Some(ctx.value).or_else(|| ctx.graph.evaluate(Signal::NumPreemptionsTotal));
+        let Some(preemptions) = preemptions else {
+            return GenericTemplate.summary(ctx);
+        };
+        format!(
+            "vLLM has preempted {preemptions:.0} sequences — \
+             KV cache exhaustion is forcing sequences to be re-computed."
+        )
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let preemptions =
+            Some(ctx.value).or_else(|| ctx.graph.evaluate(Signal::NumPreemptionsTotal));
+        let Some(preemptions) = preemptions else {
+            return GenericTemplate.evidence(ctx);
+        };
+        let mut lines = vec![format!("Preemptions total: {preemptions:.0}")];
+        let cfg = &ctx.config.rules.preemption_pressure;
+        if let Some(cache) = cache_high(ctx.graph, cfg) {
+            lines.push(format!(
+                "GPU KV cache usage: {:.0}% (threshold: {:.0}%)",
+                cache * 100.0,
+                cfg.high_cache_usage * 100.0,
+            ));
+        }
+        lines
+    }
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -149,5 +183,39 @@ mod tests {
                 5.0
             )
         );
+    }
+
+    fn ctx<'a>(graph: &'a SignalGraph<'a>, config: &'a Config) -> TemplateContext<'a> {
+        TemplateContext {
+            graph,
+            config,
+            signal: Signal::NumPreemptionsTotal,
+            value: 5.0,
+        }
+    }
+
+    #[test]
+    fn template_output_order() {
+        let snap = snapshot(5.0, 0.85);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let t = PreemptionPressureTemplate;
+        assert_eq!(
+            t.summary(&ctx(&graph, &config)),
+            "vLLM has preempted 5 sequences — \
+             KV cache exhaustion is forcing sequences to be re-computed."
+        );
+        let evidence = t.evidence(&ctx(&graph, &config));
+        assert_eq!(evidence[0], "Preemptions total: 5");
+        assert_eq!(evidence[1], "GPU KV cache usage: 85% (threshold: 80%)");
+    }
+
+    #[test]
+    fn template_no_cache_line_when_below_threshold() {
+        let snap = snapshot(5.0, 0.50);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let evidence = PreemptionPressureTemplate.evidence(&ctx(&graph, &config));
+        assert_eq!(evidence, vec!["Preemptions total: 5"]);
     }
 }

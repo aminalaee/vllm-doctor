@@ -8,7 +8,7 @@ use crate::config::TtftBottleneckConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
-use crate::rules::templates::TtftBottleneckTemplate;
+use crate::rules::templates::{FindingTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -33,7 +33,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "num_requests_waiting",
         "tpot_p95_seconds",
     ],
-    template: &TtftBottleneckTemplate as &dyn crate::rules::templates::FindingTemplate,
+    template: &TtftBottleneckTemplate as &dyn FindingTemplate,
 };
 
 pub struct TtftBottleneckRule {
@@ -75,7 +75,7 @@ impl Rule for TtftBottleneckRule {
 /// general decode bottleneck.
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn tpot_stable(graph: &SignalGraph<'_>, cfg: &TtftBottleneckConfig) -> Option<f64> {
+fn tpot_stable(graph: &SignalGraph<'_>, cfg: &TtftBottleneckConfig) -> Option<f64> {
     graph
         .evaluate(Signal::TpotP95Seconds)
         .filter(|&v| v.is_finite() && v < cfg.high_tpot_p95)
@@ -84,10 +84,36 @@ pub(crate) fn tpot_stable(graph: &SignalGraph<'_>, cfg: &TtftBottleneckConfig) -
 /// Active backlog confirmed: requests are waiting in the queue.
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
+fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
     graph
         .evaluate(Signal::NumRequestsWaiting)
         .filter(|&w| w > 0.0)
+}
+
+pub struct TtftBottleneckTemplate;
+
+impl FindingTemplate for TtftBottleneckTemplate {
+    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
+        "Requests are waiting too long before receiving the first token. \
+         This typically indicates prefill or queue pressure."
+            .into()
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let ttft = ctx.value;
+        let mut lines = vec![format!("TTFT p95: {ttft:.3}s")];
+        if let Some(tpot) = ctx.graph.evaluate(Signal::TpotP95Seconds) {
+            if tpot.is_finite() {
+                lines.push(format!("TPOT p95: {tpot:.3}s"));
+            }
+        }
+        if let Some(waiting) = ctx.graph.evaluate(Signal::NumRequestsWaiting) {
+            if waiting > 0.0 {
+                lines.push(format!("Waiting requests: {}", waiting as i64));
+            }
+        }
+        lines
+    }
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -174,5 +200,28 @@ mod tests {
                 3.0
             )
         );
+    }
+
+    #[test]
+    fn template_output() {
+        let snap = snapshot(2.5, 0.1, 3.0);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::TtftP95Seconds,
+            value: 2.5,
+        };
+        let t = TtftBottleneckTemplate;
+        assert_eq!(
+            t.summary(&ctx),
+            "Requests are waiting too long before receiving the first token. \
+             This typically indicates prefill or queue pressure."
+        );
+        let evidence = t.evidence(&ctx);
+        assert_eq!(evidence[0], "TTFT p95: 2.500s");
+        assert_eq!(evidence[1], "TPOT p95: 0.100s");
+        assert_eq!(evidence[2], "Waiting requests: 3");
     }
 }

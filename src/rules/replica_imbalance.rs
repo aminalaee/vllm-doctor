@@ -11,7 +11,7 @@ use crate::config::ReplicaImbalanceConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
-use crate::rules::templates::ReplicaImbalanceTemplate;
+use crate::rules::templates::{FindingTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -38,7 +38,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "vllm:num_requests_waiting",
         "vllm:kv_cache_usage_perc",
     ],
-    template: &ReplicaImbalanceTemplate as &dyn crate::rules::templates::FindingTemplate,
+    template: &ReplicaImbalanceTemplate as &dyn FindingTemplate,
 };
 
 pub struct ReplicaImbalanceRule {
@@ -91,9 +91,9 @@ impl Rule for ReplicaImbalanceRule {
 /// Shared by the rule (which reads `count` for confidence) and the template
 /// (which reads `parts` for evidence) so the per-model counting logic lives in
 /// one place.
-pub(crate) struct ModelEvidence {
-    pub parts: Vec<String>,
-    pub count: usize,
+struct ModelEvidence {
+    parts: Vec<String>,
+    count: usize,
 }
 
 /// Count imbalance signals for one model group and build the evidence parts.
@@ -104,7 +104,7 @@ pub(crate) struct ModelEvidence {
 ///      least busy (gated by `min_total_running`, or zero-low with hi > 0)
 ///   2. cache gap: kv_cache_usage_perc max - min >= cache_gap
 ///   3. waiting skew: one replica queued, another idle
-pub(crate) fn model_imbalance(
+fn model_imbalance(
     graph: &SignalGraph<'_>,
     model: Option<&str>,
     cfg: &ReplicaImbalanceConfig,
@@ -170,6 +170,32 @@ fn min_entry(map: &HashMap<String, f64>) -> Option<(String, f64)> {
     map.iter()
         .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(Ordering::Equal))
         .map(|(k, &v)| (k.clone(), v))
+}
+
+pub struct ReplicaImbalanceTemplate;
+
+impl FindingTemplate for ReplicaImbalanceTemplate {
+    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
+        "Load is unevenly distributed across replicas".into()
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let cfg = &ctx.config.rules.replica_imbalance;
+        let mut lines = vec![];
+        for model in ctx.graph.models() {
+            if let Some(evidence) = model_imbalance(ctx.graph, model.as_deref(), cfg) {
+                let prefix = model
+                    .as_deref()
+                    .map(|m| format!("{m}: "))
+                    .unwrap_or_default();
+                lines.push(format!("{prefix}{}", evidence.parts.join("; ")));
+            }
+        }
+        if lines.is_empty() {
+            lines.push("Replica imbalance detected".into());
+        }
+        lines
+    }
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -344,5 +370,25 @@ mod tests {
                 1.0
             )
         );
+    }
+
+    #[test]
+    fn template_finds_extremes() {
+        let snap = snapshot(
+            vec![sample(10.0, &[("pod", "a")]), sample(2.0, &[("pod", "b")])],
+            vec![],
+            vec![],
+        );
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::ReplicaRunningImbalance,
+            value: 5.0,
+        };
+        let evidence = ReplicaImbalanceTemplate.evidence(&ctx);
+        assert!(evidence[0].contains("a=10"));
+        assert!(evidence[0].contains("b=2"));
     }
 }

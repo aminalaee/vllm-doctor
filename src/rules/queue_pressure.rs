@@ -14,7 +14,7 @@ use crate::config::QueuePressureConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
-use crate::rules::templates::QueuePressureTemplate;
+use crate::rules::templates::{FindingTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -34,7 +34,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "Reduce incoming request rate",
     ],
     related_metrics: &["vllm:num_requests_waiting", "vllm:num_requests_running"],
-    template: &QueuePressureTemplate as &dyn crate::rules::templates::FindingTemplate,
+    template: &QueuePressureTemplate as &dyn FindingTemplate,
 };
 
 pub struct QueuePressureRule {
@@ -75,10 +75,34 @@ impl Rule for QueuePressureRule {
 ///
 /// Shared by the rule (for confidence) and the template (for evidence) so the
 /// threshold comparison lives in one place.
-pub(crate) fn running_high(graph: &SignalGraph<'_>, cfg: &QueuePressureConfig) -> Option<f64> {
+fn running_high(graph: &SignalGraph<'_>, cfg: &QueuePressureConfig) -> Option<f64> {
     graph
         .evaluate(Signal::NumRequestsRunning)
         .filter(|&r| r > cfg.high_running as f64)
+}
+
+pub struct QueuePressureTemplate;
+
+impl FindingTemplate for QueuePressureTemplate {
+    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
+        "Requests are queuing faster than the server can process them.".into()
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let waiting = ctx.value;
+        let cfg = &ctx.config.rules.queue_pressure;
+        let mut lines = vec![format!(
+            "Waiting requests: {waiting:.0} (threshold: {high_waiting})",
+            high_waiting = cfg.high_waiting,
+        )];
+        if let Some(running) = running_high(ctx.graph, cfg) {
+            lines.push(format!(
+                "Running requests: {running:.0} (threshold: {high_running})",
+                high_running = cfg.high_running,
+            ));
+        }
+        lines
+    }
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -145,5 +169,38 @@ mod tests {
                 10.0
             )
         );
+    }
+
+    fn ctx<'a>(graph: &'a SignalGraph<'a>, config: &'a Config, value: f64) -> TemplateContext<'a> {
+        TemplateContext {
+            graph,
+            config,
+            signal: Signal::NumRequestsWaiting,
+            value,
+        }
+    }
+
+    #[test]
+    fn template_output() {
+        let snap = snapshot(8.0, 60.0);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let t = QueuePressureTemplate;
+        assert_eq!(
+            t.summary(&ctx(&graph, &config, 8.0)),
+            "Requests are queuing faster than the server can process them."
+        );
+        let evidence = t.evidence(&ctx(&graph, &config, 8.0));
+        assert_eq!(evidence[0], "Waiting requests: 8 (threshold: 5)");
+        assert_eq!(evidence[1], "Running requests: 60 (threshold: 50)");
+    }
+
+    #[test]
+    fn template_no_running_line_when_below_threshold() {
+        let snap = snapshot(8.0, 10.0);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let evidence = QueuePressureTemplate.evidence(&ctx(&graph, &config, 8.0));
+        assert_eq!(evidence, vec!["Waiting requests: 8 (threshold: 5)"]);
     }
 }

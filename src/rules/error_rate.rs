@@ -23,7 +23,7 @@ use crate::config::ErrorRateConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
-use crate::rules::templates::ErrorRateTemplate;
+use crate::rules::templates::{FindingTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -44,7 +44,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "Reduce load or add replicas if errors correlate with traffic spikes",
     ],
     related_metrics: &["vllm:request_success_total"],
-    template: &ErrorRateTemplate as &dyn crate::rules::templates::FindingTemplate,
+    template: &ErrorRateTemplate as &dyn FindingTemplate,
 };
 
 pub struct ErrorRateRule {
@@ -111,7 +111,7 @@ impl Rule for ErrorRateRule {
 /// Server-side error rate is at or above the high threshold.
 ///
 /// Shared by the rule (for confidence/severity) and the template (for evidence).
-pub(crate) fn error_rate_high(graph: &SignalGraph<'_>, cfg: &ErrorRateConfig) -> Option<f64> {
+fn error_rate_high(graph: &SignalGraph<'_>, cfg: &ErrorRateConfig) -> Option<f64> {
     let errors = graph.evaluate(Signal::RequestErrorTotal)?;
     let aborts = graph.evaluate(Signal::RequestAbortTotal)?;
     let success = graph.evaluate(Signal::RequestSuccessTotal)?;
@@ -126,7 +126,7 @@ pub(crate) fn error_rate_high(graph: &SignalGraph<'_>, cfg: &ErrorRateConfig) ->
 /// Client abort rate is at or above the high threshold.
 ///
 /// Shared by the rule (for confidence/severity) and the template (for evidence).
-pub(crate) fn abort_rate_high(graph: &SignalGraph<'_>, cfg: &ErrorRateConfig) -> Option<f64> {
+fn abort_rate_high(graph: &SignalGraph<'_>, cfg: &ErrorRateConfig) -> Option<f64> {
     let errors = graph.evaluate(Signal::RequestErrorTotal)?;
     let aborts = graph.evaluate(Signal::RequestAbortTotal)?;
     let success = graph.evaluate(Signal::RequestSuccessTotal)?;
@@ -139,11 +139,50 @@ pub(crate) fn abort_rate_high(graph: &SignalGraph<'_>, cfg: &ErrorRateConfig) ->
 }
 
 /// Total request count used to derive error/abort rates.
-pub(crate) fn request_totals(graph: &SignalGraph<'_>) -> Option<(f64, f64, f64)> {
+fn request_totals(graph: &SignalGraph<'_>) -> Option<(f64, f64, f64)> {
     let errors = graph.evaluate(Signal::RequestErrorTotal)?;
     let aborts = graph.evaluate(Signal::RequestAbortTotal)?;
     let success = graph.evaluate(Signal::RequestSuccessTotal)?;
     Some((errors, aborts, success))
+}
+
+pub struct ErrorRateTemplate;
+
+impl FindingTemplate for ErrorRateTemplate {
+    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
+        "Server is returning errors or clients are aborting at an elevated rate.".into()
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let cfg = &ctx.config.rules.error_rate;
+        let Some((errors, aborts, success)) = request_totals(ctx.graph) else {
+            return vec![];
+        };
+        let total = errors + aborts + success;
+        if total == 0.0 {
+            return vec![];
+        }
+        let error_rate = errors / total;
+        let abort_rate = aborts / total;
+        let mut lines = vec![];
+        if error_rate_high(ctx.graph, cfg).is_some() {
+            lines.push(format!(
+                "Error rate: {:.1}% ({errors:.0} errors out of {total:.0} requests, \
+                 threshold: {:.1}%)",
+                error_rate * 100.0,
+                cfg.high_error_rate * 100.0,
+            ));
+        }
+        if abort_rate_high(ctx.graph, cfg).is_some() {
+            lines.push(format!(
+                "Abort rate: {:.1}% ({aborts:.0} aborts out of {total:.0} requests, \
+                 threshold: {:.1}%)",
+                abort_rate * 100.0,
+                cfg.high_abort_rate * 100.0,
+            ));
+        }
+        lines
+    }
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -227,6 +266,54 @@ mod tests {
                 Signal::ErrorRate,
                 10.0 / 115.0
             )
+        );
+    }
+
+    #[test]
+    fn template_output() {
+        // 1 error, 1 abort, 18 success -> total 20. error_rate = 0.05 (>= 0.05),
+        // abort_rate = 0.05 (not >= 0.10).
+        let snap = snapshot(1.0, 1.0, 18.0);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::RequestErrorTotal,
+            value: 1.0,
+        };
+        let t = ErrorRateTemplate;
+        assert_eq!(
+            t.summary(&ctx),
+            "Server is returning errors or clients are aborting at an elevated rate."
+        );
+        let evidence = t.evidence(&ctx);
+        assert_eq!(
+            evidence[0],
+            "Error rate: 5.0% (1 errors out of 20 requests, threshold: 5.0%)"
+        );
+    }
+
+    #[test]
+    fn template_includes_abort_line_when_high() {
+        let snap = snapshot(3.0, 3.0, 14.0);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::RequestErrorTotal,
+            value: 3.0,
+        };
+        // total = 20, error_rate = 0.15, abort_rate = 0.15.
+        let evidence = ErrorRateTemplate.evidence(&ctx);
+        assert_eq!(
+            evidence[0],
+            "Error rate: 15.0% (3 errors out of 20 requests, threshold: 5.0%)"
+        );
+        assert_eq!(
+            evidence[1],
+            "Abort rate: 15.0% (3 aborts out of 20 requests, threshold: 10.0%)"
         );
     }
 }

@@ -20,7 +20,7 @@ use crate::config::LowThroughputConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
-use crate::rules::templates::LowThroughputTemplate;
+use crate::rules::templates::{FindingTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -44,7 +44,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "vllm:generation_tokens_per_second",
         "vllm:num_requests_running",
     ],
-    template: &LowThroughputTemplate as &dyn crate::rules::templates::FindingTemplate,
+    template: &LowThroughputTemplate as &dyn FindingTemplate,
 };
 
 pub struct LowThroughputRule {
@@ -110,7 +110,7 @@ impl Rule for LowThroughputRule {
 /// Prompt token throughput is below the configured threshold.
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn prompt_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64> {
+fn prompt_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64> {
     graph
         .evaluate(Signal::PromptTokensPerSecond)
         .filter(|&v| v < cfg.low_prompt_tps)
@@ -119,7 +119,7 @@ pub(crate) fn prompt_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> 
 /// Generation token throughput is below the configured threshold.
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn gen_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64> {
+fn gen_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64> {
     graph
         .evaluate(Signal::GenerationTokensPerSecond)
         .filter(|&v| v < cfg.low_gen_tps)
@@ -128,10 +128,39 @@ pub(crate) fn gen_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Opt
 /// Running concurrency is very low, indicating underutilization.
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn running_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64> {
+fn running_low(graph: &SignalGraph<'_>, cfg: &LowThroughputConfig) -> Option<f64> {
     graph
         .evaluate(Signal::NumRequestsRunning)
         .filter(|&r| r < cfg.low_running as f64)
+}
+
+pub struct LowThroughputTemplate;
+
+impl FindingTemplate for LowThroughputTemplate {
+    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
+        "Server is processing requests below expected throughput with no queue pressure.".into()
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let cfg = &ctx.config.rules.low_throughput;
+        let mut lines = vec![];
+        if let Some(prompt) = prompt_low(ctx.graph, cfg) {
+            lines.push(format!(
+                "Prompt tokens/s: {prompt:.1} (threshold: {threshold:.1})",
+                threshold = cfg.low_prompt_tps,
+            ));
+        }
+        if let Some(gen_tps) = gen_low(ctx.graph, cfg) {
+            lines.push(format!(
+                "Generation tokens/s: {gen_tps:.1} (threshold: {threshold:.1})",
+                threshold = cfg.low_gen_tps,
+            ));
+        }
+        if let Some(running) = running_low(ctx.graph, cfg) {
+            lines.push(format!("Requests running: {running:.0}"));
+        }
+        lines
+    }
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -251,5 +280,27 @@ mod tests {
                 5.0
             )
         );
+    }
+
+    #[test]
+    fn template_output() {
+        let snap = snapshot(5.0, 20.0, 1.0, 0.0);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::PromptTokensPerSecond,
+            value: 5.0,
+        };
+        let t = LowThroughputTemplate;
+        assert_eq!(
+            t.summary(&ctx),
+            "Server is processing requests below expected throughput with no queue pressure."
+        );
+        let evidence = t.evidence(&ctx);
+        assert_eq!(evidence[0], "Prompt tokens/s: 5.0 (threshold: 10.0)");
+        assert_eq!(evidence[1], "Generation tokens/s: 20.0 (threshold: 50.0)");
+        assert_eq!(evidence[2], "Requests running: 1");
     }
 }
