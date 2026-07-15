@@ -7,9 +7,9 @@
 use crate::config::Config;
 use crate::config::TpotBottleneckConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
-use crate::reports::templates::TpotBottleneckTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
+use crate::rules::templates::{FindingTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -34,7 +34,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "generation_tokens_per_second",
         "ttft_p95_seconds",
     ],
-    template: &TpotBottleneckTemplate as &dyn crate::reports::templates::FindingTemplate,
+    template: &TpotBottleneckTemplate as &dyn FindingTemplate,
 };
 
 pub struct TpotBottleneckRule {
@@ -76,7 +76,7 @@ impl Rule for TpotBottleneckRule {
 /// decode pressure.
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn gen_low(graph: &SignalGraph<'_>, cfg: &TpotBottleneckConfig) -> Option<f64> {
+fn gen_low(graph: &SignalGraph<'_>, cfg: &TpotBottleneckConfig) -> Option<f64> {
     graph
         .evaluate(Signal::GenerationTokensPerSecond)
         .filter(|&v| v.is_finite() && v < cfg.low_gen_tokens_per_sec)
@@ -86,10 +86,36 @@ pub(crate) fn gen_low(graph: &SignalGraph<'_>, cfg: &TpotBottleneckConfig) -> Op
 /// decode rather than prefill or queue saturation.
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn ttft_normal(graph: &SignalGraph<'_>) -> Option<f64> {
+fn ttft_normal(graph: &SignalGraph<'_>) -> Option<f64> {
     graph
         .evaluate(Signal::TtftP95Seconds)
         .filter(|&v| v.is_finite() && v < 2.0)
+}
+
+pub struct TpotBottleneckTemplate;
+
+impl FindingTemplate for TpotBottleneckTemplate {
+    fn summary(&self, _ctx: &TemplateContext<'_>) -> String {
+        "Each output token is taking too long to generate. \
+         This typically indicates GPU decode saturation or memory bandwidth pressure."
+            .into()
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let tpot = ctx.value;
+        let mut lines = vec![format!("TPOT p95: {tpot:.3}s")];
+        if let Some(gen_tps) = ctx.graph.evaluate(Signal::GenerationTokensPerSecond) {
+            if gen_tps.is_finite() {
+                lines.push(format!("Generation throughput: {gen_tps:.1} tok/s"));
+            }
+        }
+        if let Some(ttft) = ctx.graph.evaluate(Signal::TtftP95Seconds) {
+            if ttft.is_finite() {
+                lines.push(format!("TTFT p95: {ttft:.3}s"));
+            }
+        }
+        lines
+    }
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -178,5 +204,28 @@ mod tests {
                 0.3
             )
         );
+    }
+
+    #[test]
+    fn template_output() {
+        let snap = snapshot(0.4, 1.0, 30.0);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::TpotP95Seconds,
+            value: 0.4,
+        };
+        let t = TpotBottleneckTemplate;
+        assert_eq!(
+            t.summary(&ctx),
+            "Each output token is taking too long to generate. \
+             This typically indicates GPU decode saturation or memory bandwidth pressure."
+        );
+        let evidence = t.evidence(&ctx);
+        assert_eq!(evidence[0], "TPOT p95: 0.400s");
+        assert_eq!(evidence[1], "Generation throughput: 30.0 tok/s");
+        assert_eq!(evidence[2], "TTFT p95: 1.000s");
     }
 }

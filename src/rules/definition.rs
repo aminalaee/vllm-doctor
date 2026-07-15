@@ -1,6 +1,6 @@
 //! Static metadata for a diagnostic rule.
 use crate::models::Severity;
-use crate::reports::templates::FindingTemplate;
+use crate::rules::templates::FindingTemplate;
 
 /// Immutable metadata describing a rule.
 #[derive(Clone, Copy)]

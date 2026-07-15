@@ -13,9 +13,9 @@
 use crate::config::Config;
 use crate::config::PrefixCacheEfficiencyConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
-use crate::reports::templates::PrefixCacheEfficiencyTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
+use crate::rules::templates::{FindingTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -37,7 +37,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "vllm:prefix_cache_hits_total",
         "vllm:prefix_cache_queries_total",
     ],
-    template: &PrefixCacheEfficiencyTemplate as &dyn crate::reports::templates::FindingTemplate,
+    template: &PrefixCacheEfficiencyTemplate as &dyn FindingTemplate,
 };
 
 pub struct PrefixCacheEfficiencyRule {
@@ -72,6 +72,27 @@ impl Rule for PrefixCacheEfficiencyRule {
             Signal::PrefixCacheHitRate,
             hit_rate,
         )
+    }
+}
+
+pub struct PrefixCacheEfficiencyTemplate;
+
+impl FindingTemplate for PrefixCacheEfficiencyTemplate {
+    fn summary(&self, ctx: &TemplateContext<'_>) -> String {
+        let hit_rate = ctx.value;
+        format!(
+            "Prefix cache hit rate is {:.0}% — repeated prompt prefixes are not being reused, \
+             causing redundant prefill computation.",
+            hit_rate * 100.0,
+        )
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let hit_rate = ctx.value;
+        vec![format!(
+            "Prefix cache hit rate: {}",
+            format!("{:.0}%", hit_rate * 100.0)
+        )]
     }
 }
 
@@ -137,5 +158,25 @@ mod tests {
                 0.10
             )
         );
+    }
+
+    #[test]
+    fn template_output() {
+        let snap = snapshot(0.12);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::PrefixCacheHitRate,
+            value: 0.12,
+        };
+        let t = PrefixCacheEfficiencyTemplate;
+        assert_eq!(
+            t.summary(&ctx),
+            "Prefix cache hit rate is 12% — repeated prompt prefixes are not being reused, \
+             causing redundant prefill computation."
+        );
+        assert_eq!(t.evidence(&ctx), vec!["Prefix cache hit rate: 12%"]);
     }
 }

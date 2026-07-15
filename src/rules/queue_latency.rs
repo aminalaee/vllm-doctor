@@ -16,9 +16,9 @@
 use crate::config::Config;
 use crate::config::QueueLatencyConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
-use crate::reports::templates::QueueLatencyTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
+use crate::rules::templates::{FindingTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -42,7 +42,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "vllm:request_queue_time_seconds",
         "vllm:num_requests_waiting",
     ],
-    template: &QueueLatencyTemplate as &dyn crate::reports::templates::FindingTemplate,
+    template: &QueueLatencyTemplate as &dyn FindingTemplate,
 };
 
 pub struct QueueLatencyRule {
@@ -82,10 +82,35 @@ impl Rule for QueueLatencyRule {
 /// Active backlog confirmed: requests are waiting in the queue.
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
+fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
     graph
         .evaluate(Signal::NumRequestsWaiting)
         .filter(|&w| w > 0.0)
+}
+
+pub struct QueueLatencyTemplate;
+
+impl FindingTemplate for QueueLatencyTemplate {
+    fn summary(&self, ctx: &TemplateContext<'_>) -> String {
+        let queue_time = ctx.value;
+        format!(
+            "Requests are waiting {queue_time:.2}s (p95) in the queue before prefill begins \
+             — the server cannot admit requests fast enough."
+        )
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let queue_time = ctx.value;
+        let cfg = &ctx.config.rules.queue_latency;
+        let mut lines = vec![format!(
+            "Queue time p95: {queue_time:.3}s (threshold: {high}s)",
+            high = cfg.high_queue_time_p95,
+        )];
+        if let Some(waiting) = waiting_backlog(ctx.graph) {
+            lines.push(format!("Waiting requests: {}", waiting as i64));
+        }
+        lines
+    }
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -151,5 +176,27 @@ mod tests {
                 2.0
             )
         );
+    }
+
+    #[test]
+    fn template_output() {
+        let snap = snapshot(2.5, 3.0);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::QueueTimeP95Seconds,
+            value: 2.5,
+        };
+        let t = QueueLatencyTemplate;
+        assert_eq!(
+            t.summary(&ctx),
+            "Requests are waiting 2.50s (p95) in the queue before prefill begins \
+             — the server cannot admit requests fast enough."
+        );
+        let evidence = t.evidence(&ctx);
+        assert_eq!(evidence[0], "Queue time p95: 2.500s (threshold: 1s)");
+        assert_eq!(evidence[1], "Waiting requests: 3");
     }
 }

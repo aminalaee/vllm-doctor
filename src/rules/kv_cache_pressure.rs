@@ -15,9 +15,9 @@
 use crate::config::Config;
 use crate::config::KVCachePressureConfig;
 use crate::models::{Confidence, DiagnosisState, Severity};
-use crate::reports::templates::KvCachePressureTemplate;
 use crate::rules::Rule;
 use crate::rules::RuleDefinition;
+use crate::rules::templates::{FindingTemplate, TemplateContext};
 use crate::signals::{Signal, SignalGraph};
 
 pub static DEFINITION: RuleDefinition = RuleDefinition {
@@ -37,7 +37,7 @@ pub static DEFINITION: RuleDefinition = RuleDefinition {
         "Route long-context requests to a dedicated replica",
     ],
     related_metrics: &["vllm:kv_cache_usage_perc", "vllm:num_requests_waiting"],
-    template: &KvCachePressureTemplate as &dyn crate::reports::templates::FindingTemplate,
+    template: &KvCachePressureTemplate as &dyn FindingTemplate,
 };
 
 pub struct KVCachePressureRule {
@@ -79,10 +79,38 @@ impl Rule for KVCachePressureRule {
 /// Active backlog confirmed: requests are waiting, blocked by full cache.
 ///
 /// Shared by the rule (for confidence) and the template (for evidence).
-pub(crate) fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
+fn waiting_backlog(graph: &SignalGraph<'_>) -> Option<f64> {
     graph
         .evaluate(Signal::NumRequestsWaiting)
         .filter(|&w| w > 0.0)
+}
+
+pub struct KvCachePressureTemplate;
+
+impl FindingTemplate for KvCachePressureTemplate {
+    fn summary(&self, ctx: &TemplateContext<'_>) -> String {
+        let cache = ctx.value;
+        format!(
+            "GPU KV cache at {:.0}% — new requests cannot be admitted until sequences complete.",
+            cache * 100.0,
+        )
+    }
+
+    fn evidence(&self, ctx: &TemplateContext<'_>) -> Vec<String> {
+        let cache = ctx.value;
+        let cfg = &ctx.config.rules.kv_cache_pressure;
+        let mut lines = vec![format!(
+            "GPU KV cache usage: {usage} (threshold: {threshold})",
+            usage = format!("{:.0}%", cache * 100.0),
+            threshold = format!("{:.0}%", cfg.high_cache_usage * 100.0),
+        )];
+        if let Some(waiting) = waiting_backlog(ctx.graph) {
+            lines.push(format!(
+                "Waiting requests: {waiting:.0} (blocked by full cache)"
+            ));
+        }
+        lines
+    }
 }
 
 pub fn factory(config: &Config) -> (&'static RuleDefinition, Box<dyn Rule>) {
@@ -148,5 +176,26 @@ mod tests {
                 0.95
             )
         );
+    }
+
+    #[test]
+    fn template_output() {
+        let snap = snapshot(0.92, 4.0);
+        let graph = SignalGraph::new(&snap);
+        let config = Config::default();
+        let ctx = TemplateContext {
+            graph: &graph,
+            config: &config,
+            signal: Signal::KvCacheUsagePerc,
+            value: 0.92,
+        };
+        let t = KvCachePressureTemplate;
+        assert_eq!(
+            t.summary(&ctx),
+            "GPU KV cache at 92% — new requests cannot be admitted until sequences complete."
+        );
+        let evidence = t.evidence(&ctx);
+        assert_eq!(evidence[0], "GPU KV cache usage: 92% (threshold: 90%)");
+        assert_eq!(evidence[1], "Waiting requests: 4 (blocked by full cache)");
     }
 }

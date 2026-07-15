@@ -2,7 +2,6 @@
 pub mod format;
 pub mod json;
 pub mod notices;
-pub mod templates;
 pub mod text;
 
 use crate::metrics::MetricSeriesSnapshot;
