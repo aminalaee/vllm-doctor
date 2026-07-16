@@ -105,8 +105,7 @@ Findings
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │  ✖ KV cache pressure  [high]                                                 │
 │                                                                              │
-│  GPU KV cache usage: 94% (threshold: 90%)  ·  Waiting requests: 7 (blocked   │
-│  by full cache)                                                              │
+│  kv_cache_usage_perc: 0.94 ≥ threshold 0.90  ·  num_requests_waiting: 7      │
 │                                                                              │
 │  → Reduce max_num_seqs to limit concurrent sequences                         │
 │  → Reduce max_num_batched_tokens to cap memory per step                      │
@@ -116,7 +115,8 @@ Findings
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │  ⚠ High time to first token (TTFT)  [high]                                   │
 │                                                                              │
-│  TTFT p95: 3.200s  ·  TPOT p95: 0.050s  ·  Waiting requests: 7               │
+│  ttft_p95_seconds: 3.20s ≥ threshold 2s  ·  tpot_p95_seconds: 0.05s  ·       │
+│  num_requests_waiting: 7                                                     │
 │                                                                              │
 │  → Enable or tune chunked prefill (--enable-chunked-prefill)                 │
 │  → Reduce max prompt length or filter long requests                          │
@@ -126,8 +126,10 @@ Findings
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │  ⚠ Replica imbalance  [high]                                                 │
 │                                                                              │
-│  meta-llama/Llama-3.1-8B: running vllm-1=10 vs vllm-0=2; cache 94% vs 41%;   │
-│  waiting vllm-1=7 vs vllm-0=0                                                │
+│  1/2 replicas show elevated num_requests_running for meta-llama/Llama-3.1-   │
+│  8B  ·  1/2 replicas show elevated kv_cache_usage_perc for meta-             │
+│  llama/Llama-3.1-8B  ·  1/2 replicas show elevated num_requests_waiting for  │
+│  meta-llama/Llama-3.1-8B                                                     │
 │                                                                              │
 │  → Check the load balancer / service routing and session affinity settings   │
 │  → Verify readiness probes — an unready replica receives no traffic          │
@@ -137,7 +139,7 @@ Findings
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │  ⚠ Queue pressure  [low]                                                     │
 │                                                                              │
-│  Waiting requests: 7 (threshold: 5)                                          │
+│  num_requests_waiting: 7 > threshold 5                                       │
 │                                                                              │
 │  → Add replicas or increase concurrency limits                               │
 │  → Inspect autoscaling thresholds                                            │

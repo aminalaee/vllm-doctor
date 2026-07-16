@@ -1,7 +1,7 @@
-//! Integration tests for CLI commands (migrate, history list/show, diagnose --save).
+//! Integration tests for CLI commands and their underlying persistence paths.
 //!
-//! These exercise the command paths through the library API with a temp DB,
-//! verifying the store round-trips and the CLI wiring produces the right output.
+//! The persistence tests use the library API with a temporary database. The
+//! output and failure-path tests execute the compiled CLI against a mock server.
 use vllm_doctor::config::Config;
 use vllm_doctor::stores::{HistoryStore, SqliteHistoryStore};
 
@@ -153,4 +153,85 @@ async fn diagnose_save_persists_run() {
     assert_eq!(loaded, result);
     let runs = store.list().await.unwrap();
     assert_eq!(runs.len(), 1);
+}
+
+fn binary_path() -> &'static str {
+    env!("CARGO_BIN_EXE_vllm-doctor")
+}
+
+const SCRAPE_METRICS: &str = "# TYPE vllm:num_requests_running gauge\nvllm:num_requests_running 10.0\n# TYPE vllm:num_requests_waiting gauge\nvllm:num_requests_waiting 8.0\n";
+
+async fn serve_scrape() -> wiremock::MockServer {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/metrics"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(SCRAPE_METRICS))
+        .mount(&server)
+        .await;
+    server
+}
+
+#[tokio::test]
+async fn cli_json_output_ends_with_newline() {
+    let server = serve_scrape().await;
+    let url = format!("{}/metrics", server.uri());
+    let output = std::process::Command::new(binary_path())
+        .args(["diagnose", &url, "--output", "json"])
+        .output()
+        .expect("failed to run vllm-doctor");
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.ends_with('\n'), "JSON output must end with newline");
+    assert!(stdout.contains("\"health\""));
+}
+
+#[tokio::test]
+async fn cli_text_output_contains_health() {
+    let server = serve_scrape().await;
+    let url = format!("{}/metrics", server.uri());
+    let output = std::process::Command::new(binary_path())
+        .args(["diagnose", &url])
+        .output()
+        .expect("failed to run vllm-doctor");
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Health:"));
+}
+
+#[tokio::test]
+async fn cli_save_failure_prints_output_and_exits_2() {
+    let server = serve_scrape().await;
+    let url = format!("{}/metrics", server.uri());
+    let dir = tempfile::tempdir().unwrap();
+    let db_file = dir.path().join("blocker_file");
+    std::fs::write(&db_file, "not a directory").unwrap();
+    let config_path = dir.path().join("bad-config.toml");
+    let db_url = format!("sqlite://{}/history.db", db_file.display());
+    std::fs::write(&config_path, format!("[database]\nurl = \"{db_url}\"\n")).unwrap();
+
+    let output = std::process::Command::new(binary_path())
+        .args([
+            "diagnose",
+            &url,
+            "--save",
+            "--config",
+            config_path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to run vllm-doctor");
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        !stdout.is_empty(),
+        "diagnosis output must appear even when save fails"
+    );
+    assert!(stdout.contains("Health:"));
+    assert!(
+        stderr.to_lowercase().contains("save") || stderr.to_lowercase().contains("error"),
+        "stderr should report the save failure, got: {stderr}"
+    );
+    assert_eq!(output.status.code(), Some(2));
 }
