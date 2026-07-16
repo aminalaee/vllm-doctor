@@ -80,7 +80,6 @@ mod tests {
     async fn header_sent_on_probe_and_fetch() {
         let server = MockServer::start().await;
 
-        // With auth header → 200 with scrape content.
         Mock::given(method("GET"))
             .and(path("/metrics"))
             .and(header("authorization", "Bearer secret"))
@@ -136,8 +135,6 @@ mod tests {
 
     #[test]
     fn build_client_errors_on_ca_file_without_certs() {
-        // Non-PEM content parses to zero certificates; a provided but unusable
-        // CA file must error rather than silently trust nothing.
         let dir = std::env::temp_dir();
         let path = dir.join("vllm_doctor_test_invalid.pem");
         std::fs::write(&path, b"\x00\x01\x02\x03 not a cert").unwrap();

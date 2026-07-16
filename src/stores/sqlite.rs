@@ -240,9 +240,7 @@ mod tests {
         .await
         .unwrap();
 
-        // list reads only summary columns, so it still works.
         assert_eq!(store.list().await.unwrap().len(), 1);
-        // get refuses the incompatible blob with a clear error.
         let err = store.get(&id.to_string()).await.unwrap_err();
         assert!(matches!(err, StoreError::IncompatibleReport { .. }));
     }

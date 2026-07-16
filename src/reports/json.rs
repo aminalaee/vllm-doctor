@@ -61,8 +61,8 @@ fn check_json(check: &RuleResult) -> Value {
     })
 }
 
+/// Serialize the public finding shape without its internal `signals` field.
 fn finding_json(finding: &Finding) -> Value {
-    // `signals` is intentionally omitted from JSON — it is an internal detail.
     json!({
         "severity": finding.severity.to_string(),
         "confidence": finding.confidence.to_string(),
@@ -168,7 +168,6 @@ mod tests {
         let finding = &check["finding"];
         assert_eq!(finding["title"], "Queue pressure");
         assert!(finding.get("signals").is_none());
-        // Engine comes from context.target.engine — no context-level engine.
         assert_eq!(json["metadata"]["target"]["engine"], "vllm");
     }
 

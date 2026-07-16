@@ -189,6 +189,8 @@ impl Default for Config {
     }
 }
 
+/// Load merged configuration, resolve the database default against the supplied
+/// home directory, and validate target identity.
 fn load_config_with(
     path: Option<&Path>,
     home_dir: Option<PathBuf>,
@@ -207,13 +209,9 @@ fn load_config_with(
         }
     }
     let mut config: Config = figment.extract().map_err(Box::new)?;
-    // Database URL default is dynamic because it depends on HOME. If the file
-    // did not provide one, compute it from the supplied home directory.
     if config.database.url.is_empty() {
         config.database.url = default_database_url_with_home(home_dir);
     }
-    // Reject an empty or whitespace-only target id rather than silently
-    // normalizing it. Non-empty IDs are preserved exactly.
     if let Some(ref id) = config.target.id {
         if id.trim().is_empty() {
             return Err(ConfigError::InvalidTargetId);

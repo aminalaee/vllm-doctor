@@ -128,7 +128,6 @@ mod tests {
 
     #[test]
     fn fires_warning_when_hit_rate_low() {
-        // hit_rate=0.30 >= 0.2 → Medium confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.30))),
             DiagnosisState::firing(
@@ -142,7 +141,6 @@ mod tests {
 
     #[test]
     fn high_confidence_when_hit_rate_very_low() {
-        // hit_rate=0.10 < 0.2 → High confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.10))),
             DiagnosisState::firing(

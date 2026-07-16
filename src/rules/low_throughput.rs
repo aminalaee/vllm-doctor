@@ -230,8 +230,6 @@ mod tests {
 
     #[test]
     fn warns_when_prompt_low() {
-        // prompt=5 < 10 → prompt_low; gen=100 >= 50 → not gen_low; running=5 >= 2 → not running_low
-        // only one signal low → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 100.0, 5.0, 0.0))),
             DiagnosisState::firing(
@@ -245,8 +243,6 @@ mod tests {
 
     #[test]
     fn warns_when_gen_low() {
-        // prompt=100 >= 10 → not prompt_low; gen=20 < 50 → gen_low; running=5 >= 2 → not running_low
-        // only one signal low → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(100.0, 20.0, 5.0, 0.0))),
             DiagnosisState::firing(
@@ -260,8 +256,6 @@ mod tests {
 
     #[test]
     fn warns_when_both_low() {
-        // prompt=5 < 10 → prompt_low; gen=20 < 50 → gen_low; running=5 >= 2 → not running_low
-        // both prompt and gen low → Medium confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 20.0, 5.0, 0.0))),
             DiagnosisState::firing(
@@ -275,8 +269,6 @@ mod tests {
 
     #[test]
     fn medium_confidence_when_running_low() {
-        // prompt=5 < 10 → prompt_low; gen=100 >= 50 → not gen_low; running=1 < 2 → running_low
-        // running_low → Medium confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 100.0, 1.0, 0.0))),
             DiagnosisState::firing(

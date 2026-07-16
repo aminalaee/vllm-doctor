@@ -87,7 +87,6 @@ mod tests {
             num_requests_waiting: MetricSeries::from_samples(vec![MetricSample::new(8.0)]),
             num_requests_running: MetricSeries::from_samples(vec![MetricSample::new(60.0)]),
             kv_cache_usage_perc: MetricSeries::from_samples(vec![MetricSample::new(0.95)]),
-            // High error rate fires a critical finding (80 / 1110 > 5% threshold).
             request_success_total: MetricSeries::from_samples(vec![MetricSample::new(1000.0)]),
             request_error_total: MetricSeries::from_samples(vec![MetricSample::new(80.0)]),
             request_abort_total: MetricSeries::from_samples(vec![MetricSample::new(30.0)]),
@@ -178,7 +177,6 @@ mod tests {
         .await
         .unwrap();
 
-        // Findings precede non-firing checks, and severities are non-decreasing.
         let mut last = (0u8, 0u8);
         let mut seen_none = false;
         for check in &result.checks {
@@ -196,7 +194,6 @@ mod tests {
                 None => seen_none = true,
             }
         }
-        // The KV cache pressure rule fires critical on 95% usage.
         assert_eq!(result.health(), Health::Critical);
     }
 

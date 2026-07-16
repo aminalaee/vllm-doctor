@@ -62,7 +62,6 @@ async fn migrate_creates_database() {
     let store = SqliteHistoryStore::connect(&config.database.url)
         .await
         .unwrap();
-    // The table exists after connect runs migrations.
     let runs = store.list().await.unwrap();
     assert!(runs.is_empty());
 }

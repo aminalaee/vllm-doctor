@@ -551,7 +551,6 @@ mod tests {
             let text = health.to_string();
             assert_eq!(Health::from_str(&text).unwrap(), health);
         }
-        // `ok` is not a valid token — the Display form is `healthy`.
         assert!(Health::from_str("ok").is_err());
     }
 

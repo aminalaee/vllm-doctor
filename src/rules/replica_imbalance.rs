@@ -281,9 +281,6 @@ mod tests {
     }
     #[test]
     fn stressed_when_running_imbalance() {
-        // running a=2.5 vs b=1.0 -> running spread signal (count=1)
-        // cache gap=0, waiting both 0 -> no other signals
-        // worst_count=1 -> Low confidence, Warning severity
         let result = rule().run(&SignalGraph::new(&snapshot(
             vec![sample(2.5, &[("pod", "a")]), sample(1.0, &[("pod", "b")])],
             vec![sample(0.0, &[("pod", "a")]), sample(0.0, &[("pod", "b")])],
@@ -302,10 +299,6 @@ mod tests {
 
     #[test]
     fn medium_confidence_when_two_signals() {
-        // running a=5.0 vs b=1.0 -> running spread (count=1)
-        // cache a=0.9 vs b=0.5 -> gap=0.4 >= 0.30 (count=1)
-        // waiting both 0 -> no waiting skew
-        // worst_count=2 -> Medium confidence
         let result = rule().run(&SignalGraph::new(&snapshot(
             vec![sample(5.0, &[("pod", "a")]), sample(1.0, &[("pod", "b")])],
             vec![sample(0.0, &[("pod", "a")]), sample(0.0, &[("pod", "b")])],
@@ -324,10 +317,6 @@ mod tests {
 
     #[test]
     fn high_confidence_when_three_signals() {
-        // running a=5.0 vs b=1.0 -> running spread (count=1)
-        // cache a=0.9 vs b=0.5 -> gap=0.4 >= 0.30 (count=1)
-        // waiting a=3.0 vs b=0.0 -> waiting skew (count=1)
-        // worst_count=3 -> High confidence
         let result = rule().run(&SignalGraph::new(&snapshot(
             vec![sample(5.0, &[("pod", "a")]), sample(1.0, &[("pod", "b")])],
             vec![sample(3.0, &[("pod", "a")]), sample(0.0, &[("pod", "b")])],
@@ -346,9 +335,6 @@ mod tests {
 
     #[test]
     fn saturated_when_critical_imbalance() {
-        // running a=5.0 vs b=1.0 -> running spread (count=1)
-        // cache gap=0, waiting both 0 -> no other signals
-        // worst_count=1 -> Low confidence (severity is always Warning now)
         let result = rule().run(&SignalGraph::new(&snapshot(
             vec![sample(5.0, &[("pod", "a")]), sample(1.0, &[("pod", "b")])],
             vec![sample(0.0, &[("pod", "a")]), sample(0.0, &[("pod", "b")])],
@@ -376,12 +362,6 @@ mod tests {
 
     #[test]
     fn fires_on_cache_gap_without_running_imbalance() {
-        // running a=10 vs b=10 -> balanced, no running spread signal
-        // cache a=0.9 vs b=0.5 -> gap=0.4 >= 0.30 -> cache gap signal (count=1)
-        // waiting both 0 -> no waiting skew
-        // worst_count=1 -> Low confidence
-        // Previously the top-level ReplicaRunningImbalance gate returned Healthy;
-        // now the cache gap is counted independently.
         let result = rule().run(&SignalGraph::new(&snapshot(
             vec![sample(10.0, &[("pod", "a")]), sample(10.0, &[("pod", "b")])],
             vec![sample(0.0, &[("pod", "a")]), sample(0.0, &[("pod", "b")])],

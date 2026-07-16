@@ -94,7 +94,6 @@ mod tests {
 
         let text = crate::reports::text::render(&report, &RenderOptions::default());
         assert!(text.contains("Health:"));
-        // Queue pressure fires; rules that cannot evaluate stay quiet (no panel).
         assert!(text.contains("Queue pressure"));
         assert!(!text.contains("could not be evaluated"));
 

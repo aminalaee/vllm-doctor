@@ -6,9 +6,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct MetricSample {
     pub labels: HashMap<String, String>,
-    // Scraped metrics can be NaN/±Inf, which JSON renders as `null` and cannot
-    // be read back into an `f64`. Encode non-finite values as strings so a stored
-    // run round-trips instead of becoming unreadable.
     #[serde(with = "finite_f64")]
     pub value: f64,
     pub timestamp: Option<f64>,
@@ -125,11 +122,11 @@ impl std::str::FromStr for Aggregate {
     }
 }
 
+/// Samples and their aggregation strategy. The strategy is serialized so
+/// stored gauge series do not reload with the default `Sum` aggregation.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct MetricSeries {
     pub samples: Vec<MetricSample>,
-    // Serialized so a stored run reloads with the same aggregation (gauges are
-    // not summed); without this, a reloaded series would default to Sum.
     pub aggregate_by: Aggregate,
 }
 
@@ -339,7 +336,6 @@ mod tests {
             let back: MetricSample = serde_json::from_str(&json).unwrap();
             assert_eq!(back.value, value);
         }
-        // NaN never equals itself, so assert the property survives instead.
         let json = serde_json::to_string(&MetricSample::new(f64::NAN)).unwrap();
         let back: MetricSample = serde_json::from_str(&json).unwrap();
         assert!(back.value.is_nan());

@@ -68,7 +68,6 @@ mod tests {
         let provider = provider(&server);
         let _ = provider.fetch_snapshot().await.unwrap();
         let after_first = server.received_requests().await.unwrap_or_default().len();
-        // No caching: a second fetch scrapes the endpoint again.
         let _ = provider.fetch_snapshot().await.unwrap();
         let after_second = server.received_requests().await.unwrap_or_default().len();
         assert!(after_second > after_first);

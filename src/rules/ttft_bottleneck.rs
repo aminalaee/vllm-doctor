@@ -56,7 +56,6 @@ impl Rule for TtftBottleneckRule {
             return DiagnosisState::Healthy;
         }
 
-        // TTFT exceeding threshold is always True (rule fired).
         let tpot_stable = tpot_stable(signals, &self.cfg).is_some();
         let waiting_confirmed = waiting_backlog(signals).is_some();
         let signals_count = 1 + tpot_stable as i32 + waiting_confirmed as i32;
@@ -168,8 +167,6 @@ mod tests {
 
     #[test]
     fn fires_warning_when_ttft_high() {
-        // ttft=3.0 >= 2.0 → fires; tpot=0.5 >= 0.2 → not stable; waiting=0.0 → not confirmed
-        // signals_count=1 → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(3.0, 0.5, 0.0))),
             DiagnosisState::firing(
@@ -183,8 +180,6 @@ mod tests {
 
     #[test]
     fn medium_confidence_when_one_secondary_signal() {
-        // ttft=3.0 >= 2.0 → fires; tpot=0.1 < 0.2 → stable; waiting=0.0 → not confirmed
-        // signals_count=2 → Medium confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(3.0, 0.1, 0.0))),
             DiagnosisState::firing(
@@ -198,8 +193,6 @@ mod tests {
 
     #[test]
     fn high_confidence_when_both_secondary_signals() {
-        // ttft=3.0 >= 2.0 → fires; tpot=0.1 < 0.2 → stable; waiting=5.0 > 0 → confirmed
-        // signals_count=3 → High confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(3.0, 0.1, 5.0))),
             DiagnosisState::firing(

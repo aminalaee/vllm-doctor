@@ -9,12 +9,14 @@ use crate::models::{
 };
 
 /// Interpret a completed diagnosis into its most likely bottleneck.
+///
+/// An idle classification requires explicitly observed zero traffic; absent
+/// metrics remain unknown. Fired rules are evaluated in domain-priority order,
+/// with failures and saturation ahead of latency shape. High TTFT maps to
+/// queueing when requests are waiting and to long prefill otherwise.
 pub fn assess(result: &DiagnosisResult) -> Assessment {
     let metrics = &result.metric_series;
 
-    // A healthy run still has two shapes worth naming: an idle server with no
-    // traffic, or a clean server under load. Only call it idle when we actually
-    // observed zero traffic — absent metrics mean "unknown", not "idle".
     if result.health() == Health::Ok {
         let running = metrics.num_requests_running.value();
         let waiting = metrics.num_requests_waiting.value();
@@ -31,9 +33,6 @@ pub fn assess(result: &DiagnosisResult) -> Assessment {
         .collect();
     let has = |id: &str| fired.iter().any(|c| c.id == id);
 
-    // Classify into (kind, supporting rule ids). Order encodes priority:
-    // outright failures first, then the KV/queue saturation chain, then the
-    // latency-shape signals that only matter once saturation is ruled out.
     let (kind, support): (BottleneckKind, &[&str]) = if has("error_rate") {
         (BottleneckKind::ErrorIssue, &["error_rate"])
     } else if has("replica_imbalance") && !has("kv_cache_pressure") && !has("queue_pressure") {
@@ -49,8 +48,6 @@ pub fn assess(result: &DiagnosisResult) -> Assessment {
             &["queue_pressure", "queue_latency"],
         )
     } else if has("ttft_bottleneck") && !has("tpot_bottleneck") {
-        // High TTFT with a queue is queueing; high TTFT with no queue points to
-        // long prefills / long input prompts.
         let waiting = metrics.num_requests_waiting.value().unwrap_or(0.0);
         if waiting > 0.0 {
             (
@@ -291,7 +288,6 @@ mod tests {
 
     #[test]
     fn absent_traffic_metrics_are_not_idle() {
-        // Metrics missing entirely (e.g. not scraped) must not be read as idle.
         let s = assess(&result(
             vec![healthy_check("tpot_bottleneck")],
             MetricSeriesSnapshot::default(),
@@ -311,7 +307,6 @@ mod tests {
         ));
         assert_eq!(s.likely_bottleneck, BottleneckKind::KvCacheSaturation);
         assert_eq!(s.confidence, Confidence::High);
-        // Evidence carries the real findings, not canned strings.
         assert!(
             s.evidence
                 .iter()

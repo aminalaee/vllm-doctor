@@ -15,14 +15,13 @@ const BAR_FILLED: char = '█';
 const BAR_EMPTY: char = '░';
 const MIN_WIDTH: usize = 60;
 const MAX_WIDTH: usize = 120;
-// A content row is "│  " + inner + "  │" — 6 framing chars around the text.
-const PANEL_FRAME: usize = 6;
+const PANEL_FRAME_WIDTH: usize = 6;
 const MAX_REPLICAS: usize = 6;
 
 /// Render a report as structured plain text.
 pub fn render(report: &Report, opts: &RenderOptions) -> String {
     let outer = opts.width.clamp(MIN_WIDTH, MAX_WIDTH);
-    let inner = outer - PANEL_FRAME;
+    let inner = outer - PANEL_FRAME_WIDTH;
 
     let mut out = String::new();
     render_header(report, opts, outer, &mut out);
@@ -73,7 +72,6 @@ fn render_assessment(report: &Report, opts: &RenderOptions, inner: usize, out: &
         if report.health() == Health::Ok {
             return;
         }
-        // Non-OK runs with no clear pattern still get a short heads-up.
         out.push_str("No clear bottleneck detected. Review the findings below.\n\n");
         return;
     }
@@ -335,7 +333,6 @@ fn render_replica_metrics(report: &Report, opts: &RenderOptions, label: &str, ou
 
     let snapshot = report.metric_series();
 
-    // Collect per-replica values for each spec that has a breakdown.
     let mut specs_with_data: Vec<&dyn crate::metrics::MetricSpec> = Vec::new();
     let mut values: HashMap<&str, HashMap<String, Option<f64>>> = HashMap::new();
     for spec in all_specs() {
