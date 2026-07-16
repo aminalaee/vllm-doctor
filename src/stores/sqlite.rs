@@ -7,7 +7,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 use uuid::Uuid;
 
 use super::{HistoryStore, REPORT_VERSION, RunSummary, StoreError};
-use crate::models::{ClientMode, DiagnosisResult, Health};
+use crate::models::{DiagnosisResult, Health, InferenceEngine, MetricsSource};
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("src/stores/migrations");
 
@@ -49,13 +49,15 @@ impl HistoryStore for SqliteHistoryStore {
 
         sqlx::query(
             "INSERT INTO runs \
-             (id, saved_at, model_name, client_mode, health, fired_count, report_version, report) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+             (id, saved_at, model_name, metrics_source, engine, target_id, health, fired_count, report_version, report) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(id)
         .bind(saved_at)
         .bind(result.context.model_name.clone())
-        .bind(result.context.client_mode.to_string())
+        .bind(result.context.metrics_source.to_string())
+        .bind(result.context.target.engine.to_string())
+        .bind(result.context.target.id.as_deref())
         .bind(result.health().to_string())
         .bind(fired_count)
         .bind(REPORT_VERSION)
@@ -68,7 +70,7 @@ impl HistoryStore for SqliteHistoryStore {
 
     async fn list(&self) -> Result<Vec<RunSummary>, StoreError> {
         let rows = sqlx::query(
-            "SELECT id, saved_at, model_name, client_mode, health, fired_count \
+            "SELECT id, saved_at, model_name, metrics_source, engine, target_id, health, fired_count \
              FROM runs ORDER BY saved_at DESC, id DESC",
         )
         .fetch_all(&self.pool)
@@ -76,13 +78,17 @@ impl HistoryStore for SqliteHistoryStore {
 
         let mut summaries = Vec::with_capacity(rows.len());
         for row in rows {
-            let client_mode: String = row.try_get("client_mode")?;
+            let metrics_source: String = row.try_get("metrics_source")?;
+            let engine: String = row.try_get("engine")?;
+            let target_id: Option<String> = row.try_get("target_id")?;
             let health: String = row.try_get("health")?;
             summaries.push(RunSummary {
                 run_id: row.try_get("id")?,
                 saved_at: row.try_get::<DateTime<Utc>, _>("saved_at")?,
                 model_name: row.try_get("model_name")?,
-                client_mode: ClientMode::from_str(&client_mode).unwrap_or_default(),
+                metrics_source: MetricsSource::from_str(&metrics_source).unwrap_or_default(),
+                engine: InferenceEngine::from_str(&engine).unwrap_or_default(),
+                target_id,
                 health: Health::from_str(&health).unwrap_or(Health::Ok),
                 fired_count: row.try_get("fired_count")?,
             });
@@ -122,7 +128,8 @@ mod tests {
     use crate::diagnosis::diagnose;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
-    use crate::models::{ClientMode, DiagnosisContext, DiagnosisResult};
+    use crate::models::TargetMetadata;
+    use crate::models::{DiagnosisContext, DiagnosisResult, InferenceEngine, MetricsSource};
     use crate::providers::{Provider, ProviderError, ProviderMetadata};
     use crate::rules::build_registry;
 
@@ -137,6 +144,7 @@ mod tests {
             ProviderMetadata {
                 id: "scrape",
                 endpoint: "test".into(),
+                metrics_source: MetricsSource::DirectScrape,
             }
         }
     }
@@ -156,10 +164,17 @@ mod tests {
         };
         let config = Config::default();
         let registry = build_registry(&config);
+        let target = TargetMetadata {
+            id: Some("llama-serving-prod".to_string()),
+            engine: InferenceEngine::Vllm,
+            engine_version: Some("0.8.0".to_string()),
+            environment: Some("production".to_string()),
+        };
         DiagnosisResult::new(
             DiagnosisContext::new("5m")
-                .with_client_mode(ClientMode::Scrape)
-                .with_model_name("llama"),
+                .with_metrics_source(MetricsSource::DirectScrape)
+                .with_model_name("llama")
+                .with_target(target),
             snapshot.clone(),
             registry.run_all(&snapshot, &config),
         )
@@ -182,7 +197,9 @@ mod tests {
         let runs = store.list().await.unwrap();
         assert_eq!(runs.len(), 2);
         assert!(runs[0].saved_at >= runs[1].saved_at);
-        assert_eq!(runs[0].client_mode, ClientMode::Scrape);
+        assert_eq!(runs[0].metrics_source, MetricsSource::DirectScrape);
+        assert_eq!(runs[0].engine, InferenceEngine::Vllm);
+        assert_eq!(runs[0].target_id.as_deref(), Some("llama-serving-prod"));
         assert_eq!(runs[0].model_name, Some("llama".to_string()));
         assert!(runs[0].fired_count >= 1);
     }
@@ -206,13 +223,15 @@ mod tests {
         let id = Uuid::now_v7();
         sqlx::query(
             "INSERT INTO runs \
-             (id, saved_at, model_name, client_mode, health, fired_count, report_version, report) \
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+             (id, saved_at, model_name, metrics_source, engine, target_id, health, fired_count, report_version, report) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(id)
         .bind(Utc::now())
         .bind(None::<String>)
-        .bind("scrape")
+        .bind("direct_scrape")
+        .bind("vllm")
+        .bind(None::<String>)
         .bind("warning")
         .bind(1_i64)
         .bind(REPORT_VERSION + 1)
@@ -221,9 +240,7 @@ mod tests {
         .await
         .unwrap();
 
-        // list reads only summary columns, so it still works.
         assert_eq!(store.list().await.unwrap().len(), 1);
-        // get refuses the incompatible blob with a clear error.
         let err = store.get(&id.to_string()).await.unwrap_err();
         assert!(matches!(err, StoreError::IncompatibleReport { .. }));
     }
@@ -252,9 +269,16 @@ mod tests {
         };
         let config = Config::default();
         let registry = build_registry(&config);
-        let result = diagnose(&StubProvider(snapshot), &registry, "5m", None, &config)
-            .await
-            .unwrap();
+        let result = diagnose(
+            &StubProvider(snapshot),
+            &registry,
+            "5m",
+            None,
+            &crate::models::TargetMetadata::default(),
+            &config,
+        )
+        .await
+        .unwrap();
         let id = store.save(&result).await.unwrap();
         assert_eq!(store.get(&id.to_string()).await.unwrap().unwrap(), result);
     }

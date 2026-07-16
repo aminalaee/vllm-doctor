@@ -39,7 +39,8 @@ jobs:
           set -e
           if [ "$STATUS" -gt 1 ]; then exit "$STATUS"; fi
           grep -q '"schema_version"' /tmp/prometheus.json
-          grep -q '"client_mode": "prometheus"' /tmp/prometheus.json
+          grep -q '"metrics_source": "prometheus"' /tmp/prometheus.json
+          grep -q '"engine": "vllm"' /tmp/prometheus.json
           grep -q '"replica_imbalance"' /tmp/prometheus.json
       - name: Smoke — diagnose direct scrape
         run: |
@@ -49,7 +50,7 @@ jobs:
           sleep 1
           ./target/release/vllm-doctor diagnose http://localhost:8000/metrics --output json | tee /tmp/scrape.json
           grep -q '"schema_version"' /tmp/scrape.json
-          grep -q '"client_mode": "scrape"' /tmp/scrape.json
+          grep -q '"metrics_source": "direct_scrape"' /tmp/scrape.json
       - name: Docs examples up to date
         run: ./scripts/check-docs.sh
 

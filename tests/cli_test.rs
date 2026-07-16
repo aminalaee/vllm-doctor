@@ -15,6 +15,7 @@ async fn save_sample(store: &SqliteHistoryStore) -> uuid::Uuid {
     use vllm_doctor::diagnosis::diagnose;
     use vllm_doctor::metrics::MetricSeriesSnapshot;
     use vllm_doctor::metrics::series::{MetricSample, MetricSeries};
+    use vllm_doctor::models::MetricsSource;
     use vllm_doctor::providers::{Provider, ProviderError, ProviderMetadata};
     use vllm_doctor::rules::build_registry;
 
@@ -29,6 +30,7 @@ async fn save_sample(store: &SqliteHistoryStore) -> uuid::Uuid {
             ProviderMetadata {
                 id: "scrape",
                 endpoint: "test".into(),
+                metrics_source: MetricsSource::DirectScrape,
             }
         }
     }
@@ -40,9 +42,16 @@ async fn save_sample(store: &SqliteHistoryStore) -> uuid::Uuid {
     };
     let config = Config::default();
     let registry = build_registry(&config);
-    let result = diagnose(&StubProvider(snapshot), &registry, "5m", None, &config)
-        .await
-        .unwrap();
+    let result = diagnose(
+        &StubProvider(snapshot),
+        &registry,
+        "5m",
+        None,
+        &vllm_doctor::models::TargetMetadata::default(),
+        &config,
+    )
+    .await
+    .unwrap();
     store.save(&result).await.unwrap()
 }
 
@@ -53,7 +62,6 @@ async fn migrate_creates_database() {
     let store = SqliteHistoryStore::connect(&config.database.url)
         .await
         .unwrap();
-    // The table exists after connect runs migrations.
     let runs = store.list().await.unwrap();
     assert!(runs.is_empty());
 }
@@ -82,6 +90,7 @@ async fn history_list_json_serializes_runs() {
     assert!(json.contains("\"run_id\""));
     assert!(json.contains("\"health\""));
     assert!(json.contains("\"fired_count\""));
+    assert!(json.contains("\"metrics_source\""));
     assert!(json.contains("\"warning\"") || json.contains("\"critical\""));
 }
 
@@ -115,6 +124,7 @@ async fn diagnose_save_persists_run() {
     use vllm_doctor::diagnosis::diagnose;
     use vllm_doctor::metrics::MetricSeriesSnapshot;
     use vllm_doctor::metrics::series::{MetricSample, MetricSeries};
+    use vllm_doctor::models::MetricsSource;
     use vllm_doctor::providers::{Provider, ProviderError, ProviderMetadata};
     use vllm_doctor::rules::build_registry;
 
@@ -129,6 +139,7 @@ async fn diagnose_save_persists_run() {
             ProviderMetadata {
                 id: "scrape",
                 endpoint: "test".into(),
+                metrics_source: MetricsSource::DirectScrape,
             }
         }
     }
@@ -144,9 +155,16 @@ async fn diagnose_save_persists_run() {
         ..Default::default()
     };
     let registry = build_registry(&config);
-    let result = diagnose(&StubProvider(snapshot), &registry, "5m", None, &config)
-        .await
-        .unwrap();
+    let result = diagnose(
+        &StubProvider(snapshot),
+        &registry,
+        "5m",
+        None,
+        &vllm_doctor::models::TargetMetadata::default(),
+        &config,
+    )
+    .await
+    .unwrap();
 
     let id = store.save(&result).await.unwrap();
     let loaded = store.get(&id.to_string()).await.unwrap().unwrap();

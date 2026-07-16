@@ -1,6 +1,7 @@
 //! Providers: fetch metric snapshots for the diagnostic engine.
 use crate::clients::ConnectionOptions;
 use crate::metrics::MetricSeriesSnapshot;
+use crate::models::MetricsSource;
 
 pub mod client;
 pub mod prometheus;
@@ -25,6 +26,7 @@ pub enum ProviderError {
 pub struct ProviderMetadata {
     pub id: &'static str,
     pub endpoint: String,
+    pub metrics_source: MetricsSource,
 }
 
 /// A source of `MetricSeriesSnapshot`s.
@@ -82,6 +84,7 @@ mod tests {
         let meta = ProviderMetadata {
             id: "prometheus",
             endpoint: "http://prometheus:9090".to_string(),
+            metrics_source: MetricsSource::Prometheus,
         };
         assert_eq!(meta.id, "prometheus");
     }

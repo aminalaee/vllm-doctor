@@ -224,8 +224,6 @@ mod tests {
 
     #[test]
     fn critical_when_errors_high() {
-        // errors=10/110≈0.091 >= 0.05 → errors_high; aborts=0 → aborts_high=false
-        // confidence=Low (only one signal high), severity=Critical
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(10.0, 0.0, 100.0))),
             DiagnosisState::firing(
@@ -239,8 +237,6 @@ mod tests {
 
     #[test]
     fn warning_when_aborts_high() {
-        // aborts=15/115≈0.130 >= 0.10 → aborts_high; errors=0 → errors_high=false
-        // confidence=Low (only one signal high), severity=Warning
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.0, 15.0, 100.0))),
             DiagnosisState::firing(
@@ -254,8 +250,6 @@ mod tests {
 
     #[test]
     fn high_confidence_when_both_high() {
-        // errors=10/115≈0.087 >= 0.05 → errors_high; aborts=15/115≈0.130 >= 0.10 → aborts_high
-        // both high → confidence=High, severity=Critical (errors_high)
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(10.0, 15.0, 90.0))),
             DiagnosisState::firing(
@@ -269,8 +263,6 @@ mod tests {
 
     #[test]
     fn template_output() {
-        // 1 error, 1 abort, 18 success -> total 20. error_rate = 0.05 (>= 0.05),
-        // abort_rate = 0.05 (not >= 0.10).
         let snap = snapshot(1.0, 1.0, 18.0);
         let graph = SignalGraph::new(&snap);
         let config = Config::default();
@@ -300,7 +292,6 @@ mod tests {
             signal: Signal::RequestErrorTotal,
             value: 3.0,
         };
-        // total = 20, error_rate = 0.15, abort_rate = 0.15.
         let evidence = ErrorRateTemplate.evidence(&ctx);
         assert_eq!(evidence[0].summary(), "error_rate: 0.15 ≥ threshold 0.05");
         assert_eq!(evidence[1].summary(), "abort_rate: 0.15 ≥ threshold 0.10");

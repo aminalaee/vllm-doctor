@@ -3,6 +3,7 @@ use super::ProviderError;
 use super::client::ClientProvider;
 use crate::clients::PrometheusClient;
 use crate::clients::connection::ConnectionOptions;
+use crate::models::MetricsSource;
 
 /// Fetches snapshots from a Prometheus query API.
 pub type PrometheusProvider = ClientProvider<PrometheusClient>;
@@ -22,6 +23,7 @@ pub fn new(
         since,
         model,
         "prometheus",
+        MetricsSource::Prometheus,
         PrometheusClient::with_client,
     )
 }
@@ -36,6 +38,7 @@ mod tests {
     use super::PrometheusProvider;
     use super::new as prometheus_provider_new;
     use crate::clients::ConnectionOptions;
+    use crate::models::MetricsSource;
 
     fn provider(server: &MockServer) -> PrometheusProvider {
         prometheus_provider_new(
@@ -63,7 +66,6 @@ mod tests {
         let provider = provider(&server);
         let _ = provider.fetch_snapshot().await.unwrap();
         let after_first = server.received_requests().await.unwrap_or_default().len();
-        // No caching: a second fetch queries Prometheus again.
         let _ = provider.fetch_snapshot().await.unwrap();
         let after_second = server.received_requests().await.unwrap_or_default().len();
         assert!(after_second > after_first);
@@ -74,6 +76,10 @@ mod tests {
         let server = MockServer::start().await;
         let provider = provider(&server);
         assert_eq!(provider.metadata().id, "prometheus");
+        assert_eq!(
+            provider.metadata().metrics_source,
+            MetricsSource::Prometheus
+        );
         assert_eq!(provider.metadata().endpoint, server.uri());
     }
 }

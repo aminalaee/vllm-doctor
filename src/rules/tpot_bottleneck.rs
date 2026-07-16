@@ -57,7 +57,6 @@ impl Rule for TpotBottleneckRule {
             return DiagnosisState::Healthy;
         }
 
-        // TPOT exceeding threshold is always True (rule fired).
         let gen_low_v = gen_low(signals, &self.cfg).is_some();
         let ttft_normal_v = ttft_normal(signals).is_some();
         let signals_count = 1 + gen_low_v as i32 + ttft_normal_v as i32;
@@ -172,8 +171,6 @@ mod tests {
 
     #[test]
     fn fires_warning_when_tpot_high() {
-        // tpot=0.3 >= 0.2 → fires; gen=100 >= 50 → not gen_low; ttft=5.0 >= 2.0 → not ttft_normal
-        // signals_count=1 → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.3, 5.0, 100.0))),
             DiagnosisState::firing(
@@ -187,8 +184,6 @@ mod tests {
 
     #[test]
     fn medium_confidence_when_one_secondary_signal() {
-        // tpot=0.3 >= 0.2 → fires; gen=20 < 50 → gen_low; ttft=5.0 >= 2.0 → not ttft_normal
-        // signals_count=2 → Medium confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.3, 5.0, 20.0))),
             DiagnosisState::firing(
@@ -202,8 +197,6 @@ mod tests {
 
     #[test]
     fn high_confidence_when_both_secondary_signals() {
-        // tpot=0.3 >= 0.2 → fires; gen=20 < 50 → gen_low; ttft=1.0 < 2.0 → ttft_normal
-        // signals_count=3 → High confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(0.3, 1.0, 20.0))),
             DiagnosisState::firing(

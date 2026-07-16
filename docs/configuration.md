@@ -63,13 +63,34 @@ History persistence is configured under a `[database]` section. The single setti
 url = "sqlite:///~/.vllm-doctor/vllm_doctor.db"
 ```
 
-| Key   | Default                                   | Description                                                                                |
-| ----- | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Key   | Default                                   | Description                                                          |
+| ----- | ----------------------------------------- | -------------------------------------------------------------------- |
 | `url` | `sqlite:///~/.vllm-doctor/vllm_doctor.db` | SQLite URL — local file path. The directory is created on first run. |
 
 After changing `url` (or after installing vllm-doctor for the first time), run [`vllm-doctor migrate`](../commands/migrate.md) once to create or update the schema. The command is idempotent.
 
 See the [history guide](../commands/history.md) for the full save / watch change-log / list / show loop.
+
+## Target
+
+The `[target]` section identifies the inference engine and deployment being diagnosed. All fields are optional except `engine`, which defaults to `vllm`.
+
+```toml
+[target]
+id = "llama-serving-prod"
+engine = "vllm"
+engine_version = "0.8.0"
+environment = "production"
+```
+
+| Key              | Default | Description                                                                                          |
+| ---------------- | ------- | ---------------------------------------------------------------------------------------------------- |
+| `id`             | —       | Stable, operator-provided target identifier. Optional for local CLI; must be stable when configured. |
+| `engine`         | `vllm`  | Inference engine. Currently, the only accepted value is `vllm`.                                      |
+| `engine_version` | —       | Engine version string (e.g. `"0.8.0"`).                                                              |
+| `environment`    | —       | Environment label (e.g. `production`, `staging`).                                                    |
+
+An empty or whitespace-only `id` is rejected at load time. When `id` is absent the CLI does not generate one — a later SaaS enrollment change will require or generate a stable ID before upload.
 
 ## Partial config
 

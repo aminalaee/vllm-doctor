@@ -8,7 +8,7 @@ use std::time::Duration;
 use crate::clients::ConnectionOptions;
 use crate::config::Config;
 use crate::diagnosis::diagnose;
-use crate::models::DiagnosisResult;
+use crate::models::{DiagnosisResult, TargetMetadata};
 use crate::providers::{Provider, ProviderError, resolve_provider};
 use crate::rules::build_registry;
 
@@ -23,6 +23,7 @@ pub struct DiagnoseRequest {
     pub interval: Duration,
     pub config: Config,
     pub conn_opts: ConnectionOptions,
+    pub target: TargetMetadata,
 }
 
 /// Error from a diagnosis run.
@@ -69,6 +70,7 @@ impl DiagnoseRunner {
             &registry,
             &self.request.since,
             self.request.model.as_deref(),
+            &self.request.target,
             &self.request.config,
         )
         .await

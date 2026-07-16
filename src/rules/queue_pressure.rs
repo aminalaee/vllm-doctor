@@ -147,7 +147,6 @@ mod tests {
 
     #[test]
     fn fires_warning_when_waiting_high() {
-        // running=10 < high_running=50 → running_high=false → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(10.0, 10.0))),
             DiagnosisState::firing(
@@ -161,7 +160,6 @@ mod tests {
 
     #[test]
     fn high_confidence_when_running_high() {
-        // running=60 > high_running=50 → running_high=true → High confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(10.0, 60.0))),
             DiagnosisState::firing(

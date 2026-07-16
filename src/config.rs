@@ -6,6 +6,8 @@ use figment::{Error as FigmentError, Figment};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::models::InferenceEngine;
+
 const LOCAL_CONFIG_FILE: &str = "vllm-doctor.toml";
 
 #[derive(Debug, Error)]
@@ -14,6 +16,8 @@ pub enum ConfigError {
     Load(#[from] Box<FigmentError>),
     #[error("not found: {0}")]
     NotFound(PathBuf),
+    #[error("invalid target id: id is empty or whitespace-only")]
+    InvalidTargetId,
 }
 
 fn config_dir_from(base: Option<PathBuf>) -> Option<PathBuf> {
@@ -116,10 +120,26 @@ pub struct RulesConfig {
     pub replica_imbalance: ReplicaImbalanceConfig,
 }
 
+/// Operator-provided target identity and engine metadata.
+///
+/// All fields are optional except `engine`, which defaults to `vllm`. The CLI
+/// does not generate or persist a target ID when absent — a later SaaS
+/// enrollment change must require or generate one before upload.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct TargetConfig {
+    pub id: Option<String>,
+    #[serde(default)]
+    pub engine: InferenceEngine,
+    pub engine_version: Option<String>,
+    pub environment: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Config {
     pub database: DatabaseConfig,
     pub rules: RulesConfig,
+    #[serde(default)]
+    pub target: TargetConfig,
 }
 
 impl Default for Config {
@@ -164,10 +184,13 @@ impl Default for Config {
                     min_total_running: 5.0,
                 },
             },
+            target: TargetConfig::default(),
         }
     }
 }
 
+/// Load merged configuration, resolve the database default against the supplied
+/// home directory, and validate target identity.
 fn load_config_with(
     path: Option<&Path>,
     home_dir: Option<PathBuf>,
@@ -186,10 +209,13 @@ fn load_config_with(
         }
     }
     let mut config: Config = figment.extract().map_err(Box::new)?;
-    // Database URL default is dynamic because it depends on HOME. If the file
-    // did not provide one, compute it from the supplied home directory.
     if config.database.url.is_empty() {
         config.database.url = default_database_url_with_home(home_dir);
+    }
+    if let Some(ref id) = config.target.id {
+        if id.trim().is_empty() {
+            return Err(ConfigError::InvalidTargetId);
+        }
     }
     Ok(config)
 }
@@ -343,5 +369,59 @@ mod tests {
     #[test]
     fn config_dir_from_returns_none_for_none() {
         assert!(config_dir_from(None).is_none());
+    }
+
+    #[test]
+    fn target_section_parses() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("target.toml");
+        std::fs::write(
+            &path,
+            "[target]\nid = \"llama-serving-prod\"\nengine = \"vllm\"\nengine_version = \"0.8.0\"\nenvironment = \"production\"\n",
+        )
+        .unwrap();
+        let config = load_config_with(Some(&path), None, None).unwrap();
+        assert_eq!(config.target.id.as_deref(), Some("llama-serving-prod"));
+        assert_eq!(config.target.engine, InferenceEngine::Vllm);
+        assert_eq!(config.target.engine_version.as_deref(), Some("0.8.0"));
+        assert_eq!(config.target.environment.as_deref(), Some("production"));
+    }
+
+    #[test]
+    fn target_section_defaults_when_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.toml");
+        std::fs::write(&path, "[database]\nurl = \"sqlite:///:memory:\"\n").unwrap();
+        let config = load_config_with(Some(&path), None, None).unwrap();
+        assert_eq!(config.target.engine, InferenceEngine::Vllm);
+        assert!(config.target.id.is_none());
+        assert!(config.target.engine_version.is_none());
+        assert!(config.target.environment.is_none());
+    }
+
+    #[test]
+    fn unsupported_target_engine_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("unsupported_engine.toml");
+        std::fs::write(&path, "[target]\nengine = \"sglang\"\n").unwrap();
+        assert!(load_config_with(Some(&path), None, None).is_err());
+    }
+
+    #[test]
+    fn empty_target_id_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty_id.toml");
+        std::fs::write(&path, "[target]\nid = \"\"\n").unwrap();
+        let err = load_config_with(Some(&path), None, None).unwrap_err();
+        assert!(matches!(err, ConfigError::InvalidTargetId));
+    }
+
+    #[test]
+    fn whitespace_target_id_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ws_id.toml");
+        std::fs::write(&path, "[target]\nid = \"   \"\n").unwrap();
+        let err = load_config_with(Some(&path), None, None).unwrap_err();
+        assert!(matches!(err, ConfigError::InvalidTargetId));
     }
 }

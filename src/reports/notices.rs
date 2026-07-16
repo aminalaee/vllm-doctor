@@ -3,7 +3,7 @@
 //! Notices are caveats about how to interpret the report — e.g. that scrape mode
 //! omits latency rules, or that metrics blend across models when no `--model` is given.
 use crate::metrics::{MODEL_LABEL, label_values};
-use crate::models::{ClientMode, DiagnosisResult};
+use crate::models::{DiagnosisResult, MetricsSource};
 
 pub const SCRAPE_MODE_NOTICE: &str = "TTFT, TPOT and Queue Latency rules require Prometheus — connect to Prometheus for full analysis.";
 pub const MULTI_MODEL_NOTICE: &str = "Multiple models found in this target — metrics are aggregated across all of them. Pass --model to scope the report to one.";
@@ -11,7 +11,7 @@ pub const MULTI_MODEL_NOTICE: &str = "Multiple models found in this target — m
 /// All mode/data notices that apply to a report.
 pub fn resolve_notices(result: &DiagnosisResult) -> Vec<String> {
     let mut notices = Vec::new();
-    if result.context.client_mode == ClientMode::Scrape {
+    if result.context.metrics_source == MetricsSource::DirectScrape {
         notices.push(SCRAPE_MODE_NOTICE.to_string());
     }
     if result.context.model_name.is_none()
@@ -27,14 +27,14 @@ mod tests {
     use super::*;
     use crate::metrics::MetricSeriesSnapshot;
     use crate::metrics::series::{MetricSample, MetricSeries};
-    use crate::models::{ClientMode, DiagnosisContext, DiagnosisResult};
+    use crate::models::{DiagnosisContext, DiagnosisResult, MetricsSource};
 
     fn result(
-        mode: ClientMode,
+        source: MetricsSource,
         model: Option<&str>,
         series: MetricSeriesSnapshot,
     ) -> DiagnosisResult {
-        let mut context = DiagnosisContext::new("5m").with_client_mode(mode);
+        let mut context = DiagnosisContext::new("5m").with_metrics_source(source);
         if let Some(model) = model {
             context = context.with_model_name(model);
         }
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn scrape_mode_emits_latency_notice() {
         let notices = resolve_notices(&result(
-            ClientMode::Scrape,
+            MetricsSource::DirectScrape,
             None,
             MetricSeriesSnapshot::default(),
         ));
@@ -63,14 +63,18 @@ mod tests {
 
     #[test]
     fn multi_model_emits_notice_when_unscoped() {
-        let notices = resolve_notices(&result(ClientMode::Prometheus, None, multi_model_series()));
+        let notices = resolve_notices(&result(
+            MetricsSource::Prometheus,
+            None,
+            multi_model_series(),
+        ));
         assert!(notices.iter().any(|n| n == MULTI_MODEL_NOTICE));
     }
 
     #[test]
     fn multi_model_suppressed_when_scoped() {
         let notices = resolve_notices(&result(
-            ClientMode::Prometheus,
+            MetricsSource::Prometheus,
             Some("a"),
             multi_model_series(),
         ));
@@ -80,7 +84,7 @@ mod tests {
     #[test]
     fn no_notices_for_clean_prometheus_single_model() {
         let notices = resolve_notices(&result(
-            ClientMode::Prometheus,
+            MetricsSource::Prometheus,
             None,
             MetricSeriesSnapshot::default(),
         ));

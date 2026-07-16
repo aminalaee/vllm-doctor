@@ -151,7 +151,6 @@ mod tests {
 
     #[test]
     fn fires_warning_when_queue_time_high() {
-        // waiting=3.0 > 0 → waiting_confirmed=true → High confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(2.0, 3.0))),
             DiagnosisState::firing(
@@ -165,7 +164,6 @@ mod tests {
 
     #[test]
     fn low_confidence_when_no_waiting() {
-        // waiting=0.0 → waiting_confirmed=false → Low confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(2.0, 0.0))),
             DiagnosisState::firing(

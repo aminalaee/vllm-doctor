@@ -153,7 +153,6 @@ mod tests {
 
     #[test]
     fn fires_warning_when_preemptions_present() {
-        // cache=0.5 < high_cache_usage=0.80 → cache_high=false → Medium confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 0.5))),
             DiagnosisState::firing(
@@ -167,7 +166,6 @@ mod tests {
 
     #[test]
     fn high_confidence_when_cache_high() {
-        // cache=0.90 >= high_cache_usage=0.80 → cache_high=true → High confidence
         assert_eq!(
             rule().run(&SignalGraph::new(&snapshot(5.0, 0.90))),
             DiagnosisState::firing(

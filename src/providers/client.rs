@@ -7,11 +7,13 @@ use crate::clients::Client;
 use crate::clients::connection::{ConnectionOptions, build_http_client};
 use crate::collector::collect;
 use crate::metrics::MetricSeriesSnapshot;
+use crate::models::MetricsSource;
 
 /// A `Provider` backed by any `Client`.
 ///
 /// The `id` string identifies the provider kind in `metadata()` (e.g.
-/// `"scrape"` or `"prometheus"`).
+/// `"scrape"` or `"prometheus"`). `metrics_source` records the transport kind
+/// so callers don't have to re-derive it from `id`.
 #[derive(Debug)]
 pub struct ClientProvider<C> {
     client: Arc<C>,
@@ -19,9 +21,11 @@ pub struct ClientProvider<C> {
     model: Option<String>,
     endpoint: String,
     id: &'static str,
+    metrics_source: MetricsSource,
 }
 
 impl<C: Client + Send + Sync + 'static> ClientProvider<C> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         url: impl Into<String>,
         timeout: f64,
@@ -29,6 +33,7 @@ impl<C: Client + Send + Sync + 'static> ClientProvider<C> {
         since: impl Into<String>,
         model: Option<impl Into<String>>,
         id: &'static str,
+        metrics_source: MetricsSource,
         build_client: impl FnOnce(
             String,
             reqwest::Client,
@@ -43,6 +48,7 @@ impl<C: Client + Send + Sync + 'static> ClientProvider<C> {
             model: model.map(Into::into),
             endpoint,
             id,
+            metrics_source,
         })
     }
 }
@@ -59,6 +65,7 @@ impl<C: Client + Send + Sync + 'static> Provider for ClientProvider<C> {
         ProviderMetadata {
             id: self.id,
             endpoint: self.endpoint.clone(),
+            metrics_source: self.metrics_source,
         }
     }
 }

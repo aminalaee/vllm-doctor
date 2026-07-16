@@ -23,7 +23,11 @@ pub fn render(report: &Report, verbose: bool) -> Value {
             "target": {
                 "model_name": context.model_name,
                 "since": context.since,
-                "client_mode": context.client_mode.to_string(),
+                "metrics_source": context.metrics_source.to_string(),
+                "engine": context.target.engine.to_string(),
+                "engine_version": context.target.engine_version,
+                "id": context.target.id,
+                "environment": context.target.environment,
             },
         },
         "health": report.health().to_string(),
@@ -57,8 +61,8 @@ fn check_json(check: &RuleResult) -> Value {
     })
 }
 
+/// Serialize the public finding shape without its internal `signals` field.
 fn finding_json(finding: &Finding) -> Value {
-    // `signals` is intentionally omitted from JSON — it is an internal detail.
     json!({
         "severity": finding.severity.to_string(),
         "confidence": finding.confidence.to_string(),
@@ -140,7 +144,8 @@ mod tests {
         assert_eq!(json["schema_version"], "1");
         assert_eq!(json["health"], "warning");
         assert_eq!(json["metadata"]["target"]["since"], "5m");
-        assert_eq!(json["metadata"]["target"]["client_mode"], "prometheus");
+        assert_eq!(json["metadata"]["target"]["metrics_source"], "prometheus");
+        assert_eq!(json["metadata"]["target"]["engine"], "vllm");
         assert!(json["metadata"]["generated_at"].is_string());
         assert!(json["notices"].as_array().unwrap().is_empty());
     }
@@ -163,6 +168,7 @@ mod tests {
         let finding = &check["finding"];
         assert_eq!(finding["title"], "Queue pressure");
         assert!(finding.get("signals").is_none());
+        assert_eq!(json["metadata"]["target"]["engine"], "vllm");
     }
 
     #[test]
