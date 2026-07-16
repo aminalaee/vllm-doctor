@@ -16,10 +16,20 @@ SERVER=$!
 trap 'kill "$SERVER" 2>/dev/null || true' EXIT
 sleep 1
 
+if ! kill -0 "$SERVER" 2>/dev/null; then
+    echo "Mock metrics server failed to start."
+    exit 1
+fi
+
 # `diagnose` exits 1 on critical findings (the demo fixture is CRITICAL), so
 # ignore its exit status here — we only compare the rendered output.
 default=$(NO_COLOR=1 "$BIN" diagnose "http://localhost:$PORT" || true)
 verbose=$(NO_COLOR=1 "$BIN" diagnose -v "http://localhost:$PORT" || true)
+
+if [ -z "$default" ] || [ -z "$verbose" ]; then
+    echo "CLI produced no documentation output."
+    exit 1
+fi
 
 status=0
 contains() { # file, block, label
