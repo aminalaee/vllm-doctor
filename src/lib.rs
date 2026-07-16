@@ -10,6 +10,7 @@ pub mod probes;
 pub mod providers;
 pub mod reports;
 pub mod rules;
+pub mod runner;
 pub mod signals;
 pub mod stores;
 
