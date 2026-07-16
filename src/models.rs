@@ -8,30 +8,57 @@ use crate::metrics::MetricSeriesSnapshot;
 use crate::signals::Signal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ClientMode {
+#[serde(rename_all = "snake_case")]
+pub enum MetricsSource {
     #[default]
     Prometheus,
-    Scrape,
+    DirectScrape,
 }
 
-impl fmt::Display for ClientMode {
+impl fmt::Display for MetricsSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Prometheus => write!(f, "prometheus"),
-            Self::Scrape => write!(f, "scrape"),
+            Self::DirectScrape => write!(f, "direct_scrape"),
         }
     }
 }
 
-impl FromStr for ClientMode {
+impl FromStr for MetricsSource {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "prometheus" => Ok(Self::Prometheus),
-            "scrape" => Ok(Self::Scrape),
-            _ => Err(format!("unknown client mode: {s}")),
+            "direct_scrape" => Ok(Self::DirectScrape),
+            _ => Err(format!("unknown metrics source: {s}")),
+        }
+    }
+}
+
+/// The inference engine serving the target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InferenceEngine {
+    #[default]
+    Vllm,
+}
+
+impl fmt::Display for InferenceEngine {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Vllm => write!(f, "vllm"),
+        }
+    }
+}
+
+impl FromStr for InferenceEngine {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "vllm" => Ok(Self::Vllm),
+            _ => Err(format!("unknown inference engine: {s}")),
         }
     }
 }
@@ -177,11 +204,20 @@ impl DiagnosisState {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct TargetMetadata {
+    pub id: Option<String>,
+    pub engine: InferenceEngine,
+    pub engine_version: Option<String>,
+    pub environment: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DiagnosisContext {
     pub since: String,
     pub model_name: Option<String>,
-    pub client_mode: ClientMode,
+    pub metrics_source: MetricsSource,
+    pub target: TargetMetadata,
 }
 
 impl DiagnosisContext {
@@ -189,7 +225,8 @@ impl DiagnosisContext {
         Self {
             since: since.into(),
             model_name: None,
-            client_mode: ClientMode::default(),
+            metrics_source: MetricsSource::default(),
+            target: TargetMetadata::default(),
         }
     }
 
@@ -198,8 +235,13 @@ impl DiagnosisContext {
         self
     }
 
-    pub fn with_client_mode(mut self, mode: ClientMode) -> Self {
-        self.client_mode = mode;
+    pub fn with_metrics_source(mut self, source: MetricsSource) -> Self {
+        self.metrics_source = source;
+        self
+    }
+
+    pub fn with_target(mut self, target: TargetMetadata) -> Self {
+        self.target = target;
         self
     }
 }
@@ -236,15 +278,6 @@ pub enum EvidenceItem {
     Value {
         metric: String,
         value: f64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        unit: Option<String>,
-    },
-    /// A ratio of two metrics or counts.
-    Ratio {
-        numerator_metric: String,
-        numerator_value: f64,
-        denominator_metric: String,
-        denominator_value: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         unit: Option<String>,
     },
@@ -291,30 +324,11 @@ impl EvidenceItem {
         }
     }
 
-    pub fn ratio(
-        numerator_metric: impl Into<String>,
-        numerator_value: f64,
-        denominator_metric: impl Into<String>,
-        denominator_value: f64,
-        unit: Option<impl Into<String>>,
-    ) -> Self {
-        Self::Ratio {
-            numerator_metric: numerator_metric.into(),
-            numerator_value,
-            denominator_metric: denominator_metric.into(),
-            denominator_value,
-            unit: unit.map(|u| u.into()),
-        }
-    }
-
     /// Dedup key based on the metric identifier.
     pub fn metric_key(&self) -> String {
         match self {
             EvidenceItem::Threshold { metric, .. } => metric.clone(),
             EvidenceItem::Value { metric, .. } => metric.clone(),
-            EvidenceItem::Ratio {
-                numerator_metric, ..
-            } => numerator_metric.clone(),
             EvidenceItem::ReplicaDistribution { metric, model, .. } => model
                 .as_ref()
                 .map(|model| format!("{model}:{metric}"))
@@ -345,21 +359,6 @@ impl EvidenceItem {
             } => format!(
                 "{metric}: {}",
                 format_value_with_unit(*value, unit.as_deref())
-            ),
-            EvidenceItem::Ratio {
-                numerator_metric,
-                numerator_value,
-                denominator_metric,
-                denominator_value,
-                unit,
-            } => format!(
-                "{numerator_metric}/{denominator_metric}: {:.2}{}",
-                if *denominator_value == 0.0 {
-                    0.0
-                } else {
-                    numerator_value / denominator_value
-                },
-                unit.as_deref().unwrap_or("")
             ),
             EvidenceItem::ReplicaDistribution {
                 affected,
@@ -532,11 +531,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn client_mode_roundtrip() {
-        for mode in [ClientMode::Prometheus, ClientMode::Scrape] {
-            let text = mode.to_string();
-            assert_eq!(ClientMode::from_str(&text).unwrap(), mode);
+    fn metrics_source_roundtrip() {
+        for source in [MetricsSource::Prometheus, MetricsSource::DirectScrape] {
+            let text = source.to_string();
+            assert_eq!(MetricsSource::from_str(&text).unwrap(), source);
         }
+    }
+
+    #[test]
+    fn inference_engine_roundtrip() {
+        let engine = InferenceEngine::Vllm;
+        let text = engine.to_string();
+        assert_eq!(InferenceEngine::from_str(&text).unwrap(), engine);
     }
 
     #[test]
@@ -649,7 +655,8 @@ mod tests {
 
     #[test]
     fn parse_errors_for_unknown_values() {
-        assert!(ClientMode::from_str("unknown").is_err());
+        assert!(MetricsSource::from_str("unknown").is_err());
+        assert!(InferenceEngine::from_str("unknown").is_err());
         assert!(Severity::from_str("unknown").is_err());
         assert!(Health::from_str("unknown").is_err());
         assert!(Confidence::from_str("unknown").is_err());
@@ -659,10 +666,10 @@ mod tests {
     fn diagnosis_context_builders() {
         let ctx = DiagnosisContext::new("5m")
             .with_model_name("llama")
-            .with_client_mode(ClientMode::Scrape);
+            .with_metrics_source(MetricsSource::DirectScrape);
         assert_eq!(ctx.since, "5m");
         assert_eq!(ctx.model_name, Some("llama".to_string()));
-        assert_eq!(ctx.client_mode, ClientMode::Scrape);
+        assert_eq!(ctx.metrics_source, MetricsSource::DirectScrape);
     }
 
     #[test]

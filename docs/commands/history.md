@@ -66,11 +66,11 @@ vllm-doctor history list [OPTIONS]
 
 ### Options
 
-| Option            | Default | Description                      |
-| ----------------- | ------- | -------------------------------- |
-| `-o`, `--output`  | `text`  | Output format: `text` or `json`. |
-| `-v`, `--verbose` | False   | Show additional columns (Mode).  |
-| `-c`, `--config`  | —       | Path to config file.             |
+| Option            | Default | Description                                       |
+| ----------------- | ------- | ------------------------------------------------- |
+| `-o`, `--output`  | `text`  | Output format: `text` or `json`.                  |
+| `-v`, `--verbose` | False   | Show additional columns (Source, Engine, Target). |
+| `-c`, `--config`  | —       | Path to config file.                              |
 
 ### Text output (default)
 
@@ -88,7 +88,7 @@ Columns shown by default:
 
 ### Verbose
 
-Add `--verbose` to also show the **Mode** column (`prometheus` or `scrape`).
+Add `--verbose` to also show the **Source** (`prometheus` or `direct_scrape`), **Engine** (currently always `vllm`), and **Target** (operator-provided target ID, or `—` if none) columns.
 
 ```shell
 vllm-doctor history list --verbose

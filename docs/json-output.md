@@ -16,7 +16,11 @@ Default JSON output:
     "target": {
       "model_name": "meta-llama/Llama-3.1-8B",
       "since": "5m",
-      "client_mode": "prometheus"
+      "metrics_source": "prometheus",
+      "engine": "vllm",
+      "engine_version": null,
+      "id": null,
+      "environment": null
     }
   },
   "health": "warning",
@@ -102,7 +106,11 @@ Verbose JSON includes observed metrics:
     "target": {
       "model_name": null,
       "since": "5m",
-      "client_mode": "prometheus"
+      "metrics_source": "prometheus",
+      "engine": "vllm",
+      "engine_version": null,
+      "id": null,
+      "environment": null
     }
   },
   "health": "warning",
@@ -152,12 +160,16 @@ Verbose JSON includes observed metrics:
 
 ## Metadata
 
-| Field                | Description                                      |
-| -------------------- | ------------------------------------------------ |
-| `generated_at`       | ISO 8601 timestamp for when the report was built |
-| `target.model_name`  | Model name filter, or `null`                     |
-| `target.since`       | Query window used for Prometheus rates           |
-| `target.client_mode` | `prometheus` or `scrape`                         |
+| Field                   | Description                                      |
+| ----------------------- | ------------------------------------------------ |
+| `generated_at`          | ISO 8601 timestamp for when the report was built |
+| `target.model_name`     | Model name filter, or `null`                     |
+| `target.since`          | Query window used for Prometheus rates           |
+| `target.metrics_source` | `prometheus` or `direct_scrape`                  |
+| `target.engine`         | Inference engine; currently always `vllm`        |
+| `target.engine_version` | Engine version string, or `null`                 |
+| `target.id`             | Operator-provided stable target ID, or `null`    |
+| `target.environment`    | Environment label, or `null`                     |
 
 ## Assessment
 
@@ -167,7 +179,7 @@ The `assessment` object is the root-cause summary. See [Assessment](assessment.m
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `likely_bottleneck`        | Machine token for the category: `queue_saturation`, `kv_cache_saturation`, `long_prefill`, `decode_bottleneck`, `replica_imbalance`, `error_issue`, `idle`, `no_clear_bottleneck` |
 | `confidence`               | `low`, `medium`, or `high`                                                                                                                                                        |
-| `evidence`                 | Structured evidence items (same format as finding evidence) drawn from the findings that fired this run |
+| `evidence`                 | Structured evidence items (same format as finding evidence) drawn from the findings that fired this run                                                                           |
 | `interpretation`           | One-line human-readable explanation                                                                                                                                               |
 | `recommended_next_actions` | Ordered list of safe next steps                                                                                                                                                   |
 
@@ -183,15 +195,15 @@ Each check has a stable machine-readable `id` and a human-readable `name`.
 
 Finding fields:
 
-| Field        | Description                                                                           |
-| ------------ | ------------------------------------------------------------------------------------- |
-| `severity`   | `info`, `warning`, or `critical`                                                      |
-| `confidence` | `low`, `medium`, or `high`                                                            |
-| `title`      | Human-readable finding title                                                          |
-| `evidence`   | Structured observed evidence for the finding. Each item has a `kind` and typed fields |
-| `likely_causes`   | Possible causes to investigate                                                   |
-| `recommendations` | Suggested next actions                                                           |
-| `related_metrics` | Metrics related to the finding                                                   |
+| Field             | Description                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| `severity`        | `info`, `warning`, or `critical`                                                      |
+| `confidence`      | `low`, `medium`, or `high`                                                            |
+| `title`           | Human-readable finding title                                                          |
+| `evidence`        | Structured observed evidence for the finding. Each item has a `kind` and typed fields |
+| `likely_causes`   | Possible causes to investigate                                                        |
+| `recommendations` | Suggested next actions                                                                |
+| `related_metrics` | Metrics related to the finding                                                        |
 
 Evidence items:
 

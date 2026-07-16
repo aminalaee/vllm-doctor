@@ -4,13 +4,14 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::models::{ClientMode, DiagnosisResult, Health};
+use crate::models::{DiagnosisResult, Health, InferenceEngine, MetricsSource};
 
 pub mod sqlite;
 pub use sqlite::SqliteHistoryStore;
 
-/// Version of the serialized report payload. Bump only when the serde shape of
-/// `DiagnosisResult` changes incompatibly; `get` checks it before deserializing.
+/// Version of the serialized report payload. This remains at 1 while the
+/// pre-release schema is allowed to change in place; `get` rejects any other
+/// stored version before deserializing.
 pub const REPORT_VERSION: i64 = 1;
 
 #[derive(Debug, thiserror::Error)]
@@ -36,7 +37,9 @@ pub struct RunSummary {
     pub run_id: Uuid,
     pub saved_at: DateTime<Utc>,
     pub model_name: Option<String>,
-    pub client_mode: ClientMode,
+    pub metrics_source: MetricsSource,
+    pub engine: InferenceEngine,
+    pub target_id: Option<String>,
     pub health: Health,
     pub fired_count: i64,
 }

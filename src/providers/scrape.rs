@@ -3,6 +3,7 @@ use super::ProviderError;
 use super::client::ClientProvider;
 use crate::clients::ScrapeClient;
 use crate::clients::connection::ConnectionOptions;
+use crate::models::MetricsSource;
 
 /// Fetches snapshots by scraping a vLLM `/metrics` endpoint.
 pub type ScrapeProvider = ClientProvider<ScrapeClient>;
@@ -22,6 +23,7 @@ pub fn new(
         since,
         model,
         "scrape",
+        MetricsSource::DirectScrape,
         ScrapeClient::with_client,
     )
 }
@@ -35,6 +37,7 @@ mod tests {
     use super::ScrapeProvider;
     use super::new as scrape_provider_new;
     use crate::clients::ConnectionOptions;
+    use crate::models::MetricsSource;
 
     const SAMPLE_METRICS: &str = "# TYPE vllm:num_requests_running gauge\nvllm:num_requests_running{model_name=\"llama\"} 10.0\n";
 
@@ -76,6 +79,10 @@ mod tests {
         let server = MockServer::start().await;
         let provider = provider(&server);
         assert_eq!(provider.metadata().id, "scrape");
+        assert_eq!(
+            provider.metadata().metrics_source,
+            MetricsSource::DirectScrape
+        );
         assert!(provider.metadata().endpoint.contains("/metrics"));
     }
 }

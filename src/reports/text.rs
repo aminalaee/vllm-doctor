@@ -703,7 +703,7 @@ mod tests {
         let mut result = sample_result();
         result.context = result
             .context
-            .with_client_mode(crate::models::ClientMode::Scrape);
+            .with_metrics_source(crate::models::MetricsSource::DirectScrape);
         let report = Report::new(result);
         let compact = render(&report, &RenderOptions::default());
         assert!(!compact.contains("require Prometheus"));

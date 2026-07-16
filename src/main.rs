@@ -7,6 +7,7 @@ use comfy_table::{Cell, Color, ContentArrangement, Table, presets::UTF8_BORDERS_
 use vllm_doctor::cli::{Args, Command, Format, HistoryCommand};
 use vllm_doctor::clients::ConnectionOptions;
 use vllm_doctor::config::{Config, load_config};
+use vllm_doctor::models::TargetMetadata;
 use vllm_doctor::models::{DiagnosisResult, Health};
 use vllm_doctor::reports::{RenderOptions, Report, json, text};
 use vllm_doctor::runner::{DiagnoseRequest, DiagnoseRunner, RunnerError, transition_label};
@@ -56,6 +57,12 @@ async fn run(args: Args) -> Result<(), i32> {
                 color: std::io::stdout().is_terminal(),
             };
             let db_url = cfg.database.url.clone();
+            let target = TargetMetadata {
+                id: cfg.target.id.clone(),
+                engine: cfg.target.engine,
+                engine_version: cfg.target.engine_version.clone(),
+                environment: cfg.target.environment.clone(),
+            };
             let request = DiagnoseRequest {
                 url: url.clone(),
                 since: since.clone(),
@@ -64,6 +71,7 @@ async fn run(args: Args) -> Result<(), i32> {
                 interval: Duration::from_secs_f64(interval),
                 config: cfg,
                 conn_opts,
+                target,
             };
             let runner = match DiagnoseRunner::new(request).await {
                 Ok(r) => r,
@@ -314,7 +322,9 @@ fn print_history_table(runs: &[vllm_doctor::stores::RunSummary], verbose: bool) 
 
     let mut header = vec!["Run ID", "Time", "Model"];
     if verbose {
-        header.push("Mode");
+        header.push("Source");
+        header.push("Engine");
+        header.push("Target");
     }
     header.push("Health");
     header.push("Fired");
@@ -325,7 +335,9 @@ fn print_history_table(runs: &[vllm_doctor::stores::RunSummary], verbose: bool) 
         let model = run.model_name.clone().unwrap_or_else(|| "—".to_string());
         let mut row = vec![Cell::new(run.run_id), Cell::new(saved), Cell::new(model)];
         if verbose {
-            row.push(Cell::new(run.client_mode.to_string()));
+            row.push(Cell::new(run.metrics_source.to_string()));
+            row.push(Cell::new(run.engine.to_string()));
+            row.push(Cell::new(run.target_id.as_deref().unwrap_or("—")));
         }
         let health_cell = Cell::new(run.health.to_string());
         let health_cell = if color {
