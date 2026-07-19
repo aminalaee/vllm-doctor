@@ -47,43 +47,7 @@ fn parse_header(s: &str) -> Result<(String, String), String> {
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// Diagnose a vLLM /metrics or Prometheus endpoint
-    Diagnose {
-        /// vLLM /metrics or Prometheus URL (e.g. http://host:8000/metrics)
-        url: String,
-        /// Time window, e.g. 1h, 30m, or now (now means last 5m)
-        #[arg(short, long, default_value = "now")]
-        since: String,
-        /// Filter metrics by model_name label
-        #[arg(short, long)]
-        model: Option<String>,
-        /// Output format
-        #[arg(short, long, value_enum, default_value = "text")]
-        output: Format,
-        /// Show additional diagnostic detail
-        #[arg(short, long)]
-        verbose: bool,
-        /// Persist this diagnosis run to the local database
-        #[arg(long)]
-        save: bool,
-        /// Refresh continuously (interval set by --interval)
-        #[arg(short, long)]
-        watch: bool,
-        /// Base seconds between refreshes in --watch mode (jittered by ±20%)
-        #[arg(short = 'i', long, default_value_t = 5.0, value_parser = positive_seconds)]
-        interval: f64,
-        /// HTTP request timeout in seconds
-        #[arg(short = 't', long, default_value_t = 10.0, value_parser = positive_seconds)]
-        timeout: f64,
-        /// Extra HTTP header to send with every request (NAME:VALUE, repeatable)
-        #[arg(long = "header", value_parser = parse_header, value_name = "NAME:VALUE")]
-        headers: Vec<(String, String)>,
-        /// Path to a PEM file containing a CA certificate to trust
-        #[arg(long, value_name = "PATH")]
-        ca_cert: Option<PathBuf>,
-        /// Path to config file (default: vllm-doctor.toml)
-        #[arg(short, long)]
-        config: Option<PathBuf>,
-    },
+    Diagnose(DiagnoseArgs),
     /// Local diagnosis history commands
     History {
         #[command(subcommand)]
@@ -95,6 +59,45 @@ pub enum Command {
         #[arg(short, long)]
         config: Option<PathBuf>,
     },
+}
+
+#[derive(Debug, clap::Args)]
+pub struct DiagnoseArgs {
+    /// vLLM /metrics or Prometheus URL (e.g. http://host:8000/metrics)
+    pub url: String,
+    /// Time window, e.g. 1h, 30m, or now (now means last 5m)
+    #[arg(short, long, default_value = "now")]
+    pub since: String,
+    /// Filter metrics by model_name label
+    #[arg(short, long)]
+    pub model: Option<String>,
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "text")]
+    pub output: Format,
+    /// Show additional diagnostic detail
+    #[arg(short, long)]
+    pub verbose: bool,
+    /// Persist this diagnosis run to the local database
+    #[arg(long)]
+    pub save: bool,
+    /// Refresh continuously (interval set by --interval)
+    #[arg(short, long)]
+    pub watch: bool,
+    /// Base seconds between refreshes in --watch mode (jittered by ±20%)
+    #[arg(short = 'i', long, default_value_t = 5.0, value_parser = positive_seconds)]
+    pub interval: f64,
+    /// HTTP request timeout in seconds
+    #[arg(short = 't', long, default_value_t = 10.0, value_parser = positive_seconds)]
+    pub timeout: f64,
+    /// Extra HTTP header to send with every request (NAME:VALUE, repeatable)
+    #[arg(long = "header", value_parser = parse_header, value_name = "NAME:VALUE")]
+    pub headers: Vec<(String, String)>,
+    /// Path to a PEM file containing a CA certificate to trust
+    #[arg(long, value_name = "PATH")]
+    pub ca_cert: Option<PathBuf>,
+    /// Path to config file (default: vllm-doctor.toml)
+    #[arg(short, long)]
+    pub config: Option<PathBuf>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -162,35 +165,22 @@ mod tests {
             "/path/to/ca.pem",
         ]);
         match args.command {
-            Command::Diagnose {
-                url,
-                since,
-                model,
-                output,
-                verbose,
-                save,
-                watch,
-                interval,
-                timeout,
-                headers,
-                ca_cert,
-                ..
-            } => {
-                assert_eq!(url, "http://localhost:8000/metrics");
-                assert_eq!(since, "1h");
-                assert_eq!(model.as_deref(), Some("llama"));
-                assert_eq!(output, Format::Json);
-                assert!(verbose);
-                assert!(save);
-                assert!(!watch);
-                assert_eq!(interval, 2.0);
-                assert_eq!(timeout, 30.0);
+            Command::Diagnose(args) => {
+                assert_eq!(args.url, "http://localhost:8000/metrics");
+                assert_eq!(args.since, "1h");
+                assert_eq!(args.model.as_deref(), Some("llama"));
+                assert_eq!(args.output, Format::Json);
+                assert!(args.verbose);
+                assert!(args.save);
+                assert!(!args.watch);
+                assert_eq!(args.interval, 2.0);
+                assert_eq!(args.timeout, 30.0);
                 assert_eq!(
-                    headers,
+                    args.headers,
                     vec![("Authorization".to_string(), "Bearer secret".to_string())]
                 );
                 assert_eq!(
-                    ca_cert.as_deref(),
+                    args.ca_cert.as_deref(),
                     Some(std::path::Path::new("/path/to/ca.pem"))
                 );
             }
@@ -202,31 +192,18 @@ mod tests {
     fn parse_diagnose_defaults() {
         let args = Args::parse_from(["vllm-doctor", "diagnose", "http://host/metrics"]);
         match args.command {
-            Command::Diagnose {
-                since,
-                output,
-                verbose,
-                model,
-                save,
-                watch,
-                interval,
-                timeout,
-                config,
-                headers,
-                ca_cert,
-                ..
-            } => {
-                assert_eq!(since, "now");
-                assert_eq!(output, Format::Text);
-                assert!(!verbose);
-                assert_eq!(model, None);
-                assert!(!save);
-                assert!(!watch);
-                assert_eq!(interval, 5.0);
-                assert_eq!(timeout, 10.0);
-                assert_eq!(config, None);
-                assert!(headers.is_empty());
-                assert_eq!(ca_cert, None);
+            Command::Diagnose(args) => {
+                assert_eq!(args.since, "now");
+                assert_eq!(args.output, Format::Text);
+                assert!(!args.verbose);
+                assert_eq!(args.model, None);
+                assert!(!args.save);
+                assert!(!args.watch);
+                assert_eq!(args.interval, 5.0);
+                assert_eq!(args.timeout, 10.0);
+                assert_eq!(args.config, None);
+                assert!(args.headers.is_empty());
+                assert_eq!(args.ca_cert, None);
             }
             _ => panic!("expected diagnose command"),
         }

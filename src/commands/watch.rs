@@ -12,14 +12,14 @@ const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 const JITTER_PERCENT: u64 = 20;
 
-pub(crate) struct Options<'a> {
-    pub output: Format,
-    pub verbose: bool,
-    pub save: bool,
-    pub render: &'a RenderOptions,
+pub(super) struct Options<'a> {
+    pub(super) output: Format,
+    pub(super) verbose: bool,
+    pub(super) save: bool,
+    pub(super) render: &'a RenderOptions,
 }
 
-pub(crate) async fn run(request: DiagnoseRequest, options: Options<'_>) {
+pub(super) async fn run(request: DiagnoseRequest, options: Options<'_>) {
     let store = if options.save {
         match SqliteHistoryStore::connect(&request.config.database.url).await {
             Ok(store) => Some(store),

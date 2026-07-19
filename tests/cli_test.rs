@@ -11,6 +11,17 @@ fn test_config(dir: &std::path::Path) -> Config {
     config
 }
 
+fn write_test_config(dir: &std::path::Path) -> std::path::PathBuf {
+    let path = dir.join("vllm-doctor.toml");
+    let config = test_config(dir);
+    std::fs::write(
+        &path,
+        format!("[database]\nurl = \"{}\"\n", config.database.url),
+    )
+    .unwrap();
+    path
+}
+
 async fn save_sample(store: &SqliteHistoryStore) -> uuid::Uuid {
     use vllm_doctor::diagnosis::diagnose;
     use vllm_doctor::metrics::MetricSeriesSnapshot;
@@ -171,6 +182,108 @@ async fn diagnose_save_persists_run() {
     assert_eq!(loaded, result);
     let runs = store.list().await.unwrap();
     assert_eq!(runs.len(), 1);
+}
+
+#[tokio::test]
+async fn cli_migrate_creates_database() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = write_test_config(dir.path());
+
+    let output = std::process::Command::new(binary_path())
+        .args(["migrate", "--config", config_path.to_str().unwrap()])
+        .output()
+        .expect("failed to run vllm-doctor");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "Database migrated successfully.\n"
+    );
+    let store = SqliteHistoryStore::connect(&test_config(dir.path()).database.url)
+        .await
+        .unwrap();
+    assert!(store.list().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn cli_history_list_json_returns_saved_run() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = test_config(dir.path());
+    let config_path = write_test_config(dir.path());
+    let store = SqliteHistoryStore::connect(&config.database.url)
+        .await
+        .unwrap();
+    let run_id = save_sample(&store).await;
+
+    let output = std::process::Command::new(binary_path())
+        .args([
+            "history",
+            "list",
+            "--config",
+            config_path.to_str().unwrap(),
+            "--output",
+            "json",
+        ])
+        .output()
+        .expect("failed to run vllm-doctor");
+
+    assert_eq!(output.status.code(), Some(0));
+    let runs: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(runs.as_array().unwrap().len(), 1);
+    assert_eq!(runs[0]["run_id"], run_id.to_string());
+}
+
+#[tokio::test]
+async fn cli_history_show_json_returns_saved_diagnosis() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = test_config(dir.path());
+    let config_path = write_test_config(dir.path());
+    let store = SqliteHistoryStore::connect(&config.database.url)
+        .await
+        .unwrap();
+    let run_id = save_sample(&store).await;
+
+    let output = std::process::Command::new(binary_path())
+        .args([
+            "history",
+            "show",
+            &run_id.to_string(),
+            "--config",
+            config_path.to_str().unwrap(),
+            "--output",
+            "json",
+        ])
+        .output()
+        .expect("failed to run vllm-doctor");
+
+    assert_eq!(output.status.code(), Some(0));
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["schema_version"], "1");
+    assert!(report["checks"].is_array());
+}
+
+#[tokio::test]
+async fn cli_history_show_unknown_run_exits_2() {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = write_test_config(dir.path());
+    let run_id = uuid::Uuid::now_v7().to_string();
+
+    let output = std::process::Command::new(binary_path())
+        .args([
+            "history",
+            "show",
+            &run_id,
+            "--config",
+            config_path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to run vllm-doctor");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        format!("Error: run {run_id} not found.\n")
+    );
 }
 
 fn binary_path() -> &'static str {
