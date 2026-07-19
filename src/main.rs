@@ -1,4 +1,4 @@
-use std::io::{IsTerminal, Write};
+use std::io::IsTerminal;
 use std::time::Duration;
 
 use clap::Parser;
@@ -10,8 +10,10 @@ use vllm_doctor::config::{Config, load_config};
 use vllm_doctor::models::TargetMetadata;
 use vllm_doctor::models::{DiagnosisResult, Health};
 use vllm_doctor::reports::{RenderOptions, Report, json, text};
-use vllm_doctor::runner::{DiagnoseRequest, DiagnoseRunner, RunnerError, transition_label};
+use vllm_doctor::runner::{DiagnoseRequest, DiagnoseRunner, RunnerError};
 use vllm_doctor::stores::{HistoryStore, SqliteHistoryStore};
+
+mod watch;
 
 const EXIT_UNHEALTHY: i32 = 1;
 const EXIT_ERROR: i32 = 2;
@@ -73,19 +75,25 @@ async fn run(args: Args) -> Result<(), i32> {
                 conn_opts,
                 target,
             };
-            let runner = match DiagnoseRunner::new(request).await {
-                Ok(r) => r,
-                Err(RunnerError::Fetch(e)) => {
-                    eprintln!("Error: could not read metrics from {url}: {e}");
-                    return Err(EXIT_ERROR);
-                }
-            };
             if watch {
-                if let Err(e) = run_watch(&runner, output, verbose, save, &render_opts).await {
-                    eprintln!("Error: could not read metrics from {url}: {e}");
-                    return Err(EXIT_ERROR);
-                }
+                watch::run(
+                    request,
+                    watch::Options {
+                        output,
+                        verbose,
+                        save,
+                        render: &render_opts,
+                    },
+                )
+                .await;
             } else {
+                let runner = match DiagnoseRunner::new(request).await {
+                    Ok(r) => r,
+                    Err(RunnerError::Fetch(e)) => {
+                        eprintln!("Error: could not read metrics from {url}: {e}");
+                        return Err(EXIT_ERROR);
+                    }
+                };
                 let result = match runner.run_once().await {
                     Ok(r) => r,
                     Err(RunnerError::Fetch(e)) => {
@@ -146,60 +154,6 @@ async fn save_run(
     let store = SqliteHistoryStore::connect(db_url).await?;
     let id = store.save(result).await?;
     Ok(id.to_string())
-}
-
-async fn run_watch(
-    runner: &DiagnoseRunner,
-    output: Format,
-    verbose: bool,
-    save: bool,
-    opts: &RenderOptions,
-) -> Result<(), RunnerError> {
-    let store = if save {
-        match SqliteHistoryStore::connect(&runner.config().database.url).await {
-            Ok(s) => Some(s),
-            Err(e) => {
-                eprintln!("Error: failed to connect to history database: {e}");
-                None
-            }
-        }
-    } else {
-        None
-    };
-
-    let mut prev: Option<DiagnosisResult> = None;
-    loop {
-        let result = runner.run_once().await?;
-        let report = Report::new(result.clone());
-
-        match output {
-            Format::Text => {
-                print!("\x1b[2J\x1b[H");
-                print!("{}", text::render(&report, opts));
-                std::io::stdout().flush().ok();
-            }
-            Format::Json => match serde_json::to_string(&json::render(&report, verbose)) {
-                Ok(json) => println!("{json}"),
-                Err(e) => eprintln!("Error: failed to render report: {e}"),
-            },
-        }
-
-        if let Some(ref store) = store {
-            if let Some(label) = transition_label(prev.as_ref(), &result) {
-                match store.save(&result).await {
-                    Ok(id) => eprintln!("Saved run: {id} ({label})"),
-                    Err(e) => eprintln!("Error: failed to save run: {e}"),
-                }
-            }
-        }
-
-        prev = Some(result);
-        tokio::select! {
-            _ = tokio::time::sleep(runner.interval()) => {}
-            _ = tokio::signal::ctrl_c() => break,
-        }
-    }
-    Ok(())
 }
 
 fn load_config_or_exit(path: Option<&std::path::Path>) -> Result<Config, i32> {
