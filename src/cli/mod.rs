@@ -68,7 +68,7 @@ pub enum Command {
         /// Refresh continuously (interval set by --interval)
         #[arg(short, long)]
         watch: bool,
-        /// Seconds between refreshes in --watch mode
+        /// Base seconds between refreshes in --watch mode (jittered by ±20%)
         #[arg(short = 'i', long, default_value_t = 5.0, value_parser = positive_seconds)]
         interval: f64,
         /// HTTP request timeout in seconds
