@@ -427,3 +427,82 @@ async fn cli_watch_recovers_when_target_starts_late_and_stops_on_sigint() {
         "stderr was: {stderr}"
     );
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn cli_watch_serves_observability_endpoints_and_stops_cleanly() {
+    use std::process::Stdio;
+    use std::time::{Duration, Instant};
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let metrics_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/metrics"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(SCRAPE_METRICS))
+        .mount(&metrics_server)
+        .await;
+
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let listen = format!("127.0.0.1:{port}");
+    let child = std::process::Command::new(binary_path())
+        .args([
+            "diagnose",
+            &format!("{}/metrics", metrics_server.uri()),
+            "--watch",
+            "--interval",
+            "0.05",
+            "--listen",
+            &listen,
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("failed to run vllm-doctor");
+
+    let client = reqwest::Client::new();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        if let Ok(response) = client.get(format!("http://{listen}/readyz")).send().await {
+            if response.status().is_success() {
+                break;
+            }
+        }
+        assert!(
+            Instant::now() < deadline,
+            "observability server did not become ready"
+        );
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+
+    let health = client
+        .get(format!("http://{listen}/healthz"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(health.status(), reqwest::StatusCode::OK);
+    assert_eq!(health.text().await.unwrap(), "ok\n");
+    let metrics = client
+        .get(format!("http://{listen}/metrics"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(metrics.contains("vllm_doctor_ready{target=\"unconfigured\",engine=\"vllm\"} 1"));
+
+    let signal_status = std::process::Command::new("kill")
+        .args(["-TERM", &child.id().to_string()])
+        .status()
+        .expect("failed to send SIGTERM");
+    assert!(signal_status.success());
+    let output = child
+        .wait_with_output()
+        .expect("watch process did not exit");
+    assert_eq!(output.status.code(), Some(0));
+}

@@ -1,4 +1,5 @@
 //! CLI argument definitions.
+use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -83,6 +84,9 @@ pub struct DiagnoseArgs {
     /// Refresh continuously (interval set by --interval)
     #[arg(short, long)]
     pub watch: bool,
+    /// Serve health, readiness, and Prometheus metrics during watch mode
+    #[arg(long, value_name = "ADDR", requires = "watch")]
+    pub listen: Option<SocketAddr>,
     /// Base seconds between refreshes in --watch mode (jittered by ±20%)
     #[arg(short = 'i', long, default_value_t = 5.0, value_parser = positive_seconds)]
     pub interval: f64,
@@ -173,6 +177,7 @@ mod tests {
                 assert!(args.verbose);
                 assert!(args.save);
                 assert!(!args.watch);
+                assert_eq!(args.listen, None);
                 assert_eq!(args.interval, 2.0);
                 assert_eq!(args.timeout, 30.0);
                 assert_eq!(
@@ -199,6 +204,7 @@ mod tests {
                 assert_eq!(args.model, None);
                 assert!(!args.save);
                 assert!(!args.watch);
+                assert_eq!(args.listen, None);
                 assert_eq!(args.interval, 5.0);
                 assert_eq!(args.timeout, 10.0);
                 assert_eq!(args.config, None);
@@ -212,6 +218,48 @@ mod tests {
     #[test]
     fn diagnose_requires_url() {
         assert!(Args::try_parse_from(["vllm-doctor", "diagnose"]).is_err());
+    }
+
+    #[test]
+    fn diagnose_parses_listen_for_watch_mode() {
+        let args = Args::try_parse_from([
+            "vllm-doctor",
+            "diagnose",
+            "http://host/metrics",
+            "--watch",
+            "--listen",
+            "[::1]:9091",
+        ])
+        .unwrap();
+        let Command::Diagnose(args) = args.command else {
+            panic!("expected diagnose command");
+        };
+        assert_eq!(args.listen, Some("[::1]:9091".parse().unwrap()));
+    }
+
+    #[test]
+    fn diagnose_rejects_listen_without_watch_or_with_invalid_address() {
+        assert!(
+            Args::try_parse_from([
+                "vllm-doctor",
+                "diagnose",
+                "http://host/metrics",
+                "--listen",
+                "127.0.0.1:9091",
+            ])
+            .is_err()
+        );
+        assert!(
+            Args::try_parse_from([
+                "vllm-doctor",
+                "diagnose",
+                "http://host/metrics",
+                "--watch",
+                "--listen",
+                "not-an-address",
+            ])
+            .is_err()
+        );
     }
 
     #[test]

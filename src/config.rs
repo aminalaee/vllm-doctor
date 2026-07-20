@@ -1,4 +1,5 @@
 //! Configuration model and loader.
+use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 
 use figment::providers::{Format, Serialized, Toml};
@@ -134,12 +135,19 @@ pub struct TargetConfig {
     pub environment: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct AgentConfig {
+    pub listen: Option<SocketAddr>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Config {
     pub database: DatabaseConfig,
     pub rules: RulesConfig,
     #[serde(default)]
     pub target: TargetConfig,
+    #[serde(default)]
+    pub agent: AgentConfig,
 }
 
 impl Default for Config {
@@ -185,6 +193,7 @@ impl Default for Config {
                 },
             },
             target: TargetConfig::default(),
+            agent: AgentConfig::default(),
         }
     }
 }
@@ -385,6 +394,24 @@ mod tests {
         assert_eq!(config.target.engine, InferenceEngine::Vllm);
         assert_eq!(config.target.engine_version.as_deref(), Some("0.8.0"));
         assert_eq!(config.target.environment.as_deref(), Some("production"));
+    }
+
+    #[test]
+    fn agent_listen_address_parses() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("agent.toml");
+        std::fs::write(&path, "[agent]\nlisten = \"127.0.0.1:9091\"\n").unwrap();
+
+        let config = load_config_with(Some(&path), None, None).unwrap();
+        assert_eq!(config.agent.listen, Some("127.0.0.1:9091".parse().unwrap()));
+    }
+
+    #[test]
+    fn invalid_agent_listen_address_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("agent.toml");
+        std::fs::write(&path, "[agent]\nlisten = \"not-an-address\"\n").unwrap();
+        assert!(load_config_with(Some(&path), None, None).is_err());
     }
 
     #[test]

@@ -18,6 +18,7 @@ vllm-doctor diagnose [OPTIONS] URL
 | `-m`, `--model`    | —       | Filter metrics by `model_name` label. Useful when several models share one Prometheus. |
 | `-w`, `--watch`    | False   | Refresh continuously until interrupted (interval set by `--interval`).                 |
 | `-i`, `--interval` | `5`     | Base seconds between watch refreshes; actual polling is jittered by ±20%.              |
+| `--listen`         | —       | Serve Doctor health and Prometheus metrics at `ADDR` during watch mode.                |
 | `-o`, `--output`   | `text`  | Output format: `text` or `json`.                                                       |
 | `-v`, `--verbose`  | False   | Show full evidence, recommendations, observed metrics, and per-replica breakdown.      |
 | `--save`           | False   | Persist this diagnosis run to the local database.                                      |
@@ -72,9 +73,36 @@ vllm-doctor diagnose http://localhost:8000/metrics --watch --interval 2
 
 Watch mode adds bounded jitter to polling so multiple Doctor processes do not query at exactly the same time. Initial connection and collection failures are logged to stderr and retried with exponential backoff starting at 1 second and capped at 60 seconds. The backoff resets after the next successful diagnosis.
 
-Ctrl-C cancels both an in-progress collection and any polling or retry sleep. Interactive text output continues to redraw the terminal. When stdout is redirected, reports are appended without terminal-clear escape sequences. JSON watch output emits one complete JSON object for each successful iteration.
+Ctrl-C or SIGTERM cancels both an in-progress collection and any polling or retry sleep. Interactive text output continues to redraw the terminal. When stdout is redirected, reports are appended without terminal-clear escape sequences. JSON watch output emits one complete JSON object for each successful iteration.
 
 Retry timing is intentionally not configurable yet.
+
+### Monitor Doctor itself
+
+Add `--listen` to expose process health, target readiness, and Doctor's own Prometheus metrics while watch mode runs:
+
+```shell
+vllm-doctor diagnose http://localhost:8000/metrics \
+  --watch --listen 127.0.0.1:9091
+
+curl http://127.0.0.1:9091/healthz
+curl http://127.0.0.1:9091/readyz
+curl http://127.0.0.1:9091/metrics
+```
+
+`/healthz` confirms that the HTTP task is alive. `/readyz` is ready only when the latest target collection succeeded. The listener is disabled unless `--listen` or `[agent].listen` is configured. These endpoints have no authentication or TLS; only bind them to a trusted interface.
+
+The `/metrics` endpoint publishes five Prometheus metric families. Every sample includes `target` and `engine`; `vllm_doctor_finding` also includes `rule` and `severity`.
+
+| Metric                                       | Type    | Meaning                                                                               |
+| -------------------------------------------- | ------- | ------------------------------------------------------------------------------------- |
+| `vllm_doctor_ready`                          | Gauge   | `1` when the latest collection succeeded, otherwise `0`.                              |
+| `vllm_doctor_target_health`                  | Gauge   | Last known health: `-1` unknown, `0` healthy, `1` info, `2` warning, or `3` critical. |
+| `vllm_doctor_last_success_timestamp_seconds` | Gauge   | Unix timestamp of the last successful diagnosis, or `0` before the first success.     |
+| `vllm_doctor_collection_errors_total`        | Counter | Provider setup and collection failures since Doctor started.                          |
+| `vllm_doctor_finding`                        | Gauge   | One sample with value `1` per finding from the last successful diagnosis.             |
+
+During a collection failure, health and findings retain the last successful diagnosis. Use `vllm_doctor_ready` to determine whether they are fresh.
 
 ## Save runs
 

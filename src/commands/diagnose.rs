@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -21,6 +22,7 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
         verbose,
         save,
         watch: watch_mode,
+        listen,
         interval,
         timeout,
         headers,
@@ -29,6 +31,7 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
     } = args;
 
     let config = load_config_or_exit(config.as_deref())?;
+    let listen = resolve_listen(listen, config.agent.listen);
     let connection = build_connection_options(&headers, ca_cert);
     let render = render_options(verbose);
     let database_url = config.database.url.clone();
@@ -56,10 +59,15 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
                 output,
                 verbose,
                 save,
+                listen,
                 render: &render,
             },
         )
-        .await;
+        .await
+        .map_err(|error| {
+            eprintln!("Error: watch mode failed: {error:#}");
+            EXIT_ERROR
+        })?;
         return Ok(());
     }
 
@@ -130,6 +138,10 @@ fn build_connection_options(
     options
 }
 
+fn resolve_listen(cli: Option<SocketAddr>, config: Option<SocketAddr>) -> Option<SocketAddr> {
+    cli.or(config)
+}
+
 fn exit_code_for(health: Option<Health>) -> i32 {
     match health {
         Some(Health::Critical) => EXIT_UNHEALTHY,
@@ -148,5 +160,14 @@ mod tests {
         assert_eq!(exit_code_for(Some(Health::Info)), 0);
         assert_eq!(exit_code_for(Some(Health::Ok)), 0);
         assert_eq!(exit_code_for(None), 0);
+    }
+
+    #[test]
+    fn cli_listen_overrides_config() {
+        let cli = "127.0.0.1:9091".parse().unwrap();
+        let config = "127.0.0.1:9092".parse().unwrap();
+        assert_eq!(resolve_listen(Some(cli), Some(config)), Some(cli));
+        assert_eq!(resolve_listen(None, Some(config)), Some(config));
+        assert_eq!(resolve_listen(None, None), None);
     }
 }

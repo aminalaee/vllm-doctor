@@ -8,6 +8,7 @@ use vllm_doctor::reports::RenderOptions;
 mod diagnose;
 mod history;
 mod migrate;
+mod observability;
 mod watch;
 
 type CommandResult = Result<(), i32>;

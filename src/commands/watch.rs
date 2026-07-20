@@ -1,12 +1,19 @@
 //! Continuous diagnosis orchestration for the CLI.
 use std::io::{IsTerminal, Write};
+use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use anyhow::{Context, anyhow};
+use tokio::sync::watch as shutdown;
 use vllm_doctor::cli::Format;
 use vllm_doctor::models::DiagnosisResult;
+use vllm_doctor::observability::AgentState;
 use vllm_doctor::reports::{RenderOptions, Report, json, text};
 use vllm_doctor::runner::{DiagnoseRequest, DiagnoseRunner, RunnerError, transition_label};
 use vllm_doctor::stores::{HistoryStore, SqliteHistoryStore};
+
+use super::observability;
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
@@ -16,10 +23,99 @@ pub(super) struct Options<'a> {
     pub(super) output: Format,
     pub(super) verbose: bool,
     pub(super) save: bool,
+    pub(super) listen: Option<SocketAddr>,
     pub(super) render: &'a RenderOptions,
 }
 
-pub(super) async fn run(request: DiagnoseRequest, options: Options<'_>) {
+pub(super) async fn run(request: DiagnoseRequest, options: Options<'_>) -> anyhow::Result<()> {
+    let state = options
+        .listen
+        .map(|_| Arc::new(AgentState::new(request.target.clone())));
+    let listener = if let Some(address) = options.listen {
+        Some(
+            tokio::net::TcpListener::bind(address)
+                .await
+                .with_context(|| format!("could not bind observability listener to {address}"))?,
+        )
+    } else {
+        None
+    };
+    let (shutdown_tx, shutdown_rx) = shutdown::channel(false);
+    let watch = watch_loop(request, options, state.clone(), shutdown_rx.clone());
+    tokio::pin!(watch);
+
+    let Some(listener) = listener else {
+        return tokio::select! {
+            result = &mut watch => result,
+            signal = termination_signal() => {
+                signal?;
+                let _ = shutdown_tx.send(true);
+                watch.await
+            }
+        };
+    };
+
+    let server_state = state.ok_or_else(|| anyhow!("observability state was not initialized"))?;
+    let server_shutdown = wait_for_shutdown(shutdown_rx);
+    let server = observability::serve(listener, server_state, server_shutdown);
+    tokio::pin!(server);
+
+    tokio::select! {
+        result = &mut watch => {
+            let _ = shutdown_tx.send(true);
+            server.await.context("observability server failed during shutdown")?;
+            result
+        }
+        result = &mut server => {
+            let _ = shutdown_tx.send(true);
+            watch.await?;
+            result.context("observability server failed")?;
+            Err(anyhow!("observability server stopped unexpectedly"))
+        }
+        signal = termination_signal() => {
+            signal?;
+            let _ = shutdown_tx.send(true);
+            let (watch_result, server_result) = tokio::join!(watch, server);
+            watch_result?;
+            server_result.context("observability server failed during shutdown")?;
+            Ok(())
+        }
+    }
+}
+
+async fn termination_signal() -> anyhow::Result<()> {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+
+        let mut terminate =
+            signal(SignalKind::terminate()).context("failed to listen for SIGTERM")?;
+        tokio::select! {
+            result = tokio::signal::ctrl_c() => {
+                result.context("failed to listen for Ctrl-C")
+            }
+            signal = terminate.recv() => {
+                signal
+                    .map(|_| ())
+                    .ok_or_else(|| anyhow!("SIGTERM listener closed unexpectedly"))
+            }
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        tokio::signal::ctrl_c()
+            .await
+            .context("failed to listen for Ctrl-C")
+    }
+}
+
+async fn watch_loop(
+    request: DiagnoseRequest,
+    options: Options<'_>,
+    state: Option<Arc<AgentState>>,
+    mut shutdown: shutdown::Receiver<bool>,
+) -> anyhow::Result<()> {
     let store = if options.save {
         match SqliteHistoryStore::connect(&request.config.database.url).await {
             Ok(store) => Some(store),
@@ -33,8 +129,9 @@ pub(super) async fn run(request: DiagnoseRequest, options: Options<'_>) {
     };
 
     let mut schedule = WatchSchedule::new(request.interval);
-    let Some(runner) = connect(&request, &mut schedule).await else {
-        return;
+    let Some(runner) = connect(&request, &mut schedule, state.as_deref(), &mut shutdown).await
+    else {
+        return Ok(());
     };
     let clear_terminal = should_clear_output(options.output, std::io::stdout().is_terminal());
     let mut previous: Option<DiagnosisResult> = None;
@@ -42,11 +139,14 @@ pub(super) async fn run(request: DiagnoseRequest, options: Options<'_>) {
     loop {
         let attempt = tokio::select! {
             result = runner.run_once() => result,
-            _ = tokio::signal::ctrl_c() => break,
+            _ = wait_for_shutdown(shutdown.clone()) => break,
         };
 
         let delay = match attempt {
             Ok(result) => {
+                if let Some(state) = state.as_deref() {
+                    state.record_success(&result, chrono::Utc::now());
+                }
                 if let Err(error) =
                     print_report(&Report::new(result.clone()), &options, clear_terminal)
                 {
@@ -68,30 +168,41 @@ pub(super) async fn run(request: DiagnoseRequest, options: Options<'_>) {
                 previous = Some(result);
                 schedule.success_delay()
             }
-            Err(RunnerError::Fetch(error)) => retry_delay(&mut schedule, "collection", &error),
+            Err(RunnerError::Fetch(error)) => {
+                if let Some(state) = state.as_deref() {
+                    state.record_error();
+                }
+                retry_delay(&mut schedule, "collection", &error)
+            }
         };
 
-        if !wait(delay).await {
+        if !wait(delay, &mut shutdown).await {
             break;
         }
     }
+    Ok(())
 }
 
 async fn connect(
     request: &DiagnoseRequest,
     schedule: &mut WatchSchedule,
+    state: Option<&AgentState>,
+    shutdown: &mut shutdown::Receiver<bool>,
 ) -> Option<DiagnoseRunner> {
     loop {
         let attempt = tokio::select! {
             result = DiagnoseRunner::new(request.clone()) => result,
-            _ = tokio::signal::ctrl_c() => return None,
+            _ = wait_for_shutdown(shutdown.clone()) => return None,
         };
 
         match attempt {
             Ok(runner) => return Some(runner),
             Err(RunnerError::Fetch(error)) => {
+                if let Some(state) = state {
+                    state.record_error();
+                }
                 let delay = retry_delay(schedule, "provider setup", &error);
-                if !wait(delay).await {
+                if !wait(delay, shutdown).await {
                     return None;
                 }
             }
@@ -99,10 +210,21 @@ async fn connect(
     }
 }
 
-async fn wait(delay: Duration) -> bool {
+async fn wait(delay: Duration, shutdown: &mut shutdown::Receiver<bool>) -> bool {
     tokio::select! {
         _ = tokio::time::sleep(delay) => true,
-        _ = tokio::signal::ctrl_c() => false,
+        _ = wait_for_shutdown(shutdown.clone()) => false,
+    }
+}
+
+async fn wait_for_shutdown(mut shutdown: shutdown::Receiver<bool>) {
+    if *shutdown.borrow() {
+        return;
+    }
+    while shutdown.changed().await.is_ok() {
+        if *shutdown.borrow() {
+            return;
+        }
     }
 }
 

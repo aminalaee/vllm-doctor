@@ -92,6 +92,21 @@ environment = "production"
 
 An empty or whitespace-only `id` is rejected at load time. When `id` is absent the CLI does not generate one — a later SaaS enrollment change will require or generate a stable ID before upload.
 
+## Agent observability
+
+During watch mode, vLLM Doctor can expose its own health, readiness, and Prometheus metrics over HTTP. No listener is enabled by default.
+
+```toml
+[agent]
+listen = "127.0.0.1:9091"
+```
+
+| Key      | Default | Description                                                   |
+| -------- | ------- | ------------------------------------------------------------- |
+| `listen` | —       | Socket address serving `/healthz`, `/readyz`, and `/metrics`. |
+
+The `--listen` command-line option overrides this setting. The configured address is only used by `diagnose --watch`; one-shot diagnosis does not start a server. The endpoints do not provide authentication or TLS, so prefer a loopback or otherwise protected address. Binding to `0.0.0.0` exposes operational data to the network.
+
 ## Partial config
 
 Only the sections you care about need to be present. For example, to tighten only the KV cache threshold:
