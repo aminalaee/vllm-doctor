@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://aminalaee.github.io/vllm-doctor/commands/diagnose/">
       
       
-        <link rel="prev" href="../..">
+        <link rel="prev" href="../../assessment/">
       
       
         <link rel="next" href="../history/">
@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/logo.svg">
-      <meta name="generator" content="zensical-0.0.47">
+      <meta name="generator" content="zensical-0.0.51">
     
     
       
@@ -34,7 +34,7 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.5e19f6ca.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.62c9b9cc.min.css">
       
         
           
@@ -259,6 +259,32 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../../assessment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Assessment
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -272,10 +298,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -292,8 +318,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -390,10 +416,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#default-vs-verbose-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Default vs verbose output
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#one-shot-diagnosis" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         One-shot diagnosis
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#try-it-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Try it locally
       </span>
     </span>
   </a>
@@ -420,6 +468,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Watch mode">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#monitor-doctor-itself" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Monitor Doctor itself
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -438,6 +503,28 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Filter by model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authenticated-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Authenticated endpoints
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Exit codes
       </span>
     </span>
   </a>
@@ -529,10 +616,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -549,8 +636,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1003,10 +1090,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#default-vs-verbose-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Default vs verbose output
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#one-shot-diagnosis" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
         One-shot diagnosis
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#try-it-locally" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Try it locally
       </span>
     </span>
   </a>
@@ -1033,6 +1142,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Watch mode">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#monitor-doctor-itself" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Monitor Doctor itself
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1051,6 +1177,28 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Filter by model
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#authenticated-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Authenticated endpoints
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Exit codes
       </span>
     </span>
   </a>
@@ -1104,7 +1252,17 @@
 <tr>
 <td><code>-w</code>, <code>--watch</code></td>
 <td>False</td>
-<td>Refresh continuously every 5 seconds.</td>
+<td>Refresh continuously until interrupted (interval set by <code>--interval</code>).</td>
+</tr>
+<tr>
+<td><code>-i</code>, <code>--interval</code></td>
+<td><code>5</code></td>
+<td>Base seconds between watch refreshes; actual polling is jittered by ±20%.</td>
+</tr>
+<tr>
+<td><code>--listen</code></td>
+<td>—</td>
+<td>Serve Doctor health and Prometheus metrics at <code>ADDR</code> during watch mode.</td>
 </tr>
 <tr>
 <td><code>-o</code>, <code>--output</code></td>
@@ -1114,12 +1272,27 @@
 <tr>
 <td><code>-v</code>, <code>--verbose</code></td>
 <td>False</td>
-<td>Show observed metrics and per-replica breakdown.</td>
+<td>Show full evidence, recommendations, observed metrics, and per-replica breakdown.</td>
 </tr>
 <tr>
 <td><code>--save</code></td>
 <td>False</td>
 <td>Persist this diagnosis run to the local database.</td>
+</tr>
+<tr>
+<td><code>-t</code>, <code>--timeout</code></td>
+<td><code>10</code></td>
+<td>HTTP request timeout in seconds. Raise it for slow or overloaded targets.</td>
+</tr>
+<tr>
+<td><code>--header</code></td>
+<td>—</td>
+<td>Extra HTTP header to send with every request (<code>NAME:VALUE</code>, repeatable).</td>
+</tr>
+<tr>
+<td><code>--ca-cert</code></td>
+<td>—</td>
+<td>Path to a PEM file containing a CA certificate to trust.</td>
 </tr>
 <tr>
 <td><code>-c</code>, <code>--config</code></td>
@@ -1129,16 +1302,84 @@
 </tbody>
 </table>
 <p>For persistence and the watch change-log, see the <a href="../history/">history guide</a>.</p>
+<h2 id="default-vs-verbose-output">Default vs verbose output</h2>
+<p>By default <code>diagnose</code> prints a compact triage summary: the most likely bottleneck, one line per firing finding, and a count of passing checks. Use <code>--verbose</code> (<code>-v</code>) for the full detail — evidence, recommended actions, observed metrics tables, and any notices.</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Compact (default)</span>
+vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:8000/metrics
+
+<span class="c1"># Full detail</span>
+vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:8000/metrics<span class="w"> </span>--verbose
+</code></pre></div>
 <h2 id="one-shot-diagnosis">One-shot diagnosis</h2>
 <div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:8000/metrics
 </code></pre></div>
+<h2 id="try-it-locally">Try it locally</h2>
+<p>The repository includes two runnable examples:</p>
+<ul>
+<li><a href="https://github.com/aminalaee/vllm-doctor/tree/main/examples/mock">Mock metrics</a>
+  exercises predefined diagnoses without requiring vLLM.</li>
+<li><a href="https://github.com/aminalaee/vllm-doctor/tree/main/examples/live-vllm">Live vLLM</a>
+  starts a small real model with vLLM.</li>
+</ul>
 <h2 id="json-output">JSON output</h2>
 <div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:8000/metrics<span class="w"> </span>--output<span class="w"> </span>json
 </code></pre></div>
 <h2 id="watch-mode">Watch mode</h2>
-<p>Refresh every 5 seconds until interrupted:</p>
+<p>Refresh until interrupted. The default interval is 5 seconds; change it with <code>--interval</code>:</p>
 <div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:8000/metrics<span class="w"> </span>--watch
+vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:8000/metrics<span class="w"> </span>--watch<span class="w"> </span>--interval<span class="w"> </span><span class="m">2</span>
 </code></pre></div>
+<p>Watch mode adds bounded jitter to polling so multiple Doctor processes do not query at exactly the same time. Initial connection and collection failures are logged to stderr and retried with exponential backoff starting at 1 second and capped at 60 seconds. The backoff resets after the next successful diagnosis.</p>
+<p>Ctrl-C or SIGTERM cancels both an in-progress collection and any polling or retry sleep. Interactive text output continues to redraw the terminal. When stdout is redirected, reports are appended without terminal-clear escape sequences. JSON watch output emits one complete JSON object for each successful iteration.</p>
+<p>Retry timing is intentionally not configurable yet.</p>
+<h3 id="monitor-doctor-itself">Monitor Doctor itself</h3>
+<p>Add <code>--listen</code> to expose process health, target readiness, and Doctor's own Prometheus metrics while watch mode runs:</p>
+<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:8000/metrics<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--watch<span class="w"> </span>--listen<span class="w"> </span><span class="m">127</span>.0.0.1:9091
+
+curl<span class="w"> </span>http://127.0.0.1:9091/healthz
+curl<span class="w"> </span>http://127.0.0.1:9091/readyz
+curl<span class="w"> </span>http://127.0.0.1:9091/metrics
+</code></pre></div>
+<p><code>/healthz</code> confirms that the HTTP task is alive. <code>/readyz</code> is ready only when the latest target collection succeeded. The listener is disabled unless <code>--listen</code> or <code>[agent].listen</code> is configured. These endpoints have no authentication or TLS; only bind them to a trusted interface.</p>
+<p>The <code>/metrics</code> endpoint publishes five Prometheus metric families. Every sample includes <code>target</code> and <code>engine</code>; <code>vllm_doctor_finding</code> also includes <code>rule</code> and <code>severity</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vllm_doctor_ready</code></td>
+<td>Gauge</td>
+<td><code>1</code> when the latest collection succeeded, otherwise <code>0</code>.</td>
+</tr>
+<tr>
+<td><code>vllm_doctor_target_health</code></td>
+<td>Gauge</td>
+<td>Last known health: <code>-1</code> unknown, <code>0</code> healthy, <code>1</code> info, <code>2</code> warning, or <code>3</code> critical.</td>
+</tr>
+<tr>
+<td><code>vllm_doctor_last_success_timestamp_seconds</code></td>
+<td>Gauge</td>
+<td>Unix timestamp of the last successful diagnosis, or <code>0</code> before the first success.</td>
+</tr>
+<tr>
+<td><code>vllm_doctor_collection_errors_total</code></td>
+<td>Counter</td>
+<td>Provider setup and collection failures since Doctor started.</td>
+</tr>
+<tr>
+<td><code>vllm_doctor_finding</code></td>
+<td>Gauge</td>
+<td>One sample with value <code>1</code> per finding from the last successful diagnosis.</td>
+</tr>
+</tbody>
+</table>
+<p>During a collection failure, health and findings retain the last successful diagnosis. Use <code>vllm_doctor_ready</code> to determine whether they are fresh.</p>
 <h2 id="save-runs">Save runs</h2>
 <p>Persist a diagnosis run to the local database. Combine with <code>--watch</code> to log only on state transitions:</p>
 <div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:8000/metrics<span class="w"> </span>--save
@@ -1149,6 +1390,49 @@ vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localh
 <p>When a Prometheus target serves several models, aggregate metrics blend across them. Use <code>--model</code> to scope the diagnosis to one model.</p>
 <div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:9090<span class="w"> </span>--model<span class="w"> </span>meta-llama/Llama-3.1-8B
 </code></pre></div>
+<h2 id="authenticated-endpoints">Authenticated endpoints</h2>
+<p>Pass <code>--header</code> for any HTTP header — covers bearer tokens, basic auth, and custom headers. Repeat the flag for multiple headers:</p>
+<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>https://prometheus.internal:9090<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--header<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">&quot;</span>
+</code></pre></div>
+<p>For endpoints using a self-signed or internal CA, pass the certificate bundle:</p>
+<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>https://prometheus.internal:9090<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--header<span class="w"> </span><span class="s2">&quot;Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>--ca-cert<span class="w"> </span>/etc/ssl/certs/internal-ca.pem
+</code></pre></div>
+<h2 id="exit-codes">Exit codes</h2>
+<p><code>diagnose</code> follows the convention used by linters like Ruff — the result is reflected in the exit code so it can gate CI and scripts:</p>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Ran successfully; health is not critical.</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Ran successfully, but a critical finding fired.</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Operational error (could not reach or read metrics).</td>
+</tr>
+</tbody>
+</table>
+<p>This lets a pipeline distinguish "vLLM is critically unhealthy" (<code>1</code>) from "the tool itself failed" (<code>2</code>):</p>
+<div class="highlight"><pre><span></span><code>vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localhost:8000/metrics
+<span class="k">case</span><span class="w"> </span><span class="nv">$?</span><span class="w"> </span><span class="k">in</span>
+<span class="w">  </span><span class="m">0</span><span class="o">)</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;healthy&quot;</span><span class="w"> </span><span class="p">;;</span>
+<span class="w">  </span><span class="m">1</span><span class="o">)</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;critical finding — alert&quot;</span><span class="w"> </span><span class="p">;;</span>
+<span class="w">  </span><span class="m">2</span><span class="o">)</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;tool error — could not diagnose&quot;</span><span class="w"> </span><span class="p">;;</span>
+<span class="k">esac</span>
+</code></pre></div>
+<p>Watch mode runs until interrupted and does not gate on health.</p>
 
 
 
@@ -1230,7 +1514,7 @@ vllm-doctor<span class="w"> </span>diagnose<span class="w"> </span>http://localh
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":[],"search":"../../assets/javascripts/workers/search.b6b7e04f.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.0df4f2d0.min.js"></script>
+      <script src="../../assets/javascripts/bundle.d7f30b55.min.js"></script>
       
     
   </body>
