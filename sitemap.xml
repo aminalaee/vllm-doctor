@@ -1,60 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
       <url>
-        <loc>https://docs.vllm.doctor/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/assessment/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/assessment/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/commands/diagnose/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/commands/diagnose/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/commands/history/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/commands/history/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/commands/migrate/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/commands/migrate/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/queue-pressure/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/queue-pressure/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/queue-latency/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/queue-latency/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/kv-cache-pressure/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/kv-cache-pressure/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/preemption-pressure/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/preemption-pressure/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/low-throughput/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/low-throughput/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/error-rate/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/error-rate/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/ttft-bottleneck/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/ttft-bottleneck/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/tpot-bottleneck/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/tpot-bottleneck/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/prefix-cache-efficiency/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/prefix-cache-efficiency/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/rules/replica-imbalance/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/rules/replica-imbalance/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/configuration/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/configuration/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/metrics/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/metrics/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/json-output/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/json-output/</loc>
       </url>
       <url>
-        <loc>https://docs.vllm.doctor/glossary/</loc>
+        <loc>https://aminalaee.github.io/vllm-doctor/glossary/</loc>
       </url>
 </urlset>
