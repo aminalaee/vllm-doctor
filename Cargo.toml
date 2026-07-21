@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.85"
 description = "Diagnostic tool for vLLM inference servers"
 license = "Apache-2.0"
-repository = "https://github.com/aminalaee/vllm-doctor"
+repository = "https://github.com/vllm-doctor/vllm-doctor"
 
 [dependencies]
 anyhow = "1"

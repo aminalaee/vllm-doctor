@@ -90,6 +90,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./site
+          cname: docs.vllm.doctor
 
   docker:
     name: Build and push image

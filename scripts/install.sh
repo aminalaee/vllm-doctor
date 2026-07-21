@@ -1,10 +1,10 @@
 #!/bin/sh
 # Install vllm-doctor from GitHub Releases.
-# Usage: curl -fsSL https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/scripts/install.sh | sh
+# Usage: curl -fsSL https://vllm.doctor/install.sh | sh
 
 set -e
 
-REPO="aminalaee/vllm-doctor"
+REPO="vllm-doctor/vllm-doctor"
 BINARY="vllm-doctor"
 
 # Detect OS

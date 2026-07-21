@@ -1,6 +1,6 @@
 site_name: vLLM Doctor
 site_description: Diagnostic tool for vLLM inference servers
-site_url: https://aminalaee.github.io/vllm-doctor
+site_url: https://docs.vllm.doctor/
 
 theme:
   name: "zensical"
@@ -18,8 +18,8 @@ theme:
   icon:
     repo: simple/github
 
-repo_name: aminalaee/vllm-doctor
-repo_url: https://github.com/aminalaee/vllm-doctor
+repo_name: vllm-doctor/vllm-doctor
+repo_url: https://github.com/vllm-doctor/vllm-doctor
 edit_uri: ""
 
 nav:
@@ -66,6 +66,4 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/aminalaee
-    - icon: fontawesome/brands/linkedin
-      link: https://www.linkedin.com/in/amin-alaee
+      link: https://github.com/vllm-doctor

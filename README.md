@@ -1,10 +1,10 @@
-<img src="https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/docs/assets/wordmark.svg" alt="vLLM Doctor" width="360">
+<img src="https://raw.githubusercontent.com/vllm-doctor/vllm-doctor/main/docs/assets/wordmark.svg" alt="vLLM Doctor" width="360">
 
 Diagnose vLLM server bottlenecks from live metrics.
 
-![vllm-doctor demo](https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/docs/demo.png)
+![vllm-doctor demo](https://raw.githubusercontent.com/vllm-doctor/vllm-doctor/main/docs/demo.png)
 
-vLLM Doctor reads vLLM server metrics and turns them into a diagnosis: the most likely bottleneck up front, followed by the detailed findings — what looks unhealthy, why it may be happening, and which vLLM settings are worth checking first.
+vLLM Doctor turns live vLLM metrics into a clear diagnosis: the most likely bottleneck, the evidence behind it, and the next checks to make.
 
 ```shell
 vllm-doctor diagnose http://localhost:8000/metrics
@@ -45,7 +45,7 @@ Used together, GuideLLM can create or replay load while vLLM Doctor helps explai
 Quick install (Linux & macOS):
 
 ```shell
-curl -fsSL https://raw.githubusercontent.com/aminalaee/vllm-doctor/main/scripts/install.sh | sh
+curl -fsSL https://vllm.doctor/install.sh | sh
 ```
 
 With Cargo:
@@ -57,7 +57,7 @@ cargo install vllm-doctor
 With Docker:
 
 ```shell
-docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
+docker run --rm ghcr.io/vllm-doctor/vllm-doctor diagnose <url>
 ```
 
 ## Quickstart
@@ -83,7 +83,7 @@ the [live vLLM example](examples/live-vllm/).
 A prebuilt image is published to GitHub Container Registry:
 
 ```shell
-docker run --rm ghcr.io/aminalaee/vllm-doctor diagnose <url>
+docker run --rm ghcr.io/vllm-doctor/vllm-doctor diagnose <url>
 ```
 
 `<url>` is your vLLM `/metrics` or Prometheus endpoint — the same argument the CLI takes — reachable from inside the container.
@@ -209,4 +209,4 @@ Observed Metrics per pod:
 
 ## Documentation
 
-Read the full documentation: https://aminalaee.github.io/vllm-doctor
+Read the full documentation: https://docs.vllm.doctor
