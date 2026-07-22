@@ -8,10 +8,15 @@ use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
 
+pub mod observations;
 pub mod series;
 pub mod specs;
 pub use specs::all_specs;
 
+pub use observations::{
+    NO_DIMENSIONS, ObservationDimension, ObservationKind, ObservationRollup, ObservationSpec,
+    ObservationUnit, REPLICA_DIMENSION,
+};
 pub use series::{Aggregate, MetricSample, MetricSeries};
 pub use specs::{Direct, METRIC_SPECS_BY_OUTPUT, MetricDisplay, MetricSpec, Ratio};
 
@@ -54,7 +59,8 @@ macro_rules! define_metrics {
                 probe: $d_probe_kind:ident, $d_probe_metric:literal,
                 labels: $d_probe_labels:expr,
                 quantile: $d_probe_quantile:expr,
-                aggregate: $d_agg:expr,
+                aggregate: Aggregate::$d_agg:ident,
+                observation: $d_obs_id:literal, $d_obs_unit:ident, $d_obs_kind:ident, $d_obs_quantile:expr, $d_obs_dims:expr,
                 display: $d_title:literal, $d_fmt:literal, $d_bar:expr
             );* $(;)?
         }
@@ -65,6 +71,7 @@ macro_rules! define_metrics {
                     ($p1_name:literal, $p1_kind:ident, $p1_metric:literal, $p1_labels:expr, $p1_quantile:expr),
                     ($p2_name:literal, $p2_kind:ident, $p2_metric:literal, $p2_labels:expr, $p2_quantile:expr)
                 ],
+                observation: $r_obs_id:literal, $r_obs_unit:ident, $r_obs_kind:ident, $r_obs_quantile:expr, $r_obs_dims:expr,
                 display: $r_title:literal, $r_fmt:literal, $r_bar:expr
             );* $(;)?
         }
@@ -188,11 +195,19 @@ macro_rules! define_metrics {
                         stringify!($d_field),
                         stringify!($d_field),
                         MetricDisplay::new($d_title).with_fmt($d_fmt),
+                        ObservationSpec {
+                            id: $d_obs_id,
+                            unit: ObservationUnit::$d_obs_unit,
+                            kind: ObservationKind::$d_obs_kind,
+                            rollup: ObservationRollup::$d_agg,
+                            quantile: $d_obs_quantile,
+                            dimensions: $d_obs_dims,
+                        },
                     );
                     if $d_bar {
                         d.display = d.display.with_bar();
                     }
-                    d.with_aggregate($d_agg)
+                    d.with_aggregate(Aggregate::$d_agg)
                 }) as Box<dyn MetricSpec + Send + Sync>,)*
                 $(Box::new({
                     let mut r = Ratio::new(
@@ -200,6 +215,14 @@ macro_rules! define_metrics {
                         $p1_name,
                         $p2_name,
                         MetricDisplay::new($r_title).with_fmt($r_fmt),
+                        ObservationSpec {
+                            id: $r_obs_id,
+                            unit: ObservationUnit::$r_obs_unit,
+                            kind: ObservationKind::$r_obs_kind,
+                            rollup: ObservationRollup::Ratio,
+                            quantile: $r_obs_quantile,
+                            dimensions: $r_obs_dims,
+                        },
                     );
                     if $r_bar {
                         r.display = r.display.with_bar();
@@ -218,6 +241,7 @@ define_metrics! {
         labels: std::collections::HashMap::new(),
         quantile: 0.0,
         aggregate: Aggregate::Sum,
+        observation: "requests_running", Count, Gauge, None, REPLICA_DIMENSION,
         display: "Requests Running", ".0f", false;
 
         num_requests_waiting, NumRequestsWaiting,
@@ -225,6 +249,7 @@ define_metrics! {
         labels: std::collections::HashMap::new(),
         quantile: 0.0,
         aggregate: Aggregate::Sum,
+        observation: "requests_waiting", Count, Gauge, None, REPLICA_DIMENSION,
         display: "Requests Waiting", ".0f", false;
 
         kv_cache_usage_perc, KvCacheUsagePerc,
@@ -232,6 +257,7 @@ define_metrics! {
         labels: std::collections::HashMap::new(),
         quantile: 0.0,
         aggregate: Aggregate::Max,
+        observation: "kv_cache_usage", Ratio, Gauge, None, REPLICA_DIMENSION,
         display: "GPU Cache Usage", ".0%", true;
 
         prompt_tokens_per_second, PromptTokensPerSecond,
@@ -239,6 +265,7 @@ define_metrics! {
         labels: std::collections::HashMap::new(),
         quantile: 0.0,
         aggregate: Aggregate::Sum,
+        observation: "prompt_token_throughput", TokensPerSecond, Gauge, None, REPLICA_DIMENSION,
         display: "Prefill Tokens/s", ".1f", false;
 
         generation_tokens_per_second, GenerationTokensPerSecond,
@@ -246,6 +273,7 @@ define_metrics! {
         labels: std::collections::HashMap::new(),
         quantile: 0.0,
         aggregate: Aggregate::Sum,
+        observation: "generation_token_throughput", TokensPerSecond, Gauge, None, REPLICA_DIMENSION,
         display: "Decode Tokens/s", ".1f", false;
 
         request_success_total, RequestSuccessTotal,
@@ -255,6 +283,7 @@ define_metrics! {
         ]),
         quantile: 0.0,
         aggregate: Aggregate::Sum,
+        observation: "requests_succeeded", Count, WindowDelta, None, NO_DIMENSIONS,
         display: "Requests Success", ".0f", false;
 
         request_error_total, RequestErrorTotal,
@@ -264,6 +293,7 @@ define_metrics! {
         ]),
         quantile: 0.0,
         aggregate: Aggregate::Sum,
+        observation: "requests_failed", Count, WindowDelta, None, NO_DIMENSIONS,
         display: "Requests Error", ".0f", false;
 
         request_abort_total, RequestAbortTotal,
@@ -273,6 +303,7 @@ define_metrics! {
         ]),
         quantile: 0.0,
         aggregate: Aggregate::Sum,
+        observation: "requests_aborted", Count, WindowDelta, None, NO_DIMENSIONS,
         display: "Requests Aborted", ".0f", false;
 
         ttft_p95_seconds, TtftP95Seconds,
@@ -280,6 +311,7 @@ define_metrics! {
         labels: std::collections::HashMap::new(),
         quantile: 0.95,
         aggregate: Aggregate::Max,
+        observation: "time_to_first_token", Seconds, Quantile, Some(0.95), NO_DIMENSIONS,
         display: "TTFT p95 (s)", ".3f", false;
 
         tpot_p95_seconds, TpotP95Seconds,
@@ -287,6 +319,7 @@ define_metrics! {
         labels: std::collections::HashMap::new(),
         quantile: 0.95,
         aggregate: Aggregate::Max,
+        observation: "time_per_output_token", Seconds, Quantile, Some(0.95), NO_DIMENSIONS,
         display: "TPOT p95 (s)", ".3f", false;
 
         queue_time_p95_seconds, QueueTimeP95Seconds,
@@ -294,6 +327,7 @@ define_metrics! {
         labels: std::collections::HashMap::new(),
         quantile: 0.95,
         aggregate: Aggregate::Max,
+        observation: "queue_time", Seconds, Quantile, Some(0.95), NO_DIMENSIONS,
         display: "Queue Time p95 (s)", ".3f", false;
 
         num_preemptions_total, NumPreemptionsTotal,
@@ -301,6 +335,7 @@ define_metrics! {
         labels: std::collections::HashMap::new(),
         quantile: 0.0,
         aggregate: Aggregate::Sum,
+        observation: "preemptions", Count, WindowDelta, None, NO_DIMENSIONS,
         display: "Preemptions Total", ".0f", false;
     }
     ratio {
@@ -309,6 +344,7 @@ define_metrics! {
             ("prefix_hits", Increase, "vllm:prefix_cache_hits_total", std::collections::HashMap::new(), 0.0),
             ("prefix_queries", Increase, "vllm:prefix_cache_queries_total", std::collections::HashMap::new(), 0.0)
         ],
+        observation: "prefix_cache_hit_rate", Ratio, WindowRatio, None, NO_DIMENSIONS,
         display: "Prefix Cache Hit Rate", ".0%", false;
     }
     computed {
