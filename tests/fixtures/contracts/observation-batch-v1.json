@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "event_id": "01923f5c-3e8e-7c8e-9d4f-0123456789ab",
+  "observed_at": "2026-07-21T10:00:00Z",
+  "window_seconds": 300,
+  "agent": {
+    "id": "agent-local-dev",
+    "version": "0.8.0",
+    "local_rule_pack": "0.8.0"
+  },
+  "target": {
+    "id": "prod-llama-70b",
+    "engine": "vllm",
+    "engine_version": "0.10.0",
+    "environment": "production",
+    "model": "meta-llama/Llama-3.1-70B-Instruct"
+  },
+  "observations": [
+    {
+      "id": "requests_running",
+      "unit": "count",
+      "kind": "gauge",
+      "rollup": "sum",
+      "value": 12.0
+    },
+    {
+      "id": "requests_running",
+      "unit": "count",
+      "kind": "gauge",
+      "rollup": "sum",
+      "dimensions": {
+        "replica": "replica-1"
+      },
+      "value": 10.0
+    },
+    {
+      "id": "requests_running",
+      "unit": "count",
+      "kind": "gauge",
+      "rollup": "sum",
+      "dimensions": {
+        "replica": "replica-2"
+      },
+      "value": 2.0
+    },
+    {
+      "id": "kv_cache_usage",
+      "unit": "ratio",
+      "kind": "gauge",
+      "rollup": "max",
+      "value": 0.9
+    },
+    {
+      "id": "kv_cache_usage",
+      "unit": "ratio",
+      "kind": "gauge",
+      "rollup": "max",
+      "dimensions": {
+        "replica": "replica-1"
+      },
+      "value": 0.5
+    },
+    {
+      "id": "kv_cache_usage",
+      "unit": "ratio",
+      "kind": "gauge",
+      "rollup": "max",
+      "dimensions": {
+        "replica": "replica-2"
+      },
+      "value": 0.9
+    }
+  ],
+  "availability": [
+    {
+      "id": "requests_waiting",
+      "status": "not_collected"
+    },
+    {
+      "id": "prompt_token_throughput",
+      "status": "not_collected"
+    },
+    {
+      "id": "generation_token_throughput",
+      "status": "not_collected"
+    },
+    {
+      "id": "requests_succeeded",
+      "status": "not_collected"
+    },
+    {
+      "id": "requests_failed",
+      "status": "not_collected"
+    },
+    {
+      "id": "requests_aborted",
+      "status": "not_collected"
+    },
+    {
+      "id": "time_to_first_token",
+      "status": "not_collected"
+    },
+    {
+      "id": "time_per_output_token",
+      "status": "not_collected"
+    },
+    {
+      "id": "queue_time",
+      "status": "not_collected"
+    },
+    {
+      "id": "preemptions",
+      "status": "not_collected"
+    },
+    {
+      "id": "prefix_cache_hit_rate",
+      "status": "not_collected"
+    }
+  ],
+  "local_diagnosis": {
+    "health": "critical",
+    "likely_bottleneck": "kv_cache_saturation",
+    "confidence": "medium",
+    "firing_rule_ids": [
+      "kv_cache_pressure",
+      "replica_imbalance"
+    ]
+  }
+}

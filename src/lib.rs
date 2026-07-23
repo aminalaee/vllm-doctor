@@ -7,6 +7,7 @@ pub mod diagnosis;
 pub mod metrics;
 pub mod models;
 pub mod observability;
+pub mod observations;
 pub mod probes;
 pub mod providers;
 pub mod reports;
