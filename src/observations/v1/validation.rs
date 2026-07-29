@@ -1,4 +1,4 @@
-use super::types::{ObservationBatchV1, ObservationBuildError};
+use super::types::{ObservationBuildError, ObservationV1};
 
 pub const MAX_REPLICAS: usize = 64;
 pub const MAX_OBSERVATIONS: usize = 512;
@@ -24,35 +24,37 @@ pub(super) fn validate_inputs(
     Ok(())
 }
 
-pub(super) fn validate_batch(batch: &ObservationBatchV1) -> Result<(), ObservationBuildError> {
-    if batch.observations.len() > MAX_OBSERVATIONS {
+pub(super) fn validate_observation(
+    observation: &ObservationV1,
+) -> Result<(), ObservationBuildError> {
+    if observation.observations.len() > MAX_OBSERVATIONS {
         return Err(ObservationBuildError::TooManyObservations);
     }
 
     let identifiers = [
-        batch.agent.id.as_str(),
-        batch.agent.version.as_str(),
-        batch.agent.local_rule_pack.as_str(),
-        batch.target.id.as_str(),
+        observation.agent.id.as_str(),
+        observation.agent.version.as_str(),
+        observation.agent.local_rule_pack.as_str(),
+        observation.target.id.as_str(),
     ]
     .into_iter()
-    .chain(batch.target.engine_version.as_deref())
-    .chain(batch.target.environment.as_deref())
-    .chain(batch.target.model.as_deref())
+    .chain(observation.target.engine_version.as_deref())
+    .chain(observation.target.environment.as_deref())
+    .chain(observation.target.model.as_deref())
     .chain(
-        batch
+        observation
             .local_diagnosis
             .firing_rule_ids
             .iter()
             .map(String::as_str),
     )
-    .chain(batch.observations.iter().map(|item| item.id.as_str()))
-    .chain(batch.observations.iter().filter_map(|item| {
+    .chain(observation.observations.iter().map(|item| item.id.as_str()))
+    .chain(observation.observations.iter().filter_map(|item| {
         item.dimensions
             .as_ref()
             .map(|dimensions| dimensions.replica.as_str())
     }))
-    .chain(batch.availability.iter().map(|item| item.id.as_str()));
+    .chain(observation.availability.iter().map(|item| item.id.as_str()));
 
     if identifiers
         .into_iter()
@@ -60,7 +62,7 @@ pub(super) fn validate_batch(batch: &ObservationBatchV1) -> Result<(), Observati
     {
         return Err(ObservationBuildError::IdentifierTooLong);
     }
-    if serde_json::to_vec(batch)
+    if serde_json::to_vec(observation)
         .map_err(|_| ObservationBuildError::PayloadTooLarge)?
         .len()
         > MAX_UNCOMPRESSED_JSON_BYTES

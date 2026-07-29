@@ -1,4 +1,4 @@
-//! Typed `ObservationBatchV1` wire structures.
+//! Typed `ObservationV1` wire structures.
 //!
 //! These outbound-only types are intentionally separate from the diagnostic
 //! domain model. Their serialization cannot change when internal display or
@@ -12,7 +12,7 @@ use uuid::Uuid;
 const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct ObservationBatchV1 {
+pub struct ObservationV1 {
     schema_version: u32,
     pub event_id: Uuid,
     pub observed_at: DateTime<Utc>,
@@ -24,7 +24,7 @@ pub struct ObservationBatchV1 {
     pub local_diagnosis: LocalDiagnosisV1,
 }
 
-impl ObservationBatchV1 {
+impl ObservationV1 {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         event_id: Uuid,
@@ -175,7 +175,7 @@ pub struct LocalDiagnosisV1 {
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum ObservationBuildError {
-    #[error("missing target id: target.id is required to build an observation batch")]
+    #[error("missing target id: target.id is required to build an observation")]
     MissingTargetId,
     #[error("invalid target id: id is empty or whitespace-only")]
     InvalidTargetId,

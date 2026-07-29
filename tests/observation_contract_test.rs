@@ -1,6 +1,6 @@
-//! Golden and adversarial contract tests for `ObservationBatchV1`.
+//! Golden and adversarial contract tests for `ObservationV1`.
 //!
-//! The golden test pins a fixed-input batch to a committed JSON fixture. The
+//! The golden test pins a fixed-input observation to a committed JSON fixture. The
 //! adversarial tests assert that arbitrary Prometheus labels, raw replica
 //! names, endpoint credentials, and diagnosis prose cannot enter the payload.
 
@@ -16,7 +16,7 @@ use vllm_doctor::models::{MetricsSource, TargetMetadata};
 use vllm_doctor::observations::parse_window_seconds;
 use vllm_doctor::observations::v1::{
     AvailabilityStatusV1, MeasurementKindV1, ObservationBuildContext, ObservationBuildError,
-    build_batch,
+    build_observation,
 };
 use vllm_doctor::providers::{Provider, ProviderError, ProviderMetadata};
 use vllm_doctor::rules::build_registry;
@@ -104,14 +104,14 @@ fn fixture_path() -> std::path::PathBuf {
         .join("tests")
         .join("fixtures")
         .join("contracts")
-        .join("observation-batch-v1.json")
+        .join("observation-v1.json")
 }
 
 #[tokio::test]
 async fn golden_batch_matches_fixture() {
     let result = golden_result().await;
     let window = parse_window_seconds("5m").unwrap();
-    let batch = build_batch(&result, &fixed_ctx(), window).unwrap();
+    let batch = build_observation(&result, &fixed_ctx(), window).unwrap();
     let pretty = serde_json::to_string_pretty(&batch).unwrap();
     let fixture = std::fs::read_to_string(fixture_path()).unwrap_or_default();
     assert_eq!(pretty, fixture, "golden batch JSON does not match fixture");
@@ -121,7 +121,7 @@ async fn golden_batch_matches_fixture() {
 async fn build_batch_from_snapshot(
     snapshot: MetricSeriesSnapshot,
     target_id: &str,
-) -> vllm_doctor::observations::v1::ObservationBatchV1 {
+) -> vllm_doctor::observations::v1::ObservationV1 {
     build_batch_from_snapshot_with_source(snapshot, target_id, MetricsSource::DirectScrape).await
 }
 
@@ -129,7 +129,7 @@ async fn build_batch_from_snapshot_with_source(
     snapshot: MetricSeriesSnapshot,
     target_id: &str,
     source: MetricsSource,
-) -> vllm_doctor::observations::v1::ObservationBatchV1 {
+) -> vllm_doctor::observations::v1::ObservationV1 {
     let config = Config::default();
     let registry = build_registry(&config);
     let target = TargetMetadata {
@@ -148,7 +148,7 @@ async fn build_batch_from_snapshot_with_source(
     .await
     .unwrap();
     result.context.metrics_source = source;
-    build_batch(&result, &fixed_ctx(), 300).unwrap()
+    build_observation(&result, &fixed_ctx(), 300).unwrap()
 }
 
 /// Snapshot with forbidden labels to verify they never appear in the payload.
@@ -432,7 +432,7 @@ async fn more_than_64_replicas_fails() {
     )
     .await
     .unwrap();
-    let err = build_batch(&result, &fixed_ctx(), 300).unwrap_err();
+    let err = build_observation(&result, &fixed_ctx(), 300).unwrap_err();
     assert!(matches!(err, ObservationBuildError::TooManyReplicas));
 }
 
@@ -459,7 +459,7 @@ fn disallowed_metrics_do_not_affect_replica_selection_or_limits() {
             ..Default::default()
         });
     let result = vllm_doctor::models::DiagnosisResult::new(context, snapshot, vec![]);
-    let batch = build_batch(&result, &fixed_ctx(), 300).unwrap();
+    let batch = build_observation(&result, &fixed_ctx(), 300).unwrap();
 
     let aliases: std::collections::HashSet<&str> = batch
         .observations
@@ -488,26 +488,26 @@ async fn blank_agent_and_target_ids_fail_at_builder_boundary() {
         ..fixed_ctx()
     };
     assert!(matches!(
-        build_batch(&result, &blank_agent, 300),
+        build_observation(&result, &blank_agent, 300),
         Err(ObservationBuildError::InvalidAgentId)
     ));
 
     let mut blank_target = result.clone();
     blank_target.context.target.id = Some("".to_string());
     assert!(matches!(
-        build_batch(&blank_target, &fixed_ctx(), 300),
+        build_observation(&blank_target, &fixed_ctx(), 300),
         Err(ObservationBuildError::InvalidTargetId)
     ));
 
     let mut missing_target = blank_target;
     missing_target.context.target.id = None;
     assert!(matches!(
-        build_batch(&missing_target, &fixed_ctx(), 300),
+        build_observation(&missing_target, &fixed_ctx(), 300),
         Err(ObservationBuildError::MissingTargetId)
     ));
 
     assert!(matches!(
-        build_batch(&result, &fixed_ctx(), 0),
+        build_observation(&result, &fixed_ctx(), 0),
         Err(ObservationBuildError::InvalidWindow(_))
     ));
 }
@@ -534,7 +534,7 @@ async fn firing_rule_ids_are_sorted() {
             }),
         })
         .collect();
-    let batch = build_batch(&result, &fixed_ctx(), 300).unwrap();
+    let batch = build_observation(&result, &fixed_ctx(), 300).unwrap();
     assert_eq!(batch.local_diagnosis.firing_rule_ids, ["alpha", "zeta"]);
 }
 
@@ -545,7 +545,7 @@ async fn overlong_ids_fail() {
         agent_id: "x".repeat(129),
         ..fixed_ctx()
     };
-    let err = build_batch(&result, &long_ctx, 300).unwrap_err();
+    let err = build_observation(&result, &long_ctx, 300).unwrap_err();
     assert!(matches!(err, ObservationBuildError::IdentifierTooLong));
 }
 
@@ -612,7 +612,7 @@ async fn no_diagnosis_prose_in_json() {
             related_metrics: vec!["vllm:secret_metric".into()],
         }),
     });
-    let batch = build_batch(&result, &fixed_ctx(), 300).unwrap();
+    let batch = build_observation(&result, &fixed_ctx(), 300).unwrap();
     let json = serde_json::to_string(&batch).unwrap();
     for forbidden in [
         "secret evidence prose",
