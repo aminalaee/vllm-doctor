@@ -14,4 +14,5 @@ pub use types::{
 };
 pub use validation::{
     MAX_IDENTIFIER_BYTES, MAX_OBSERVATIONS, MAX_REPLICAS, MAX_UNCOMPRESSED_JSON_BYTES,
+    validate_observation,
 };

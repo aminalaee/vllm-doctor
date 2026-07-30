@@ -1,4 +1,4 @@
-use super::types::{ObservationBuildError, ObservationV1};
+use super::types::{ObservationBuildError, ObservationV1, SCHEMA_VERSION};
 
 pub const MAX_REPLICAS: usize = 64;
 pub const MAX_OBSERVATIONS: usize = 512;
@@ -24,14 +24,33 @@ pub(super) fn validate_inputs(
     Ok(())
 }
 
-pub(super) fn validate_observation(
-    observation: &ObservationV1,
-) -> Result<(), ObservationBuildError> {
+pub fn validate_observation(observation: &ObservationV1) -> Result<(), ObservationBuildError> {
+    if observation.schema_version() != SCHEMA_VERSION {
+        return Err(ObservationBuildError::UnsupportedSchemaVersion);
+    }
+
+    validate_inputs(
+        &observation.target.id,
+        &observation.agent.id,
+        observation.window_seconds,
+    )?;
+
     if observation.observations.len() > MAX_OBSERVATIONS {
         return Err(ObservationBuildError::TooManyObservations);
     }
 
-    let identifiers = [
+    let replica_count = observation
+        .observations
+        .iter()
+        .filter_map(|item| item.dimensions.as_ref())
+        .map(|dimensions| dimensions.replica.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .len();
+    if replica_count > MAX_REPLICAS {
+        return Err(ObservationBuildError::TooManyReplicas);
+    }
+
+    let identifiers: Vec<&str> = [
         observation.agent.id.as_str(),
         observation.agent.version.as_str(),
         observation.agent.local_rule_pack.as_str(),
@@ -54,13 +73,22 @@ pub(super) fn validate_observation(
             .as_ref()
             .map(|dimensions| dimensions.replica.as_str())
     }))
-    .chain(observation.availability.iter().map(|item| item.id.as_str()));
+    .chain(observation.availability.iter().map(|item| item.id.as_str()))
+    .collect();
 
+    if identifiers.iter().any(|value| value.trim().is_empty()) {
+        return Err(ObservationBuildError::InvalidIdentifier);
+    }
     if identifiers
-        .into_iter()
+        .iter()
         .any(|value| value.len() > MAX_IDENTIFIER_BYTES)
     {
         return Err(ObservationBuildError::IdentifierTooLong);
+    }
+    if observation.observations.iter().any(|item| {
+        !item.value.is_finite() || item.quantile.is_some_and(|value| !value.is_finite())
+    }) {
+        return Err(ObservationBuildError::NonFiniteValue);
     }
     if serde_json::to_vec(observation)
         .map_err(|_| ObservationBuildError::PayloadTooLarge)?
