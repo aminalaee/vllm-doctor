@@ -19,6 +19,10 @@ pub enum ConfigError {
     NotFound(PathBuf),
     #[error("invalid target id: id is empty or whitespace-only")]
     InvalidTargetId,
+    #[error("invalid agent id: id is empty or whitespace-only")]
+    InvalidAgentId,
+    #[error("upload timeout must be greater than zero")]
+    InvalidUploadTimeout,
 }
 
 fn config_dir_from(base: Option<PathBuf>) -> Option<PathBuf> {
@@ -72,6 +76,37 @@ pub struct TargetConfig {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct AgentConfig {
     pub listen: Option<SocketAddr>,
+    /// Stable agent identifier. If absent, a v7 UUID is generated and
+    /// persisted on first upload so subsequent runs reuse the same identity.
+    #[serde(default)]
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UploadConfig {
+    #[serde(default = "default_upload_timeout")]
+    pub timeout: u64,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+fn default_upload_timeout() -> u64 {
+    15
+}
+
+impl Default for UploadConfig {
+    fn default() -> Self {
+        Self {
+            timeout: default_upload_timeout(),
+            enabled: false,
+        }
+    }
+}
+
+impl UploadConfig {
+    pub fn timeout_duration(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(self.timeout)
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -82,6 +117,8 @@ pub struct CliConfig {
     pub target: TargetConfig,
     #[serde(default)]
     pub agent: AgentConfig,
+    #[serde(default)]
+    pub upload: UploadConfig,
 }
 
 /// Load merged configuration, resolve the database default against the supplied
@@ -111,6 +148,14 @@ fn load_config_with(
         if id.trim().is_empty() {
             return Err(ConfigError::InvalidTargetId);
         }
+    }
+    if let Some(ref id) = config.agent.id {
+        if id.trim().is_empty() {
+            return Err(ConfigError::InvalidAgentId);
+        }
+    }
+    if config.upload.timeout == 0 {
+        return Err(ConfigError::InvalidUploadTimeout);
     }
     Ok(config)
 }
@@ -148,6 +193,8 @@ mod tests {
         assert_eq!(config.rules.replica_imbalance.imbalance_factor, 2.0);
         assert_eq!(config.rules.replica_imbalance.cache_gap, 0.30);
         assert_eq!(config.rules.replica_imbalance.min_total_running, 5.0);
+        assert_eq!(config.upload.timeout, 15);
+        assert!(!config.upload.enabled);
     }
 
     #[test]
@@ -219,6 +266,11 @@ mod tests {
             .join("full-config.toml");
         let config = load_config(Some(&path)).unwrap();
         assert_eq!(config.database.url, "sqlite:///:memory:");
+        assert_eq!(config.agent.id.as_deref(), Some("agent-test"));
+        assert_eq!(config.agent.listen, Some("127.0.0.1:9091".parse().unwrap()));
+        assert_eq!(config.target.id.as_deref(), Some("target-test"));
+        assert_eq!(config.upload.timeout, 30);
+        assert!(config.upload.enabled);
         assert_eq!(config.rules.queue_pressure.high_waiting, 10);
         assert_eq!(config.rules.queue_pressure.high_running, 100);
         assert_eq!(config.rules.queue_latency.high_queue_time_p95, 2.0);
@@ -340,5 +392,26 @@ mod tests {
         std::fs::write(&path, "[target]\nid = \"   \"\n").unwrap();
         let err = load_config_with(Some(&path), None, None).unwrap_err();
         assert!(matches!(err, ConfigError::InvalidTargetId));
+    }
+
+    #[test]
+    fn whitespace_agent_id_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ws_agent_id.toml");
+        std::fs::write(&path, "[agent]\nid = \"   \"\n").unwrap();
+        let err = load_config_with(Some(&path), None, None).unwrap_err();
+        assert!(matches!(err, ConfigError::InvalidAgentId));
+    }
+
+    #[test]
+    fn zero_upload_timeout_is_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let zero_timeout = dir.path().join("zero-timeout.toml");
+        std::fs::write(&zero_timeout, "[upload]\ntimeout = 0\n").unwrap();
+        assert!(matches!(
+            load_config_with(Some(&zero_timeout), None, None).unwrap_err(),
+            ConfigError::InvalidUploadTimeout
+        ));
     }
 }

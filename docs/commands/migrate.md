@@ -1,6 +1,6 @@
 # `vllm-doctor migrate`
 
-Run database migrations against the configured database. Idempotent — safe to run repeatedly.
+Initialize or update the configured history database. Safe to run repeatedly.
 
 ## Usage
 
@@ -16,11 +16,12 @@ vllm-doctor migrate [OPTIONS]
 
 ## When to run
 
-- **After first install** — creates the local database and schema.
-- **After upgrading vllm-doctor** — applies any new migrations to bring the schema up to date.
+- **After first install** — creates the local history database.
+- **After upgrading vLLM Doctor** — updates the database when required by the
+  new version.
 - **After changing `[database].url`** — if you point at a fresh database, run `migrate` to initialize it.
 
-The command is a no-op when the schema is already at the latest version, so it is safe to run on every deploy.
+If the database is already current, the command makes no changes.
 
 ## Examples
 

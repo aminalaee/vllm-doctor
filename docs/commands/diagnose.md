@@ -26,6 +26,7 @@ vllm-doctor diagnose [OPTIONS] URL
 | `--header`         | —       | Extra HTTP header to send with every request (`NAME:VALUE`, repeatable).               |
 | `--ca-cert`        | —       | Path to a PEM file containing a CA certificate to trust.                               |
 | `-c`, `--config`   | —       | Path to config file (default: `vllm-doctor.toml`).                                     |
+| `--upload`         | False   | Send diagnosis data to vLLM Doctor Cloud.                                              |
 
 For persistence and the watch change-log, see the [history guide](history.md).
 
@@ -71,7 +72,11 @@ vllm-doctor diagnose http://localhost:8000/metrics --watch
 vllm-doctor diagnose http://localhost:8000/metrics --watch --interval 2
 ```
 
-Watch mode adds bounded jitter to polling so multiple Doctor processes do not query at exactly the same time. Initial connection and collection failures are logged to stderr and retried with exponential backoff starting at 1 second and capped at 60 seconds. The backoff resets after the next successful diagnosis.
+Watch mode varies polling times by up to 20% so multiple Doctor processes do
+not query at exactly the same time. Connection and collection failures are
+logged to stderr and retried, with delays increasing from 1 second up to 60
+seconds. Normal polling resumes after the next successful diagnosis. Upload
+failures are counted and logged without stopping collection.
 
 Ctrl-C or SIGTERM cancels both an in-progress collection and any polling or retry sleep. Interactive text output continues to redraw the terminal. When stdout is redirected, reports are appended without terminal-clear escape sequences. JSON watch output emits one complete JSON object for each successful iteration.
 
@@ -90,16 +95,20 @@ curl http://127.0.0.1:9091/readyz
 curl http://127.0.0.1:9091/metrics
 ```
 
-`/healthz` confirms that the HTTP task is alive. `/readyz` is ready only when the latest target collection succeeded. The listener is disabled unless `--listen` or `[agent].listen` is configured. These endpoints have no authentication or TLS; only bind them to a trusted interface.
+`/healthz` confirms that Doctor is running. `/readyz` is ready only when the
+latest target collection succeeded. The listener is disabled unless `--listen`
+or `[agent].listen` is configured. These endpoints have no authentication or
+TLS; only bind them to a trusted interface.
 
-The `/metrics` endpoint publishes five Prometheus metric families. Every sample includes `target` and `engine`; `vllm_doctor_finding` also includes `rule` and `severity`.
+The `/metrics` endpoint publishes six Prometheus metric families. Every sample includes `target` and `engine`; `vllm_doctor_finding` also includes `rule` and `severity`.
 
 | Metric                                       | Type    | Meaning                                                                               |
 | -------------------------------------------- | ------- | ------------------------------------------------------------------------------------- |
 | `vllm_doctor_ready`                          | Gauge   | `1` when the latest collection succeeded, otherwise `0`.                              |
 | `vllm_doctor_target_health`                  | Gauge   | Last known health: `-1` unknown, `0` healthy, `1` info, `2` warning, or `3` critical. |
 | `vllm_doctor_last_success_timestamp_seconds` | Gauge   | Unix timestamp of the last successful diagnosis, or `0` before the first success.     |
-| `vllm_doctor_collection_errors_total`        | Counter | Provider setup and collection failures since Doctor started.                          |
+| `vllm_doctor_collection_errors_total`        | Counter | Target connection and collection failures since Doctor started.                       |
+| `vllm_doctor_upload_errors_total`            | Counter | Cloud upload failures since Doctor started.                                           |
 | `vllm_doctor_finding`                        | Gauge   | One sample with value `1` per finding from the last successful diagnosis.             |
 
 During a collection failure, health and findings retain the last successful diagnosis. Use `vllm_doctor_ready` to determine whether they are fresh.
@@ -114,6 +123,28 @@ vllm-doctor diagnose http://localhost:8000/metrics --watch --save
 ```
 
 Review saved runs with [`vllm-doctor history`](history.md).
+
+## Upload to vLLM Doctor Cloud
+
+Choose a stable Target ID and add it to your configuration:
+
+```toml
+[target]
+id = "llama-serving-prod"
+```
+
+Create an observation token in vLLM Doctor Cloud and provide it through the
+environment:
+
+```shell
+VLLM_DOCTOR_TOKEN=vllm_doctor_... \
+  vllm-doctor diagnose http://localhost:9090 --upload
+```
+
+The token authorizes uploads to your Cloud account. If the Target ID does not
+exist in that account yet, Cloud creates it when it receives the first
+observation. An upload failure exits with status `2`. In watch mode, upload
+failures are logged and diagnosis continues.
 
 ## Filter by model
 

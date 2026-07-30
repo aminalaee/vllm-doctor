@@ -67,7 +67,9 @@ url = "sqlite:///~/.vllm-doctor/vllm_doctor.db"
 | ----- | ----------------------------------------- | -------------------------------------------------------------------- |
 | `url` | `sqlite:///~/.vllm-doctor/vllm_doctor.db` | SQLite URL — local file path. The directory is created on first run. |
 
-After changing `url` (or after installing vllm-doctor for the first time), run [`vllm-doctor migrate`](../commands/migrate.md) once to create or update the schema. The command is idempotent.
+After changing `url` or installing vLLM Doctor for the first time, run
+[`vllm-doctor migrate`](../commands/migrate.md) once to initialize or update
+the history database. The command is safe to run repeatedly.
 
 See the [history guide](../commands/history.md) for the full save / watch change-log / list / show loop.
 
@@ -83,14 +85,16 @@ engine_version = "0.8.0"
 environment = "production"
 ```
 
-| Key              | Default | Description                                                                                          |
-| ---------------- | ------- | ---------------------------------------------------------------------------------------------------- |
-| `id`             | —       | Stable, operator-provided target identifier. Optional for local CLI; must be stable when configured. |
-| `engine`         | `vllm`  | Inference engine. Currently, the only accepted value is `vllm`.                                      |
-| `engine_version` | —       | Engine version string (e.g. `"0.8.0"`).                                                              |
-| `environment`    | —       | Environment label (e.g. `production`, `staging`).                                                    |
+| Key              | Default | Description                                                     |
+| ---------------- | ------- | --------------------------------------------------------------- |
+| `id`             | —       | Stable name chosen for this target. Required for cloud upload.  |
+| `engine`         | `vllm`  | Inference engine. Currently, the only accepted value is `vllm`. |
+| `engine_version` | —       | Engine version string (e.g. `"0.8.0"`).                         |
+| `environment`    | —       | Environment label (e.g. `production`, `staging`).               |
 
-An empty or whitespace-only `id` is rejected at load time. When `id` is absent the CLI does not generate one — a later SaaS enrollment change will require or generate a stable ID before upload.
+Use the same ID whenever you diagnose this target. On its first upload, vLLM
+Doctor Cloud creates the target in the account authorized by the observation
+token. Local diagnosis works without an ID.
 
 ## Agent observability
 
@@ -99,13 +103,36 @@ During watch mode, vLLM Doctor can expose its own health, readiness, and Prometh
 ```toml
 [agent]
 listen = "127.0.0.1:9091"
+id = "019c..."
 ```
 
-| Key      | Default | Description                                                   |
-| -------- | ------- | ------------------------------------------------------------- |
-| `listen` | —       | Socket address serving `/healthz`, `/readyz`, and `/metrics`. |
+| Key      | Default        | Description                                                   |
+| -------- | -------------- | ------------------------------------------------------------- |
+| `listen` | —              | Socket address serving `/healthz`, `/readyz`, and `/metrics`. |
+| `id`     | Generated once | Stable identity for this Doctor installation.                 |
+
+When `id` is omitted, vLLM Doctor generates and reuses one automatically.
 
 The `--listen` command-line option overrides this setting. The configured address is only used by `diagnose --watch`; one-shot diagnosis does not start a server. The endpoints do not provide authentication or TLS, so prefer a loopback or otherwise protected address. Binding to `0.0.0.0` exposes operational data to the network.
+
+## Cloud upload
+
+Cloud upload is disabled by default. Opt in with `--upload` or set
+`enabled = true` for unattended watch mode.
+
+```toml
+[upload]
+timeout = 15
+enabled = false
+```
+
+| Key       | Default | Description                                    |
+| --------- | ------- | ---------------------------------------------- |
+| `timeout` | `15`    | Upload request timeout in seconds.             |
+| `enabled` | `false` | Send every successful diagnosis automatically. |
+
+Provide the cloud token through `VLLM_DOCTOR_TOKEN`. Tokens are not accepted as
+command-line or configuration values.
 
 ## Partial config
 

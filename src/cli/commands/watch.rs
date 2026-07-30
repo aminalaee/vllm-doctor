@@ -9,6 +9,7 @@ use crate::cli::observability::AgentState;
 use crate::cli::reports::{RenderOptions, Report, json, text};
 use crate::cli::runner::{DiagnoseRequest, DiagnoseRunner, RunnerError, transition_label};
 use crate::cli::stores::{HistoryStore, SqliteHistoryStore};
+use crate::cli::upload::{UploadClient, ensure_agent_id};
 use crate::core::models::DiagnosisResult;
 use anyhow::{Context, anyhow};
 use tokio::sync::watch as shutdown;
@@ -25,6 +26,9 @@ pub(super) struct Options<'a> {
     pub(super) save: bool,
     pub(super) listen: Option<SocketAddr>,
     pub(super) render: &'a RenderOptions,
+    pub(super) upload: bool,
+    pub(super) upload_config: crate::cli::config::UploadConfig,
+    pub(super) agent_id: Option<String>,
 }
 
 pub(super) async fn run(request: DiagnoseRequest, options: Options<'_>) -> anyhow::Result<()> {
@@ -134,6 +138,16 @@ async fn watch_loop(
         return Ok(());
     };
     let clear_terminal = should_clear_output(options.output, std::io::stdout().is_terminal());
+    let upload_agent_id = if options.upload {
+        Some(ensure_agent_id(options.agent_id.as_deref())?)
+    } else {
+        None
+    };
+    let upload_client = if options.upload {
+        Some(UploadClient::new(&options.upload_config)?)
+    } else {
+        None
+    };
     let mut previous: Option<DiagnosisResult> = None;
 
     loop {
@@ -161,6 +175,25 @@ async fn watch_loop(
                         match store.save(&result).await {
                             Ok(id) => eprintln!("Saved run: {id} ({label})"),
                             Err(error) => eprintln!("Error: failed to save run: {error}"),
+                        }
+                    }
+                }
+
+                if let Some((agent_id, client)) =
+                    upload_agent_id.as_deref().zip(upload_client.as_ref())
+                {
+                    if let Err(error) = super::diagnose::upload_diagnosis(
+                        &result,
+                        &result.context.since,
+                        agent_id,
+                        client,
+                        false,
+                    )
+                    .await
+                    {
+                        eprintln!("Error: upload failed: {error}");
+                        if let Some(state) = state.as_deref() {
+                            state.record_upload_error();
                         }
                     }
                 }

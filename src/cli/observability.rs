@@ -27,6 +27,7 @@ pub struct AgentState {
     engine: InferenceEngine,
     snapshot: RwLock<ObservationSnapshot>,
     collection_errors: AtomicU64,
+    upload_errors: AtomicU64,
 }
 
 impl AgentState {
@@ -36,6 +37,7 @@ impl AgentState {
             engine: target.engine,
             snapshot: RwLock::new(ObservationSnapshot::default()),
             collection_errors: AtomicU64::new(0),
+            upload_errors: AtomicU64::new(0),
         }
     }
 
@@ -62,6 +64,10 @@ impl AgentState {
         write_lock(&self.snapshot).latest_attempt_succeeded = false;
     }
 
+    pub fn record_upload_error(&self) {
+        self.upload_errors.fetch_add(1, Ordering::Relaxed);
+    }
+
     pub fn is_ready(&self) -> bool {
         read_lock(&self.snapshot).latest_attempt_succeeded
     }
@@ -78,6 +84,7 @@ pub fn render_metrics(state: &AgentState) -> String {
         .last_success
         .map_or(0, |timestamp| timestamp.timestamp());
     let errors = state.collection_errors.load(Ordering::Relaxed);
+    let upload_errors = state.upload_errors.load(Ordering::Relaxed);
 
     let mut output = String::new();
     metric_header(
@@ -114,6 +121,17 @@ pub fn render_metrics(state: &AgentState) -> String {
     writeln!(
         output,
         "vllm_doctor_collection_errors_total{{{labels}}} {errors}"
+    )
+    .unwrap();
+    metric_header(
+        &mut output,
+        "upload_errors_total",
+        "Cumulative cloud upload errors",
+        "counter",
+    );
+    writeln!(
+        output,
+        "vllm_doctor_upload_errors_total{{{labels}}} {upload_errors}"
     )
     .unwrap();
     metric_header(
@@ -241,6 +259,17 @@ mod tests {
     }
 
     #[test]
+    fn upload_errors_are_tracked() {
+        let state = AgentState::new(TargetMetadata::default());
+        state.record_upload_error();
+        state.record_upload_error();
+        let metrics = render_metrics(&state);
+        assert!(metrics.contains(
+            "vllm_doctor_upload_errors_total{target=\"unconfigured\",engine=\"vllm\"} 2"
+        ));
+    }
+
+    #[test]
     fn label_values_are_escaped() {
         let state = AgentState::new(TargetMetadata {
             id: Some("quoted\"\\\nvalue".to_string()),
@@ -281,6 +310,9 @@ mod tests {
                 "# HELP vllm_doctor_collection_errors_total Cumulative provider setup and collection errors\n",
                 "# TYPE vllm_doctor_collection_errors_total counter\n",
                 "vllm_doctor_collection_errors_total{target=\"production\",engine=\"vllm\"} 0\n",
+                "# HELP vllm_doctor_upload_errors_total Cumulative cloud upload errors\n",
+                "# TYPE vllm_doctor_upload_errors_total counter\n",
+                "vllm_doctor_upload_errors_total{target=\"production\",engine=\"vllm\"} 0\n",
                 "# HELP vllm_doctor_finding Findings from the last successful diagnosis\n",
                 "# TYPE vllm_doctor_finding gauge\n",
                 "vllm_doctor_finding{target=\"production\",engine=\"vllm\",rule=\"queue_pressure\",severity=\"warning\"} 1\n",

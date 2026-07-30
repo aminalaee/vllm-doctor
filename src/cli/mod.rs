@@ -12,3 +12,4 @@ pub mod providers;
 pub mod reports;
 pub mod runner;
 pub mod stores;
+pub mod upload;
