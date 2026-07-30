@@ -37,7 +37,7 @@ wiremock = "0.6"
 
 [[bin]]
 name = "vllm-doctor"
-path = "src/main.rs"
+path = "src/cli/main.rs"
 
 [lib]
 name = "vllm_doctor"

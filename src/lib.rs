@@ -1,20 +1,5 @@
-pub mod assessment;
 pub mod cli;
-pub mod clients;
-pub mod collector;
-pub mod config;
-pub mod diagnosis;
-pub mod metrics;
-pub mod models;
-pub mod observability;
-pub mod observations;
-pub mod probes;
-pub mod providers;
-pub mod reports;
-pub mod rules;
-pub mod runner;
-pub mod signals;
-pub mod stores;
+pub mod core;
 
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")

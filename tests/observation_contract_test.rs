@@ -6,20 +6,20 @@
 
 use chrono::{DateTime, Utc};
 use serde_json::Value;
-use vllm_doctor::config::Config;
-use vllm_doctor::diagnosis::diagnose;
-use vllm_doctor::metrics::series::MetricSample;
-use vllm_doctor::metrics::{
+use vllm_doctor::core::config::CoreConfig as Config;
+use vllm_doctor::core::diagnosis::diagnose;
+use vllm_doctor::core::metrics::series::MetricSample;
+use vllm_doctor::core::metrics::{
     Aggregate, MetricSeries, MetricSeriesSnapshot, ObservationUnit, all_specs,
 };
-use vllm_doctor::models::{MetricsSource, TargetMetadata};
-use vllm_doctor::observations::parse_window_seconds;
-use vllm_doctor::observations::v1::{
+use vllm_doctor::core::models::{MetricsSource, TargetMetadata};
+use vllm_doctor::core::observations::parse_window_seconds;
+use vllm_doctor::core::observations::v1::{
     AvailabilityStatusV1, MeasurementKindV1, ObservationBuildContext, ObservationBuildError,
     build_observation,
 };
-use vllm_doctor::providers::{Provider, ProviderError, ProviderMetadata};
-use vllm_doctor::rules::build_registry;
+use vllm_doctor::core::providers::{Provider, ProviderError, ProviderMetadata};
+use vllm_doctor::core::rules::build_registry;
 
 /// A provider that always returns the same snapshot — used to build a
 /// deterministic `DiagnosisResult`.
@@ -77,13 +77,13 @@ fn fixed_ctx() -> ObservationBuildContext {
     }
 }
 
-async fn golden_result() -> vllm_doctor::models::DiagnosisResult {
+async fn golden_result() -> vllm_doctor::core::models::DiagnosisResult {
     let snapshot = golden_snapshot();
     let config = Config::default();
     let registry = build_registry(&config);
     let target = TargetMetadata {
         id: Some("prod-llama-70b".to_string()),
-        engine: vllm_doctor::models::InferenceEngine::Vllm,
+        engine: vllm_doctor::core::models::InferenceEngine::Vllm,
         engine_version: Some("0.10.0".to_string()),
         environment: Some("production".to_string()),
     };
@@ -121,7 +121,7 @@ async fn golden_batch_matches_fixture() {
 async fn build_batch_from_snapshot(
     snapshot: MetricSeriesSnapshot,
     target_id: &str,
-) -> vllm_doctor::observations::v1::ObservationV1 {
+) -> vllm_doctor::core::observations::v1::ObservationV1 {
     build_batch_from_snapshot_with_source(snapshot, target_id, MetricsSource::DirectScrape).await
 }
 
@@ -129,12 +129,12 @@ async fn build_batch_from_snapshot_with_source(
     snapshot: MetricSeriesSnapshot,
     target_id: &str,
     source: MetricsSource,
-) -> vllm_doctor::observations::v1::ObservationV1 {
+) -> vllm_doctor::core::observations::v1::ObservationV1 {
     let config = Config::default();
     let registry = build_registry(&config);
     let target = TargetMetadata {
         id: Some(target_id.to_string()),
-        engine: vllm_doctor::models::InferenceEngine::Vllm,
+        engine: vllm_doctor::core::models::InferenceEngine::Vllm,
         ..Default::default()
     };
     let mut result = diagnose(
@@ -452,13 +452,13 @@ fn disallowed_metrics_do_not_affect_replica_selection_or_limits() {
         },
         ..Default::default()
     };
-    let context = vllm_doctor::models::DiagnosisContext::new("5m")
+    let context = vllm_doctor::core::models::DiagnosisContext::new("5m")
         .with_metrics_source(MetricsSource::Prometheus)
         .with_target(TargetMetadata {
             id: Some("prod".to_string()),
             ..Default::default()
         });
-    let result = vllm_doctor::models::DiagnosisResult::new(context, snapshot, vec![]);
+    let result = vllm_doctor::core::models::DiagnosisResult::new(context, snapshot, vec![]);
     let batch = build_observation(&result, &fixed_ctx(), 300).unwrap();
 
     let aliases: std::collections::HashSet<&str> = batch
@@ -517,14 +517,14 @@ async fn firing_rule_ids_are_sorted() {
     let mut result = golden_result().await;
     result.checks = ["zeta", "alpha"]
         .into_iter()
-        .map(|id| vllm_doctor::models::RuleResult {
+        .map(|id| vllm_doctor::core::models::RuleResult {
             id: id.to_string(),
             name: id.to_string(),
             title: id.to_string(),
-            severity: vllm_doctor::models::Severity::Warning,
-            finding: Some(vllm_doctor::models::Finding {
-                severity: vllm_doctor::models::Severity::Warning,
-                confidence: vllm_doctor::models::Confidence::High,
+            severity: vllm_doctor::core::models::Severity::Warning,
+            finding: Some(vllm_doctor::core::models::Finding {
+                severity: vllm_doctor::core::models::Severity::Warning,
+                confidence: vllm_doctor::core::models::Confidence::High,
                 title: id.to_string(),
                 signals: vec![],
                 evidence: vec![],
@@ -587,26 +587,28 @@ async fn compact_payload_cannot_exceed_256_kib() {
 #[tokio::test]
 async fn no_diagnosis_prose_in_json() {
     let mut result = golden_result().await;
-    result.assessment = vllm_doctor::models::Assessment {
-        likely_bottleneck: vllm_doctor::models::BottleneckKind::ReplicaImbalance,
-        confidence: vllm_doctor::models::Confidence::High,
-        evidence: vec![vllm_doctor::models::EvidenceItem::text(
+    result.assessment = vllm_doctor::core::models::Assessment {
+        likely_bottleneck: vllm_doctor::core::models::BottleneckKind::ReplicaImbalance,
+        confidence: vllm_doctor::core::models::Confidence::High,
+        evidence: vec![vllm_doctor::core::models::EvidenceItem::text(
             "secret evidence prose",
         )],
         interpretation: "secret interpretation prose".to_string(),
         recommended_next_actions: vec!["secret recommendation prose".to_string()],
     };
-    result.checks.push(vllm_doctor::models::RuleResult {
+    result.checks.push(vllm_doctor::core::models::RuleResult {
         id: "fake".into(),
         name: "Fake".into(),
         title: "secret finding title".into(),
-        severity: vllm_doctor::models::Severity::Warning,
-        finding: Some(vllm_doctor::models::Finding {
-            severity: vllm_doctor::models::Severity::Warning,
-            confidence: vllm_doctor::models::Confidence::High,
+        severity: vllm_doctor::core::models::Severity::Warning,
+        finding: Some(vllm_doctor::core::models::Finding {
+            severity: vllm_doctor::core::models::Severity::Warning,
+            confidence: vllm_doctor::core::models::Confidence::High,
             title: "secret finding title".into(),
             signals: vec!["secret signal".into()],
-            evidence: vec![vllm_doctor::models::EvidenceItem::text("secret evidence")],
+            evidence: vec![vllm_doctor::core::models::EvidenceItem::text(
+                "secret evidence",
+            )],
             likely_causes: vec!["secret likely cause".into()],
             recommendations: vec!["secret recommendation".into()],
             related_metrics: vec!["vllm:secret_metric".into()],

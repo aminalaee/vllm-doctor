@@ -1,0 +1,90 @@
+//! Rule registry: collect, filter, and execute rules.
+use crate::core::config::Config;
+use crate::core::metrics::MetricSeriesSnapshot;
+use crate::core::models::Severity;
+use crate::core::signals::SignalGraph;
+
+use super::definition::RuleDefinition;
+use super::{Rule, finding_for};
+use crate::core::models::RuleResult;
+
+/// Factory function signature for registering a rule type.
+pub type RuleFactory = fn(&Config) -> (&'static RuleDefinition, Box<dyn Rule>);
+
+struct RegistryEntry {
+    definition: &'static RuleDefinition,
+    rule: Box<dyn Rule>,
+}
+
+/// Central collection of configured diagnostic rules.
+#[derive(Default)]
+pub struct RuleRegistry {
+    entries: Vec<RegistryEntry>,
+}
+
+impl RuleRegistry {
+    /// Create an empty registry.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a rule type using its factory.
+    pub fn register(mut self, factory: RuleFactory, config: &Config) -> Self {
+        let (definition, rule) = factory(config);
+        self.entries.push(RegistryEntry { definition, rule });
+        self
+    }
+
+    /// All registered rule definitions.
+    pub fn definitions(&self) -> impl Iterator<Item = &&'static RuleDefinition> {
+        self.entries.iter().map(|e| &e.definition)
+    }
+
+    /// Filter definitions by severity.
+    pub fn definitions_by_severity(
+        &self,
+        severity: Severity,
+    ) -> impl Iterator<Item = &&'static RuleDefinition> {
+        self.definitions().filter(move |d| d.severity == severity)
+    }
+
+    /// Run every rule and collect metadata + findings, ordered worst-first:
+    /// by fired severity, then confidence, with non-firing checks last.
+    pub fn run_all(&self, metrics: &MetricSeriesSnapshot, config: &Config) -> Vec<RuleResult> {
+        let signals = SignalGraph::new(metrics);
+        let mut results: Vec<RuleResult> = self
+            .entries
+            .iter()
+            .map(|entry| RuleResult {
+                id: entry.definition.id.to_string(),
+                name: entry.definition.name.to_string(),
+                title: entry.definition.title.to_string(),
+                severity: entry.definition.severity,
+                finding: finding_for(entry.definition, entry.rule.run(&signals), &signals, config),
+            })
+            .collect();
+        results.sort_by_key(order_key);
+        results
+    }
+}
+
+/// Sort key placing the most urgent findings first and non-firing checks last.
+fn order_key(result: &RuleResult) -> (u8, u8) {
+    use crate::core::models::{Confidence, Severity};
+    match result.finding.as_ref() {
+        Some(finding) => {
+            let severity = match finding.severity {
+                Severity::Critical => 0,
+                Severity::Warning => 1,
+                Severity::Info => 2,
+            };
+            let confidence = match finding.confidence {
+                Confidence::High => 0,
+                Confidence::Medium => 1,
+                Confidence::Low => 2,
+            };
+            (severity, confidence)
+        }
+        None => (u8::MAX, u8::MAX),
+    }
+}
