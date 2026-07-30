@@ -15,10 +15,10 @@ use super::replicas::ReplicaAliases;
 use super::types::{
     AgentIdentityV1, AvailabilityStatusV1, AvailabilityV1, BottleneckV1, ConfidenceV1, HealthV1,
     InferenceEngineV1, LocalDiagnosisV1, MeasurementDimensionsV1, MeasurementKindV1,
-    MeasurementRollupV1, MeasurementUnitV1, MeasurementV1, ObservationBatchV1,
-    ObservationBuildError, TargetIdentityV1,
+    MeasurementRollupV1, MeasurementUnitV1, MeasurementV1, ObservationBuildError, ObservationV1,
+    TargetIdentityV1,
 };
-use super::validation::{validate_batch, validate_inputs};
+use super::validation::{validate_inputs, validate_observation};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObservationBuildContext {
@@ -29,11 +29,11 @@ pub struct ObservationBuildContext {
     pub local_rule_pack: String,
 }
 
-pub fn build_batch(
+pub fn build_observation(
     result: &DiagnosisResult,
     context: &ObservationBuildContext,
     window_seconds: u64,
-) -> Result<ObservationBatchV1, ObservationBuildError> {
+) -> Result<ObservationV1, ObservationBuildError> {
     let target_id = result
         .context
         .target
@@ -44,7 +44,7 @@ pub fn build_batch(
 
     let replicas = ReplicaAliases::from_result(result)?;
     let (observations, availability) = collect_observations(result, replicas.as_ref());
-    let batch = ObservationBatchV1::new(
+    let observation = ObservationV1::new(
         context.event_id,
         context.observed_at,
         window_seconds,
@@ -54,8 +54,8 @@ pub fn build_batch(
         availability,
         build_local_diagnosis(result),
     );
-    validate_batch(&batch)?;
-    Ok(batch)
+    validate_observation(&observation)?;
+    Ok(observation)
 }
 
 fn collect_observations(
