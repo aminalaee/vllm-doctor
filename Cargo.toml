@@ -7,37 +7,59 @@ description = "Diagnostic tool for vLLM inference servers"
 license = "Apache-2.0"
 repository = "https://github.com/vllm-doctor/vllm-doctor"
 
+[features]
+default = ["cli"]
+cli = [
+    "dep:anyhow",
+    "dep:axum",
+    "dep:clap",
+    "dep:comfy-table",
+    "dep:dirs",
+    "dep:figment",
+    "dep:owo-colors",
+    "dep:regex",
+    "dep:reqwest",
+    "dep:sqlx",
+    "dep:terminal_size",
+    "dep:textwrap",
+    "dep:tokio",
+    "dep:toml",
+    "dep:unicode-width",
+]
+
 [dependencies]
-anyhow = "1"
+anyhow = { version = "1", optional = true }
 async-trait = "0.1"
-axum = "0.8"
+axum = { version = "0.8", optional = true }
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
-clap = { version = "4", features = ["derive"] }
-comfy-table = "7"
-dirs = "5"
-figment = { version = "0.10", features = ["toml", "env"] }
-owo-colors = "4"
-regex = "1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-terminal_size = "0.4"
+clap = { version = "4", features = ["derive"], optional = true }
+comfy-table = { version = "7", optional = true }
+dirs = { version = "5", optional = true }
+figment = { version = "0.10", features = ["toml", "env"], optional = true }
+owo-colors = { version = "4", optional = true }
+regex = { version = "1", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+terminal_size = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros", "uuid", "chrono"] }
-textwrap = { version = "0.16", default-features = false, features = ["unicode-width"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros", "uuid", "chrono"], optional = true }
+textwrap = { version = "0.16", default-features = false, features = ["unicode-width"], optional = true }
 thiserror = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync", "time"], optional = true }
 uuid = { version = "1", features = ["v7", "serde"] }
-unicode-width = "0.2"
-toml = "0.8"
+unicode-width = { version = "0.2", optional = true }
+toml = { version = "0.8", optional = true }
 
 [dev-dependencies]
 tempfile = "3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tower = { version = "0.5", features = ["util"] }
 wiremock = "0.6"
 
 [[bin]]
 name = "vllm-doctor"
 path = "src/cli/main.rs"
+required-features = ["cli"]
 
 [lib]
 name = "vllm_doctor"

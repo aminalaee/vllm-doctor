@@ -1,10 +1,8 @@
 //! Provider trait and error, decoupled from the CLI's HTTP client error.
 //!
 //! The core diagnostic engine consumes snapshots through the [`Provider`]
-//! trait. The trait and its error type live here so the backend can implement
-//! providers without depending on reqwest. The CLI's concrete providers
-//! implement this trait and map their [`ClientError`](crate::cli::clients::error::ClientError)
-//! into [`ProviderError`] at the boundary.
+//! trait. Concrete providers map transport-specific failures into
+//! [`ProviderError`] at the boundary.
 use crate::core::models::MetricsSource;
 
 /// Error returned by a provider.

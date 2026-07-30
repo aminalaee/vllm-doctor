@@ -1,8 +1,7 @@
-//! Diagnostic core: types and logic shared with the backend.
+//! Diagnostic types and logic separated from CLI-specific I/O.
 //!
 //! This module tree has no dependency on reqwest, sqlx, clap, comfy-table,
-//! owo-colors, dirs, or figment. The backend imports `vllm_doctor::core::*`;
-//! the CLI imports both `core` and [`cli`](crate::cli).
+//! owo-colors, dirs, or figment.
 pub mod assessment;
 pub mod config;
 pub mod diagnosis;

@@ -8,8 +8,7 @@ pub mod scrape;
 pub use prometheus::PrometheusProvider;
 pub use scrape::ScrapeProvider;
 
-// Re-export the core Provider trait and types so CLI code uses the same
-// interface the backend uses.
+// Re-export the provider boundary used throughout the CLI.
 pub use crate::core::providers::{Provider, ProviderError, ProviderMetadata};
 
 use crate::cli::clients::error::ClientError;

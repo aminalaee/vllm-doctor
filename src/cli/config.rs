@@ -74,8 +74,8 @@ pub struct AgentConfig {
     pub listen: Option<SocketAddr>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Config {
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct CliConfig {
     pub database: DatabaseConfig,
     pub rules: RulesConfig,
     #[serde(default)]
@@ -84,62 +84,14 @@ pub struct Config {
     pub agent: AgentConfig,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            database: DatabaseConfig::default(),
-            rules: RulesConfig {
-                queue_pressure: QueuePressureConfig {
-                    high_waiting: 5,
-                    high_running: 50,
-                },
-                queue_latency: QueueLatencyConfig {
-                    high_queue_time_p95: 1.0,
-                },
-                kv_cache_pressure: KVCachePressureConfig {
-                    high_cache_usage: 0.90,
-                },
-                preemption_pressure: PreemptionPressureConfig {
-                    high_cache_usage: 0.80,
-                },
-                low_throughput: LowThroughputConfig {
-                    low_prompt_tps: 10.0,
-                    low_gen_tps: 50.0,
-                    low_running: 2,
-                },
-                error_rate: ErrorRateConfig {
-                    high_error_rate: 0.05,
-                    high_abort_rate: 0.10,
-                },
-                ttft_bottleneck: TtftBottleneckConfig {
-                    high_ttft_p95: 2.0,
-                    high_tpot_p95: 0.2,
-                },
-                tpot_bottleneck: TpotBottleneckConfig {
-                    high_tpot_p95: 0.2,
-                    low_gen_tokens_per_sec: 50.0,
-                },
-                prefix_cache_efficiency: PrefixCacheEfficiencyConfig { min_hit_rate: 0.50 },
-                replica_imbalance: ReplicaImbalanceConfig {
-                    imbalance_factor: 2.0,
-                    cache_gap: 0.30,
-                    min_total_running: 5.0,
-                },
-            },
-            target: TargetConfig::default(),
-            agent: AgentConfig::default(),
-        }
-    }
-}
-
 /// Load merged configuration, resolve the database default against the supplied
 /// home directory, and validate target identity.
 fn load_config_with(
     path: Option<&Path>,
     home_dir: Option<PathBuf>,
     config_dir: Option<PathBuf>,
-) -> Result<Config, ConfigError> {
-    let mut figment = Figment::from(Serialized::defaults(Config::default()));
+) -> Result<CliConfig, ConfigError> {
+    let mut figment = Figment::from(Serialized::defaults(CliConfig::default()));
     if let Some(p) = path {
         if !p.exists() {
             return Err(ConfigError::NotFound(p.to_path_buf()));
@@ -151,7 +103,7 @@ fn load_config_with(
             figment = figment.merge(Toml::file(global));
         }
     }
-    let mut config: Config = figment.extract().map_err(Box::new)?;
+    let mut config: CliConfig = figment.extract().map_err(Box::new)?;
     if config.database.url.is_empty() {
         config.database.url = default_database_url_with_home(home_dir);
     }
@@ -163,7 +115,7 @@ fn load_config_with(
     Ok(config)
 }
 
-pub fn load_config(path: Option<&Path>) -> Result<Config, ConfigError> {
+pub fn load_config(path: Option<&Path>) -> Result<CliConfig, ConfigError> {
     load_config_with(path, dirs::home_dir(), dirs::config_dir())
 }
 
@@ -173,7 +125,11 @@ mod tests {
 
     #[test]
     fn default_thresholds_are_stable() {
-        let config = Config::default();
+        let config = CliConfig::default();
+        assert_eq!(
+            config.rules,
+            crate::core::config::CoreConfig::default().rules
+        );
         assert_eq!(config.rules.queue_pressure.high_waiting, 5);
         assert_eq!(config.rules.queue_pressure.high_running, 50);
         assert_eq!(config.rules.queue_latency.high_queue_time_p95, 1.0);
@@ -301,9 +257,9 @@ mod tests {
     #[test]
     fn empty_database_url_gets_default() {
         let home = tempfile::tempdir().unwrap();
-        let _config = Config {
+        let _config = CliConfig {
             database: DatabaseConfig { url: String::new() },
-            ..Config::default()
+            ..CliConfig::default()
         };
         let merged = load_config_with(None, Some(home.path().to_path_buf()), None).unwrap();
         assert!(!merged.database.url.is_empty());

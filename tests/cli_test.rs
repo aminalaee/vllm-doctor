@@ -2,12 +2,12 @@
 //!
 //! The persistence tests use the library API with a temporary database. The
 //! output and failure-path tests execute the compiled CLI against a mock server.
-use vllm_doctor::cli::config::Config;
+use vllm_doctor::cli::config::CliConfig;
 use vllm_doctor::cli::stores::{HistoryStore, SqliteHistoryStore};
 use vllm_doctor::core::config::CoreConfig;
 
-fn test_config(dir: &std::path::Path) -> Config {
-    let mut config = Config::default();
+fn test_config(dir: &std::path::Path) -> CliConfig {
+    let mut config = CliConfig::default();
     config.database.url = format!("sqlite://{}/history.db", dir.display());
     config
 }
@@ -52,7 +52,7 @@ async fn save_sample(store: &SqliteHistoryStore) -> uuid::Uuid {
         kv_cache_usage_perc: MetricSeries::from_samples(vec![MetricSample::new(0.95)]),
         ..Default::default()
     };
-    let config = Config::default();
+    let config = CliConfig::default();
     let registry = build_registry(&CoreConfig {
         rules: config.rules.clone(),
     });

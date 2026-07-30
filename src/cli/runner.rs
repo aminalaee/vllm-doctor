@@ -1,12 +1,11 @@
-//! Diagnosis runner: the reusable one-run boundary. Resolves a provider
-//! once, then fetches a snapshot and evaluates the rule registry into a
-//! single [`DiagnosisResult`] on each call. Rendering, persistence, output,
-//! and scheduling belong to the caller so the core stays
-//! destination-independent.
+//! Diagnosis runner for one execution cycle. Resolves a provider once, then
+//! fetches a snapshot and evaluates the rule registry into a single
+//! [`DiagnosisResult`] on each call. Rendering, persistence, output, and
+//! scheduling belong to the caller.
 use std::time::Duration;
 
 use crate::cli::clients::ConnectionOptions;
-use crate::cli::config::Config;
+use crate::cli::config::CliConfig;
 use crate::cli::providers::resolve_provider;
 use crate::core::config::CoreConfig;
 use crate::core::diagnosis::diagnose;
@@ -23,7 +22,7 @@ pub struct DiagnoseRequest {
     pub model: Option<String>,
     pub timeout: f64,
     pub interval: Duration,
-    pub config: Config,
+    pub config: CliConfig,
     pub conn_opts: ConnectionOptions,
     pub target: TargetMetadata,
 }
@@ -55,7 +54,7 @@ impl DiagnoseRunner {
         Ok(Self { request, provider })
     }
 
-    pub fn config(&self) -> &Config {
+    pub fn config(&self) -> &CliConfig {
         &self.request.config
     }
 

@@ -2,7 +2,7 @@ use std::io::IsTerminal;
 use std::path::Path;
 
 use crate::cli::args::{Args, Command};
-use crate::cli::config::{Config, load_config};
+use crate::cli::config::{CliConfig, load_config};
 use crate::cli::reports::RenderOptions;
 
 mod diagnose;
@@ -23,7 +23,7 @@ pub async fn run(args: Args) -> CommandResult {
     }
 }
 
-fn load_config_or_exit(path: Option<&Path>) -> Result<Config, i32> {
+fn load_config_or_exit(path: Option<&Path>) -> Result<CliConfig, i32> {
     load_config(path).map_err(|error| {
         eprintln!("Error: could not load config: {error}");
         EXIT_ERROR
