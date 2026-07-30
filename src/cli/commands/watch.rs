@@ -25,6 +25,10 @@ pub(super) struct Options<'a> {
     pub(super) save: bool,
     pub(super) listen: Option<SocketAddr>,
     pub(super) render: &'a RenderOptions,
+    pub(super) upload: bool,
+    pub(super) config_path: Option<std::path::PathBuf>,
+    pub(super) upload_config: Option<crate::cli::config::UploadConfig>,
+    pub(super) agent_id: Option<String>,
 }
 
 pub(super) async fn run(request: DiagnoseRequest, options: Options<'_>) -> anyhow::Result<()> {
@@ -161,6 +165,17 @@ async fn watch_loop(
                         match store.save(&result).await {
                             Ok(id) => eprintln!("Saved run: {id} ({label})"),
                             Err(error) => eprintln!("Error: failed to save run: {error}"),
+                        }
+                    }
+                }
+
+                if options.upload {
+                    if let Err(error) =
+                        upload_in_watch(&result, &options, runner.config(), runner.interval()).await
+                    {
+                        eprintln!("Error: upload failed: {error}");
+                        if let Some(state) = state.as_deref() {
+                            state.record_upload_error();
                         }
                     }
                 }

@@ -102,6 +102,9 @@ pub struct DiagnoseArgs {
     /// Path to config file (default: vllm-doctor.toml)
     #[arg(short, long)]
     pub config: Option<PathBuf>,
+    /// Upload the diagnosis observation to the configured cloud backend
+    #[arg(long)]
+    pub upload: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -325,6 +328,24 @@ mod tests {
                 assert_eq!(run_id, "abc-123");
             }
             _ => panic!("expected history show"),
+        }
+    }
+
+    #[test]
+    fn parse_diagnose_with_upload_flag() {
+        let args = Args::parse_from(["vllm-doctor", "diagnose", "http://host/metrics", "--upload"]);
+        match args.command {
+            Command::Diagnose(args) => assert!(args.upload),
+            _ => panic!("expected diagnose command"),
+        }
+    }
+
+    #[test]
+    fn parse_diagnose_upload_defaults_false() {
+        let args = Args::parse_from(["vllm-doctor", "diagnose", "http://host/metrics"]);
+        match args.command {
+            Command::Diagnose(args) => assert!(!args.upload),
+            _ => panic!("expected diagnose command"),
         }
     }
 }

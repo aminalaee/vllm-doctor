@@ -7,7 +7,10 @@ use crate::cli::clients::ConnectionOptions;
 use crate::cli::reports::{RenderOptions, Report, json, text};
 use crate::cli::runner::{DiagnoseRequest, DiagnoseRunner, RunnerError};
 use crate::cli::stores::{HistoryStore, SqliteHistoryStore};
+use crate::cli::upload::{UploadClient, UploadOutcome, ensure_agent_id, resolve_token};
 use crate::core::models::{DiagnosisResult, Health, TargetMetadata};
+use crate::core::observations::parse_window_seconds;
+use crate::core::observations::v1::{ObservationBuildContext, build_observation};
 
 use super::{
     CommandResult, EXIT_ERROR, EXIT_UNHEALTHY, load_config_or_exit, render_options, watch,
@@ -27,14 +30,17 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
         timeout,
         headers,
         ca_cert,
-        config,
+        config: config_path,
+        upload,
     } = args;
 
-    let config = load_config_or_exit(config.as_deref())?;
+    let config = load_config_or_exit(config_path.as_deref())?;
     let listen = resolve_listen(listen, config.agent.listen);
     let connection = build_connection_options(&headers, ca_cert);
     let render = render_options(verbose);
     let database_url = config.database.url.clone();
+    let upload_config = config.upload.clone();
+    let agent_id = config.agent.id.clone();
     let target = TargetMetadata {
         id: config.target.id.clone(),
         engine: config.target.engine,
@@ -43,7 +49,7 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
     };
     let request = DiagnoseRequest {
         url: url.clone(),
-        since,
+        since: since.clone(),
         model,
         timeout,
         interval: Duration::from_secs_f64(interval),
@@ -61,6 +67,10 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
                 save,
                 listen,
                 render: &render,
+                upload,
+                config_path: config_path.as_deref(),
+                upload_config,
+                agent_id: agent_id.as_deref(),
             },
         )
         .await
@@ -71,10 +81,12 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
         return Ok(());
     }
 
-    let runner = DiagnoseRunner::new(request).await.map_err(|error| {
-        print_fetch_error(&url, error);
-        EXIT_ERROR
-    })?;
+    let runner = DiagnoseRunner::new(request.clone())
+        .await
+        .map_err(|error| {
+            print_fetch_error(&url, error);
+            EXIT_ERROR
+        })?;
     let result = runner.run_once().await.map_err(|error| {
         print_fetch_error(&url, error);
         EXIT_ERROR
@@ -89,6 +101,21 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
                 eprintln!("Error: failed to save run: {error}");
                 return Err(EXIT_ERROR);
             }
+        }
+    }
+
+    if upload {
+        if let Err(error) = upload_diagnosis(
+            &result,
+            &since,
+            agent_id.as_deref(),
+            config_path.as_deref(),
+            &upload_config,
+        )
+        .await
+        {
+            eprintln!("Error: upload failed: {error}");
+            return Err(EXIT_ERROR);
         }
     }
 
@@ -122,6 +149,70 @@ async fn save_run(
     let store = SqliteHistoryStore::connect(database_url).await?;
     let id = store.save(result).await?;
     Ok(id.to_string())
+}
+
+/// Build an observation from the diagnosis result and upload it. Performs one
+/// retry with a short backoff on retryable errors. Returns the outcome label
+/// on success.
+async fn upload_diagnosis(
+    result: &DiagnosisResult,
+    since: &str,
+    agent_id: Option<&str>,
+    config_path: Option<&std::path::Path>,
+    upload_config: &crate::cli::config::UploadConfig,
+) -> Result<&'static str, crate::cli::upload::UploadError> {
+    if !upload_config.is_configured() {
+        eprintln!("Error: --upload was set but [upload] api_url is not configured");
+        return Err(crate::cli::upload::UploadError::Unauthorized);
+    }
+
+    let window_seconds = parse_window_seconds(since).map_err(|error| {
+        eprintln!("Error: invalid window `{since}`: {error}");
+        crate::cli::upload::UploadError::Unauthorized
+    })?;
+
+    let agent_id = ensure_agent_id(agent_id, config_path);
+    let context = ObservationBuildContext {
+        event_id: uuid::Uuid::now_v7(),
+        observed_at: chrono::Utc::now(),
+        agent_id,
+        agent_version: crate::version().to_string(),
+        local_rule_pack: crate::version().to_string(),
+    };
+    let observation = build_observation(result, &context, window_seconds).map_err(|error| {
+        eprintln!("Error: could not build observation: {error}");
+        crate::cli::upload::UploadError::Unauthorized
+    })?;
+
+    let token = resolve_token()?;
+    let client = UploadClient::new(upload_config)?;
+
+    match client.upload(&observation, &token).await {
+        Ok(UploadOutcome::Created) => {
+            eprintln!("Uploaded observation (created)");
+            Ok("created")
+        }
+        Ok(UploadOutcome::Deduplicated) => {
+            eprintln!("Uploaded observation (deduplicated)");
+            Ok("deduplicated")
+        }
+        Err(error) if error.is_retryable() => {
+            eprintln!("Warning: upload failed ({error}); retrying once");
+            tokio::time::sleep(Duration::from_millis(500)).await;
+            match client.upload(&observation, &token).await {
+                Ok(UploadOutcome::Created) => {
+                    eprintln!("Uploaded observation (created on retry)");
+                    Ok("created")
+                }
+                Ok(UploadOutcome::Deduplicated) => {
+                    eprintln!("Uploaded observation (deduplicated on retry)");
+                    Ok("deduplicated")
+                }
+                Err(error) => Err(error),
+            }
+        }
+        Err(error) => Err(error),
+    }
 }
 
 fn build_connection_options(

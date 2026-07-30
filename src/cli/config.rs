@@ -72,6 +72,35 @@ pub struct TargetConfig {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct AgentConfig {
     pub listen: Option<SocketAddr>,
+    /// Stable agent identifier. If absent, a v7 UUID is generated and
+    /// persisted to the config file on first upload so subsequent runs reuse
+    /// the same identity.
+    #[serde(default)]
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct UploadConfig {
+    #[serde(default)]
+    pub api_url: String,
+    #[serde(default = "default_upload_timeout")]
+    pub timeout: u64,
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+fn default_upload_timeout() -> u64 {
+    15
+}
+
+impl UploadConfig {
+    pub fn is_configured(&self) -> bool {
+        !self.api_url.trim().is_empty()
+    }
+
+    pub fn timeout_duration(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(self.timeout)
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -82,6 +111,8 @@ pub struct CliConfig {
     pub target: TargetConfig,
     #[serde(default)]
     pub agent: AgentConfig,
+    #[serde(default)]
+    pub upload: UploadConfig,
 }
 
 /// Load merged configuration, resolve the database default against the supplied
