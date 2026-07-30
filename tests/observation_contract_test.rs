@@ -114,7 +114,11 @@ async fn golden_batch_matches_fixture() {
     let batch = build_observation(&result, &fixed_ctx(), window).unwrap();
     let pretty = serde_json::to_string_pretty(&batch).unwrap();
     let fixture = std::fs::read_to_string(fixture_path()).unwrap_or_default();
-    assert_eq!(pretty, fixture, "golden batch JSON does not match fixture");
+    assert_eq!(
+        pretty,
+        fixture.trim_end(),
+        "golden batch JSON does not match fixture"
+    );
 }
 
 /// Helper to build a batch from a snapshot and pretty-serialize it.
