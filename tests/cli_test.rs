@@ -2,11 +2,12 @@
 //!
 //! The persistence tests use the library API with a temporary database. The
 //! output and failure-path tests execute the compiled CLI against a mock server.
-use vllm_doctor::config::Config;
-use vllm_doctor::stores::{HistoryStore, SqliteHistoryStore};
+use vllm_doctor::cli::config::CliConfig;
+use vllm_doctor::cli::stores::{HistoryStore, SqliteHistoryStore};
+use vllm_doctor::core::config::CoreConfig;
 
-fn test_config(dir: &std::path::Path) -> Config {
-    let mut config = Config::default();
+fn test_config(dir: &std::path::Path) -> CliConfig {
+    let mut config = CliConfig::default();
     config.database.url = format!("sqlite://{}/history.db", dir.display());
     config
 }
@@ -23,12 +24,12 @@ fn write_test_config(dir: &std::path::Path) -> std::path::PathBuf {
 }
 
 async fn save_sample(store: &SqliteHistoryStore) -> uuid::Uuid {
-    use vllm_doctor::diagnosis::diagnose;
-    use vllm_doctor::metrics::MetricSeriesSnapshot;
-    use vllm_doctor::metrics::series::{MetricSample, MetricSeries};
-    use vllm_doctor::models::MetricsSource;
-    use vllm_doctor::providers::{Provider, ProviderError, ProviderMetadata};
-    use vllm_doctor::rules::build_registry;
+    use vllm_doctor::core::diagnosis::diagnose;
+    use vllm_doctor::core::metrics::MetricSeriesSnapshot;
+    use vllm_doctor::core::metrics::series::{MetricSample, MetricSeries};
+    use vllm_doctor::core::models::MetricsSource;
+    use vllm_doctor::core::providers::{Provider, ProviderError, ProviderMetadata};
+    use vllm_doctor::core::rules::build_registry;
 
     struct StubProvider(MetricSeriesSnapshot);
 
@@ -51,15 +52,19 @@ async fn save_sample(store: &SqliteHistoryStore) -> uuid::Uuid {
         kv_cache_usage_perc: MetricSeries::from_samples(vec![MetricSample::new(0.95)]),
         ..Default::default()
     };
-    let config = Config::default();
-    let registry = build_registry(&config);
+    let config = CliConfig::default();
+    let registry = build_registry(&CoreConfig {
+        rules: config.rules.clone(),
+    });
     let result = diagnose(
         &StubProvider(snapshot),
         &registry,
         "5m",
         None,
-        &vllm_doctor::models::TargetMetadata::default(),
-        &config,
+        &vllm_doctor::core::models::TargetMetadata::default(),
+        &CoreConfig {
+            rules: config.rules.clone(),
+        },
     )
     .await
     .unwrap();
@@ -132,12 +137,12 @@ async fn history_show_returns_none_for_unknown_id() {
 
 #[tokio::test]
 async fn diagnose_save_persists_run() {
-    use vllm_doctor::diagnosis::diagnose;
-    use vllm_doctor::metrics::MetricSeriesSnapshot;
-    use vllm_doctor::metrics::series::{MetricSample, MetricSeries};
-    use vllm_doctor::models::MetricsSource;
-    use vllm_doctor::providers::{Provider, ProviderError, ProviderMetadata};
-    use vllm_doctor::rules::build_registry;
+    use vllm_doctor::core::diagnosis::diagnose;
+    use vllm_doctor::core::metrics::MetricSeriesSnapshot;
+    use vllm_doctor::core::metrics::series::{MetricSample, MetricSeries};
+    use vllm_doctor::core::models::MetricsSource;
+    use vllm_doctor::core::providers::{Provider, ProviderError, ProviderMetadata};
+    use vllm_doctor::core::rules::build_registry;
 
     struct StubProvider(MetricSeriesSnapshot);
 
@@ -165,14 +170,18 @@ async fn diagnose_save_persists_run() {
         num_requests_waiting: MetricSeries::from_samples(vec![MetricSample::new(8.0)]),
         ..Default::default()
     };
-    let registry = build_registry(&config);
+    let registry = build_registry(&CoreConfig {
+        rules: config.rules.clone(),
+    });
     let result = diagnose(
         &StubProvider(snapshot),
         &registry,
         "5m",
         None,
-        &vllm_doctor::models::TargetMetadata::default(),
-        &config,
+        &vllm_doctor::core::models::TargetMetadata::default(),
+        &CoreConfig {
+            rules: config.rules.clone(),
+        },
     )
     .await
     .unwrap();
