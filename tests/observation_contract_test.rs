@@ -16,7 +16,7 @@ use vllm_doctor::core::models::{MetricsSource, TargetMetadata};
 use vllm_doctor::core::observations::parse_window_seconds;
 use vllm_doctor::core::observations::v1::{
     AvailabilityStatusV1, MeasurementKindV1, ObservationBuildContext, ObservationBuildError,
-    build_observation,
+    ObservationV1, build_observation, validate_observation,
 };
 use vllm_doctor::core::providers::{Provider, ProviderError, ProviderMetadata};
 use vllm_doctor::core::rules::build_registry;
@@ -646,4 +646,29 @@ fn registry_exposes_count_unit() {
         .iter()
         .any(|s| s.observation_spec().unit == ObservationUnit::Count);
     assert!(has_count);
+}
+
+#[test]
+fn published_contract_deserializes_and_validates() {
+    let json = include_str!("fixtures/contracts/observation-v1.json");
+    let observation: ObservationV1 = serde_json::from_str(json).unwrap();
+    validate_observation(&observation).unwrap();
+}
+
+#[test]
+fn published_contract_rejects_unknown_enum_values() {
+    let json = include_str!("fixtures/contracts/observation-v1.json");
+    let invalid = json.replace("\"engine\": \"vllm\"", "\"engine\": \"sglang\"");
+    assert!(serde_json::from_str::<ObservationV1>(&invalid).is_err());
+}
+
+#[test]
+fn published_contract_rejects_unsupported_schema_versions() {
+    let json = include_str!("fixtures/contracts/observation-v1.json");
+    let invalid = json.replace("\"schema_version\": 1", "\"schema_version\": 2");
+    let observation: ObservationV1 = serde_json::from_str(&invalid).unwrap();
+    assert_eq!(
+        validate_observation(&observation),
+        Err(ObservationBuildError::UnsupportedSchemaVersion)
+    );
 }
