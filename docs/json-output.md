@@ -217,4 +217,4 @@ Evidence items:
 
 `operator` is one of `greater_than`, `greater_than_or_equal`, `less_than`, `less_than_or_equal`. Values are plain numbers when no `unit` is present; percentages are expressed as decimals (e.g. `0.94` for 94%).
 
-`signals` are intentionally omitted from JSON findings for now. They remain internal explanatory detail and may be exposed in a later schema version.
+`signals` are not included in JSON findings.

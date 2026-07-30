@@ -80,7 +80,7 @@ vllm-doctor history list
 
 Columns shown by default:
 
-- **Run ID** — UUID7, time-ordered
+- **Run ID** — unique identifier for the saved run
 - **Time** — saved at (YYYY-MM-DD HH:MM)
 - **Model** — model name, or `—` if none
 - **Health** — colored ok / info / warning / critical
@@ -100,11 +100,11 @@ vllm-doctor history list --verbose
 vllm-doctor history list --output json
 ```
 
-Renders a JSON array of `RunSummary` objects.
+Renders a JSON array containing one summary per saved run.
 
 ## `vllm-doctor history show`
 
-Re-render a stored diagnosis run using the same reporters as a live diagnosis.
+Display a stored diagnosis using the same text or JSON format as a live run.
 
 ### Usage
 

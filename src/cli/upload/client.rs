@@ -1,10 +1,8 @@
 //! HTTP upload client for `ObservationV1` payloads.
 //!
-//! POSTs a serialized observation to `{api_url}/v1/observations` with Bearer
+//! POSTs a serialized observation to the versioned vLLM Doctor API with Bearer
 //! auth. The token is never embedded in the client struct; it is passed per
 //! call so a long-lived client cannot leak it in debug output.
-
-use std::time::Duration;
 
 use reqwest::StatusCode;
 use thiserror::Error;
@@ -14,8 +12,8 @@ use crate::cli::config::UploadConfig;
 use crate::core::observations::v1::MAX_UNCOMPRESSED_JSON_BYTES;
 use crate::core::observations::v1::ObservationV1;
 
-/// Path appended to the configured API URL.
-const OBSERVATIONS_PATH: &str = "/v1/observations";
+const API_URL: &str = "https://api.vllm.doctor";
+const API_VERSION: &str = "v1";
 
 /// Outcome of a successful upload.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,6 +31,15 @@ pub enum UploadError {
     /// The bearer token could not be resolved from the environment.
     #[error("{0}")]
     Token(#[from] crate::cli::upload::config::TokenError),
+    /// The validated observation could not be serialized.
+    #[error("could not serialize observation: {0}")]
+    Serialization(#[from] serde_json::Error),
+    /// The diagnosis window could not be represented by the upload contract.
+    #[error("invalid diagnosis window: {0}")]
+    InvalidWindow(String),
+    /// The diagnosis result could not be converted into an observation.
+    #[error("could not build observation: {0}")]
+    Build(String),
     /// The serialized payload exceeded the client-side size limit before
     /// sending.
     #[error("payload too large: serialized body is {len} bytes (limit {limit})")]
@@ -46,6 +53,12 @@ pub enum UploadError {
     /// The server rejected the payload as too large (413).
     #[error("payload too large: the server rejected the request body")]
     ServerPayloadTooLarge,
+    /// The server rejected the payload (400).
+    #[error("the server rejected the observation")]
+    Rejected,
+    /// The server rate-limited the upload (429).
+    #[error("the server rate-limited the upload")]
+    RateLimited,
     /// The server returned an unexpected status code.
     #[error("unexpected response from server: {status}")]
     UnexpectedStatus { status: u16 },
@@ -57,10 +70,11 @@ pub enum UploadError {
 impl UploadError {
     /// Whether this error is worth an immediate retry (network blip).
     pub fn is_retryable(&self) -> bool {
-        matches!(
-            self,
-            UploadError::Request(_) | UploadError::UnexpectedStatus { .. }
-        )
+        matches!(self, UploadError::Request(_) | UploadError::RateLimited)
+            || matches!(
+                self,
+                UploadError::UnexpectedStatus { status } if (500..=599).contains(status)
+            )
     }
 }
 
@@ -68,37 +82,25 @@ impl UploadError {
 /// the connection pool warm.
 #[derive(Debug, Clone)]
 pub struct UploadClient {
-    api_url: String,
-    timeout: Duration,
+    base_url: String,
     http: reqwest::Client,
 }
 
 impl UploadClient {
     /// Build an upload client from the resolved upload config.
     pub fn new(config: &UploadConfig) -> Result<Self, UploadError> {
+        Self::with_base_url(config, API_URL)
+    }
+
+    fn with_base_url(config: &UploadConfig, base_url: &str) -> Result<Self, UploadError> {
         let http = reqwest::Client::builder()
             .timeout(config.timeout_duration())
             .build()
             .map_err(UploadError::Request)?;
         Ok(Self {
-            api_url: config.api_url.trim_end_matches('/').to_string(),
-            timeout: config.timeout_duration(),
+            base_url: base_url.trim_end_matches('/').to_string(),
             http,
         })
-    }
-
-    /// Exposed for tests that want to point at a mock server.
-    #[cfg(test)]
-    pub fn with_http_client(config: &UploadConfig, http: reqwest::Client) -> Self {
-        Self {
-            api_url: config.api_url.trim_end_matches('/').to_string(),
-            timeout: config.timeout_duration(),
-            http,
-        }
-    }
-
-    pub fn timeout(&self) -> Duration {
-        self.timeout
     }
 
     /// Upload a single observation. The token is resolved from the environment
@@ -108,8 +110,7 @@ impl UploadClient {
         observation: &ObservationV1,
         token: &str,
     ) -> Result<UploadOutcome, UploadError> {
-        let body = serde_json::to_vec(observation)
-            .map_err(|_| UploadError::UnexpectedStatus { status: 0 })?;
+        let body = serde_json::to_vec(observation)?;
         if body.len() > MAX_UNCOMPRESSED_JSON_BYTES {
             return Err(UploadError::PayloadTooLarge {
                 len: body.len(),
@@ -117,10 +118,9 @@ impl UploadClient {
             });
         }
 
-        let url = format!("{}{OBSERVATIONS_PATH}", self.api_url);
         let response = self
             .http
-            .post(&url)
+            .post(self.observations_url())
             .bearer_auth(token)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
             .body(body)
@@ -133,14 +133,20 @@ impl UploadClient {
             StatusCode::CREATED => Ok(UploadOutcome::Created),
             StatusCode::OK => Ok(UploadOutcome::Deduplicated),
             StatusCode::UNAUTHORIZED => Err(UploadError::Unauthorized),
+            StatusCode::BAD_REQUEST => Err(UploadError::Rejected),
             StatusCode::CONFLICT => Err(UploadError::Conflict {
                 event_id: observation.event_id,
             }),
             StatusCode::PAYLOAD_TOO_LARGE => Err(UploadError::ServerPayloadTooLarge),
+            StatusCode::TOO_MANY_REQUESTS => Err(UploadError::RateLimited),
             other => Err(UploadError::UnexpectedStatus {
                 status: other.as_u16(),
             }),
         }
+    }
+
+    fn observations_url(&self) -> String {
+        format!("{}/{API_VERSION}/observations", self.base_url)
     }
 }
 
@@ -177,14 +183,22 @@ mod tests {
 
     fn client_for(server: &MockServer) -> UploadClient {
         let config = UploadConfig {
-            api_url: server.uri(),
             timeout: 5,
             enabled: true,
         };
-        UploadClient::new(&config).unwrap()
+        UploadClient::with_base_url(&config, &server.uri()).unwrap()
     }
 
     const TOKEN: &str = "test-token";
+
+    #[test]
+    fn production_endpoint_uses_major_version_path() {
+        let client = UploadClient::new(&UploadConfig::default()).unwrap();
+        assert_eq!(
+            client.observations_url(),
+            "https://api.vllm.doctor/v1/observations"
+        );
+    }
 
     #[tokio::test]
     async fn upload_201_created() {
@@ -261,15 +275,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn upload_400_rejected_is_not_retryable() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/observations"))
+            .respond_with(ResponseTemplate::new(400))
+            .mount(&server)
+            .await;
+
+        let error = client_for(&server)
+            .upload(&observation(), TOKEN)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, UploadError::Rejected));
+        assert!(!error.is_retryable());
+    }
+
+    #[tokio::test]
+    async fn upload_429_is_retryable() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/observations"))
+            .respond_with(ResponseTemplate::new(429))
+            .mount(&server)
+            .await;
+
+        let error = client_for(&server)
+            .upload(&observation(), TOKEN)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, UploadError::RateLimited));
+        assert!(error.is_retryable());
+    }
+
+    #[test]
+    fn only_server_errors_are_retryable_unexpected_statuses() {
+        assert!(UploadError::UnexpectedStatus { status: 500 }.is_retryable());
+        assert!(UploadError::UnexpectedStatus { status: 503 }.is_retryable());
+        assert!(!UploadError::UnexpectedStatus { status: 403 }.is_retryable());
+    }
+
+    #[tokio::test]
     async fn upload_network_error() {
-        // Point the client at a port that nothing is listening on. reqwest
-        // will return a connection error.
         let config = UploadConfig {
-            api_url: "http://127.0.0.1:1".to_string(),
             timeout: 2,
             enabled: true,
         };
-        let client = UploadClient::new(&config).unwrap();
+        let client = UploadClient::with_base_url(&config, "http://127.0.0.1:1").unwrap();
         let err = client.upload(&observation(), TOKEN).await.unwrap_err();
         assert!(matches!(err, UploadError::Request(_)));
         assert!(err.is_retryable());

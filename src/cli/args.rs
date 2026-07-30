@@ -102,7 +102,7 @@ pub struct DiagnoseArgs {
     /// Path to config file (default: vllm-doctor.toml)
     #[arg(short, long)]
     pub config: Option<PathBuf>,
-    /// Upload the diagnosis observation to the configured cloud backend
+    /// Upload the diagnosis observation to vLLM Doctor Cloud
     #[arg(long)]
     pub upload: bool,
 }
@@ -213,6 +213,7 @@ mod tests {
                 assert_eq!(args.config, None);
                 assert!(args.headers.is_empty());
                 assert_eq!(args.ca_cert, None);
+                assert!(!args.upload);
             }
             _ => panic!("expected diagnose command"),
         }

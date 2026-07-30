@@ -341,6 +341,42 @@ async fn cli_text_output_contains_health() {
 }
 
 #[tokio::test]
+async fn cli_upload_requires_token() {
+    let server = serve_scrape().await;
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("upload.toml");
+    std::fs::write(
+        &config_path,
+        "[target]\nid = \"target-test\"\n\n[agent]\nid = \"agent-test\"\n",
+    )
+    .unwrap();
+
+    let output = std::process::Command::new(binary_path())
+        .env_remove("VLLM_DOCTOR_TOKEN")
+        .args([
+            "diagnose",
+            &format!("{}/metrics", server.uri()),
+            "--config",
+            config_path.to_str().unwrap(),
+            "--upload",
+        ])
+        .output()
+        .expect("failed to run vllm-doctor");
+
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .contains("Health:")
+    );
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("no upload token")
+    );
+}
+
+#[tokio::test]
 async fn cli_save_failure_prints_output_and_exits_2() {
     let server = serve_scrape().await;
     let url = format!("{}/metrics", server.uri());

@@ -41,6 +41,7 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
     let database_url = config.database.url.clone();
     let upload_config = config.upload.clone();
     let agent_id = config.agent.id.clone();
+    let upload = upload || upload_config.enabled;
     let target = TargetMetadata {
         id: config.target.id.clone(),
         engine: config.target.engine,
@@ -68,9 +69,8 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
                 listen,
                 render: &render,
                 upload,
-                config_path: config_path.as_deref(),
                 upload_config,
-                agent_id: agent_id.as_deref(),
+                agent_id,
             },
         )
         .await
@@ -91,6 +91,7 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
         print_fetch_error(&url, error);
         EXIT_ERROR
     })?;
+
     let report = Report::new(result.clone());
     print_report(&report, output, verbose, &render);
 
@@ -105,15 +106,15 @@ pub(super) async fn run(args: DiagnoseArgs) -> CommandResult {
     }
 
     if upload {
-        if let Err(error) = upload_diagnosis(
-            &result,
-            &since,
-            agent_id.as_deref(),
-            config_path.as_deref(),
-            &upload_config,
-        )
-        .await
-        {
+        let agent_id = ensure_agent_id(agent_id.as_deref()).map_err(|error| {
+            eprintln!("Error: could not resolve agent identity: {error}");
+            EXIT_ERROR
+        })?;
+        let client = UploadClient::new(&upload_config).map_err(|error| {
+            eprintln!("Error: could not initialize upload: {error}");
+            EXIT_ERROR
+        })?;
+        if let Err(error) = upload_diagnosis(&result, &since, &agent_id, &client, true).await {
             eprintln!("Error: upload failed: {error}");
             return Err(EXIT_ERROR);
         }
@@ -154,38 +155,16 @@ async fn save_run(
 /// Build an observation from the diagnosis result and upload it. Performs one
 /// retry with a short backoff on retryable errors. Returns the outcome label
 /// on success.
-async fn upload_diagnosis(
+pub(super) async fn upload_diagnosis(
     result: &DiagnosisResult,
     since: &str,
-    agent_id: Option<&str>,
-    config_path: Option<&std::path::Path>,
-    upload_config: &crate::cli::config::UploadConfig,
+    agent_id: &str,
+    client: &UploadClient,
+    retry_once: bool,
 ) -> Result<&'static str, crate::cli::upload::UploadError> {
-    if !upload_config.is_configured() {
-        eprintln!("Error: --upload was set but [upload] api_url is not configured");
-        return Err(crate::cli::upload::UploadError::Unauthorized);
-    }
-
-    let window_seconds = parse_window_seconds(since).map_err(|error| {
-        eprintln!("Error: invalid window `{since}`: {error}");
-        crate::cli::upload::UploadError::Unauthorized
-    })?;
-
-    let agent_id = ensure_agent_id(agent_id, config_path);
-    let context = ObservationBuildContext {
-        event_id: uuid::Uuid::now_v7(),
-        observed_at: chrono::Utc::now(),
-        agent_id,
-        agent_version: crate::version().to_string(),
-        local_rule_pack: crate::version().to_string(),
-    };
-    let observation = build_observation(result, &context, window_seconds).map_err(|error| {
-        eprintln!("Error: could not build observation: {error}");
-        crate::cli::upload::UploadError::Unauthorized
-    })?;
+    let observation = build_upload_observation(result, since, agent_id)?;
 
     let token = resolve_token()?;
-    let client = UploadClient::new(upload_config)?;
 
     match client.upload(&observation, &token).await {
         Ok(UploadOutcome::Created) => {
@@ -196,7 +175,7 @@ async fn upload_diagnosis(
             eprintln!("Uploaded observation (deduplicated)");
             Ok("deduplicated")
         }
-        Err(error) if error.is_retryable() => {
+        Err(error) if retry_once && error.is_retryable() => {
             eprintln!("Warning: upload failed ({error}); retrying once");
             tokio::time::sleep(Duration::from_millis(500)).await;
             match client.upload(&observation, &token).await {
@@ -213,6 +192,24 @@ async fn upload_diagnosis(
         }
         Err(error) => Err(error),
     }
+}
+
+fn build_upload_observation(
+    result: &DiagnosisResult,
+    since: &str,
+    agent_id: &str,
+) -> Result<crate::core::observations::v1::ObservationV1, crate::cli::upload::UploadError> {
+    let window_seconds = parse_window_seconds(since)
+        .map_err(|error| crate::cli::upload::UploadError::InvalidWindow(error.to_string()))?;
+    let context = ObservationBuildContext {
+        event_id: uuid::Uuid::now_v7(),
+        observed_at: chrono::Utc::now(),
+        agent_id: agent_id.to_string(),
+        agent_version: crate::version().to_string(),
+        local_rule_pack: crate::version().to_string(),
+    };
+    build_observation(result, &context, window_seconds)
+        .map_err(|error| crate::cli::upload::UploadError::Build(error.to_string()))
 }
 
 fn build_connection_options(

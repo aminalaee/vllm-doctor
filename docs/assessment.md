@@ -23,34 +23,26 @@ The same summary appears as a top-level `assessment` object in `--output json`
 
 The assessment classifies the run into one of:
 
-| Category             | Meaning                                                        |
-| -------------------- | -------------------------------------------------------------- |
-| Queue saturation     | Requests arrive faster than they can be served; the queue grows |
-| KV cache saturation  | Requests wait on limited KV cache headroom                     |
-| Long prefill         | High TTFT with no queue — long input prompts dominate prefill  |
-| Decode / TPOT        | Per-token generation is the bottleneck, not queueing           |
-| Replica imbalance    | Load is unevenly distributed across replicas                   |
-| Error or failure     | The server is returning errors or aborting requests            |
-| Idle                 | No active traffic; throughput/latency warnings are suppressed  |
-| No clear bottleneck  | Evidence is weak or conflicting                                |
+| Category            | Meaning                                                         |
+| ------------------- | --------------------------------------------------------------- |
+| Queue saturation    | Requests arrive faster than they can be served; the queue grows |
+| KV cache saturation | Requests wait on limited KV cache headroom                      |
+| Long prefill        | High TTFT with no queue — long input prompts dominate prefill   |
+| Decode / TPOT       | Per-token generation is the bottleneck, not queueing            |
+| Replica imbalance   | Load is unevenly distributed across replicas                    |
+| Error or failure    | The server is returning errors or aborting requests             |
+| Idle                | No active traffic; throughput/latency warnings are suppressed   |
+| No clear bottleneck | Evidence is weak or conflicting                                 |
 
-## How it is derived
+## How to read it
 
-The assessment is a read-only interpretation of results the rules already
-produced — it does not re-run any rule logic:
+The assessment summarizes the findings and measurements from the current run.
+Its evidence contains the observed values supporting the diagnosis, and its
+confidence indicates how strongly those values point to the reported
+bottleneck.
 
-- **Classification** looks at which rules fired and, for a few cases, a raw
-  metric value (e.g. whether any requests are waiting) to distinguish similar
-  shapes such as long-prefill vs. queueing.
-- **Evidence** is pulled from the findings that fired this run, so the bullets
-  carry the run's real numbers rather than restating thresholds.
-- **Confidence** starts from the primary finding's own confidence and rises as
-  independent findings corroborate the same cause.
-
-It is deliberately conservative: when evidence is weak or conflicting it returns
-**No clear bottleneck** or low confidence rather than guessing. It also avoids
-speculative claims (e.g. hardware choice) that the tool has no direct evidence
-for.
+When evidence is weak or conflicting, vLLM Doctor reports **No clear
+bottleneck** or low confidence rather than guessing.
 
 !!! note "Sequence-length evidence is optional"
     Distinguishing long-prefill from decode-heavy workloads is sharper when
