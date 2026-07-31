@@ -6,8 +6,8 @@
   "metrics_source": "prometheus",
   "agent": {
     "id": "agent-local-dev",
-    "version": "0.9.0",
-    "local_rule_pack": "0.9.0"
+    "version": "0.10.0",
+    "local_rule_pack": "0.10.0"
   },
   "target": {
     "id": "prod-llama-70b",
