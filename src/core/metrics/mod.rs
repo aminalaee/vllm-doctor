@@ -129,6 +129,15 @@ macro_rules! define_metrics {
                     $(&self.$r_field,)*
                 ]
             }
+
+            pub(crate) fn set_series(&mut self, output: &str, series: MetricSeries) -> bool {
+                match output {
+                    $(stringify!($d_field) => self.$d_field = series,)*
+                    $(stringify!($r_field) => self.$r_field = series,)*
+                    _ => return false,
+                }
+                true
+            }
         }
 
         // -- evaluate_direct --------------------------------------------------
@@ -355,7 +364,7 @@ define_metrics! {
     }
 }
 
-pub const REPLICA_LABELS: [&str; 8] = [
+pub const REPLICA_LABELS: [&str; 9] = [
     "pod",
     "pod_name",
     "kubernetes_pod_name",
@@ -364,6 +373,7 @@ pub const REPLICA_LABELS: [&str; 8] = [
     "hostname",
     "server",
     "endpoint",
+    "replica",
 ];
 
 pub const MODEL_LABEL: &str = "model_name";

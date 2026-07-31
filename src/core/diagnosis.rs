@@ -2,6 +2,7 @@
 //! registry into a single, ordered result.
 use crate::core::config::CoreConfig as Config;
 
+use crate::core::metrics::MetricSeriesSnapshot;
 use crate::core::models::{DiagnosisContext, DiagnosisResult, TargetMetadata};
 use crate::core::providers::{Provider, ProviderError};
 use crate::core::rules::RuleRegistry;
@@ -19,8 +20,6 @@ pub async fn diagnose(
     config: &Config,
 ) -> Result<DiagnosisResult, ProviderError> {
     let snapshot = provider.fetch_snapshot().await?;
-    let checks = registry.run_all(&snapshot, config);
-
     let metrics_source = provider.metadata().metrics_source;
     let mut context = DiagnosisContext::new(since)
         .with_metrics_source(metrics_source)
@@ -29,9 +28,19 @@ pub async fn diagnose(
         context = context.with_model_name(model);
     }
 
+    Ok(diagnose_snapshot(snapshot, context, registry, config))
+}
+
+pub fn diagnose_snapshot(
+    snapshot: MetricSeriesSnapshot,
+    context: DiagnosisContext,
+    registry: &RuleRegistry,
+    config: &Config,
+) -> DiagnosisResult {
+    let checks = registry.run_all(&snapshot, config);
     let mut result = DiagnosisResult::new(context, snapshot, checks);
     result.assessment = crate::core::assessment::assess(&result);
-    Ok(result)
+    result
 }
 
 #[cfg(test)]
@@ -98,10 +107,11 @@ mod tests {
 
     #[tokio::test]
     async fn assembles_context_snapshot_and_checks() {
+        let snapshot = pressured_snapshot();
         let provider = StubProvider {
             id: "scrape",
             metrics_source: MetricsSource::DirectScrape,
-            snapshot: pressured_snapshot(),
+            snapshot: snapshot.clone(),
         };
         let config = Config::default();
         let registry = build_registry(&config);
@@ -121,6 +131,15 @@ mod tests {
         assert_eq!(result.context.metrics_source, MetricsSource::DirectScrape);
         assert_eq!(result.checks.len(), 10);
         assert_ne!(result.metric_series, MetricSeriesSnapshot::default());
+
+        let context = DiagnosisContext::new("10m")
+            .with_metrics_source(MetricsSource::DirectScrape)
+            .with_target(TargetMetadata::default())
+            .with_model_name("llama");
+        assert_eq!(
+            result,
+            diagnose_snapshot(snapshot, context, &registry, &config)
+        );
     }
 
     #[tokio::test]

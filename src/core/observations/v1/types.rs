@@ -12,11 +12,14 @@ use uuid::Uuid;
 pub(super) const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ObservationV1 {
     schema_version: u32,
     pub event_id: Uuid,
     pub observed_at: DateTime<Utc>,
     pub window_seconds: u64,
+    #[serde(default)]
+    pub metrics_source: MetricsSourceV1,
     pub agent: AgentIdentityV1,
     pub target: TargetIdentityV1,
     pub observations: Vec<MeasurementV1>,
@@ -30,6 +33,7 @@ impl ObservationV1 {
         event_id: Uuid,
         observed_at: DateTime<Utc>,
         window_seconds: u64,
+        metrics_source: MetricsSourceV1,
         agent: AgentIdentityV1,
         target: TargetIdentityV1,
         observations: Vec<MeasurementV1>,
@@ -41,6 +45,7 @@ impl ObservationV1 {
             event_id,
             observed_at,
             window_seconds,
+            metrics_source,
             agent,
             target,
             observations,
@@ -54,7 +59,16 @@ impl ObservationV1 {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MetricsSourceV1 {
+    #[default]
+    Prometheus,
+    DirectScrape,
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct AgentIdentityV1 {
     pub id: String,
     pub version: String,
@@ -76,6 +90,7 @@ impl InferenceEngineV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct TargetIdentityV1 {
     pub id: String,
     pub engine: InferenceEngineV1,
@@ -114,6 +129,7 @@ pub enum MeasurementRollupV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct MeasurementV1 {
     pub id: String,
     pub unit: MeasurementUnitV1,
@@ -127,6 +143,7 @@ pub struct MeasurementV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct MeasurementDimensionsV1 {
     pub replica: String,
 }
@@ -138,6 +155,7 @@ pub enum AvailabilityStatusV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct AvailabilityV1 {
     pub id: String,
     pub status: AvailabilityStatusV1,
@@ -174,6 +192,7 @@ pub enum BottleneckV1 {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct LocalDiagnosisV1 {
     pub health: HealthV1,
     pub likely_bottleneck: BottleneckV1,
@@ -217,4 +236,44 @@ pub enum ObservationBuildError {
         super::validation::MAX_UNCOMPRESSED_JSON_BYTES
     )]
     PayloadTooLarge,
+    #[error("built observation failed validation: {0}")]
+    InvalidObservation(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum ObservationValidationError {
+    #[error("unsupported observation schema version")]
+    UnsupportedSchemaVersion,
+    #[error("invalid target id: id is empty or whitespace-only")]
+    InvalidTargetId,
+    #[error("invalid agent id: id is empty or whitespace-only")]
+    InvalidAgentId,
+    #[error("invalid observation window: window duration must be greater than zero")]
+    InvalidWindow,
+    #[error("observation contains an empty identifier")]
+    InvalidIdentifier,
+    #[error("identifier exceeds maximum of {0} bytes")]
+    IdentifierTooLong(usize),
+    #[error("too many replicas: count exceeds maximum of {0}")]
+    TooManyReplicas(usize),
+    #[error("too many observations: count exceeds maximum of {0}")]
+    TooManyObservations(usize),
+    #[error("observation contains a non-finite numeric value")]
+    NonFiniteValue,
+    #[error("payload exceeds maximum of {0} bytes")]
+    PayloadTooLarge(usize),
+    #[error("unknown measurement id `{0}`")]
+    UnknownMeasurement(String),
+    #[error("metadata for measurement `{id}` does not match the registry: {field}")]
+    MetadataMismatch { id: String, field: &'static str },
+    #[error("duplicate aggregate measurement `{0}`")]
+    DuplicateAggregate(String),
+    #[error("duplicate replica measurement `{id}` for `{replica}`")]
+    DuplicateReplica { id: String, replica: String },
+    #[error("measurement `{0}` is both measured and unavailable")]
+    ConflictingAvailability(String),
+    #[error("duplicate availability entry `{0}`")]
+    DuplicateAvailability(String),
+    #[error("measurement `{0}` does not allow replica dimensions")]
+    InvalidDimensions(String),
 }

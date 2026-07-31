@@ -15,8 +15,8 @@ use super::replicas::ReplicaAliases;
 use super::types::{
     AgentIdentityV1, AvailabilityStatusV1, AvailabilityV1, BottleneckV1, ConfidenceV1, HealthV1,
     InferenceEngineV1, LocalDiagnosisV1, MeasurementDimensionsV1, MeasurementKindV1,
-    MeasurementRollupV1, MeasurementUnitV1, MeasurementV1, ObservationBuildError, ObservationV1,
-    TargetIdentityV1,
+    MeasurementRollupV1, MeasurementUnitV1, MeasurementV1, MetricsSourceV1, ObservationBuildError,
+    ObservationV1, TargetIdentityV1,
 };
 use super::validation::{validate_inputs, validate_observation};
 
@@ -48,6 +48,10 @@ pub fn build_observation(
         context.event_id,
         context.observed_at,
         window_seconds,
+        match result.context.metrics_source {
+            MetricsSource::Prometheus => MetricsSourceV1::Prometheus,
+            MetricsSource::DirectScrape => MetricsSourceV1::DirectScrape,
+        },
         build_agent(context),
         build_target(result, target_id),
         observations,

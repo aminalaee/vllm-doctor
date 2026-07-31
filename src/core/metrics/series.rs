@@ -78,6 +78,7 @@ pub enum Aggregate {
     Sum,
     Max,
     Avg,
+    Authoritative,
 }
 
 impl Aggregate {
@@ -95,6 +96,7 @@ impl Aggregate {
                 let sum: f64 = samples.iter().map(|s| s.value).sum();
                 Some(sum / samples.len() as f64)
             }
+            Aggregate::Authoritative => samples.first().map(|sample| sample.value),
         }
     }
 }
@@ -105,6 +107,7 @@ impl std::fmt::Display for Aggregate {
             Self::Sum => write!(f, "sum"),
             Self::Max => write!(f, "max"),
             Self::Avg => write!(f, "avg"),
+            Self::Authoritative => write!(f, "authoritative"),
         }
     }
 }
@@ -117,6 +120,7 @@ impl std::str::FromStr for Aggregate {
             "sum" => Ok(Self::Sum),
             "max" => Ok(Self::Max),
             "avg" => Ok(Self::Avg),
+            "authoritative" => Ok(Self::Authoritative),
             _ => Err(format!("unknown aggregate: {s}")),
         }
     }
@@ -170,13 +174,21 @@ impl MetricSeries {
     }
 
     pub fn filter(&self, labels: &HashMap<String, String>) -> Self {
+        let sample_start = usize::from(self.aggregate_by == Aggregate::Authoritative);
+        let mut samples: Vec<_> = self
+            .samples
+            .iter()
+            .skip(sample_start)
+            .filter(|sample| labels.iter().all(|(k, v)| sample.labels.get(k) == Some(v)))
+            .cloned()
+            .collect();
+        if self.aggregate_by == Aggregate::Authoritative {
+            if let Some(aggregate) = self.samples.first() {
+                samples.insert(0, aggregate.clone());
+            }
+        }
         Self {
-            samples: self
-                .samples
-                .iter()
-                .filter(|sample| labels.iter().all(|(k, v)| sample.labels.get(k) == Some(v)))
-                .cloned()
-                .collect(),
+            samples,
             aggregate_by: self.aggregate_by,
         }
     }
@@ -232,6 +244,26 @@ mod tests {
             aggregate_by: Aggregate::Avg,
         };
         assert_eq!(avg_series.value(), Some(3.0));
+
+        let authoritative = MetricSeries {
+            samples: vec![
+                MetricSample::new(7.0),
+                sample(4.0, &[("replica", "a")]),
+                sample(5.0, &[("replica", "b")]),
+            ],
+            aggregate_by: Aggregate::Authoritative,
+        };
+        assert_eq!(authoritative.value(), Some(7.0));
+        assert_eq!(
+            authoritative.by("replica"),
+            HashMap::from([("a".to_string(), Some(4.0)), ("b".to_string(), Some(5.0))])
+        );
+        assert_eq!(
+            authoritative
+                .filter(&HashMap::from([("replica".to_string(), "a".to_string())]))
+                .value(),
+            Some(7.0)
+        );
     }
 
     #[test]
