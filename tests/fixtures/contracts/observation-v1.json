@@ -3,6 +3,7 @@
   "event_id": "01923f5c-3e8e-7c8e-9d4f-0123456789ab",
   "observed_at": "2026-07-21T10:00:00Z",
   "window_seconds": 300,
+  "metrics_source": "prometheus",
   "agent": {
     "id": "agent-local-dev",
     "version": "0.9.0",

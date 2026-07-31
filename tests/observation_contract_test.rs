@@ -7,7 +7,7 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use vllm_doctor::core::config::CoreConfig as Config;
-use vllm_doctor::core::diagnosis::diagnose;
+use vllm_doctor::core::diagnosis::{diagnose, diagnose_snapshot};
 use vllm_doctor::core::metrics::series::MetricSample;
 use vllm_doctor::core::metrics::{
     Aggregate, MetricSeries, MetricSeriesSnapshot, ObservationUnit, all_specs,
@@ -15,8 +15,9 @@ use vllm_doctor::core::metrics::{
 use vllm_doctor::core::models::{MetricsSource, TargetMetadata};
 use vllm_doctor::core::observations::parse_window_seconds;
 use vllm_doctor::core::observations::v1::{
-    AvailabilityStatusV1, MeasurementKindV1, ObservationBuildContext, ObservationBuildError,
-    ObservationV1, build_observation, validate_observation,
+    AvailabilityStatusV1, MeasurementKindV1, MetricsSourceV1, ObservationBuildContext,
+    ObservationBuildError, ObservationV1, ObservationValidationError, build_observation,
+    diagnosis_context, reconstruct_snapshot, validate_observation,
 };
 use vllm_doctor::core::providers::{Provider, ProviderError, ProviderMetadata};
 use vllm_doctor::core::rules::build_registry;
@@ -34,7 +35,7 @@ impl Provider for StubProvider {
         ProviderMetadata {
             id: "scrape",
             endpoint: "test".into(),
-            metrics_source: MetricsSource::DirectScrape,
+            metrics_source: MetricsSource::Prometheus,
         }
     }
 }
@@ -338,6 +339,11 @@ async fn direct_scrape_does_not_export_promql_derived_values() {
         ..Default::default()
     };
     let batch = build_batch_from_snapshot(snapshot, "prod").await;
+    assert_eq!(batch.metrics_source, MetricsSourceV1::DirectScrape);
+    assert_eq!(
+        diagnosis_context(&batch).metrics_source,
+        MetricsSource::DirectScrape
+    );
 
     for id in [
         "requests_succeeded",
@@ -660,6 +666,14 @@ fn published_contract_deserializes_and_validates() {
 }
 
 #[test]
+fn published_contract_defaults_legacy_source_to_prometheus() {
+    let mut value = observation_value();
+    value.as_object_mut().unwrap().remove("metrics_source");
+    let observation = observation_from_value(value);
+    assert_eq!(observation.metrics_source, MetricsSourceV1::Prometheus);
+}
+
+#[test]
 fn published_contract_rejects_unknown_enum_values() {
     let json = include_str!("fixtures/contracts/observation-v1.json");
     let invalid = json.replace("\"engine\": \"vllm\"", "\"engine\": \"sglang\"");
@@ -673,6 +687,289 @@ fn published_contract_rejects_unsupported_schema_versions() {
     let observation: ObservationV1 = serde_json::from_str(&invalid).unwrap();
     assert_eq!(
         validate_observation(&observation),
-        Err(ObservationBuildError::UnsupportedSchemaVersion)
+        Err(ObservationValidationError::UnsupportedSchemaVersion)
     );
+}
+
+fn observation_value() -> Value {
+    serde_json::from_str(include_str!("fixtures/contracts/observation-v1.json")).unwrap()
+}
+
+fn observation_from_value(value: Value) -> ObservationV1 {
+    serde_json::from_value(value).unwrap()
+}
+
+#[tokio::test]
+async fn every_registered_spec_round_trips() {
+    let mut raw = std::collections::HashMap::new();
+    for spec in all_specs() {
+        for probe in spec.probe_names() {
+            raw.insert(probe, MetricSeries::scalar(2.0));
+        }
+    }
+    let snapshot = MetricSeriesSnapshot::from_raw(raw);
+    let observation =
+        build_batch_from_snapshot_with_source(snapshot.clone(), "prod", MetricsSource::Prometheus)
+            .await;
+    let reconstructed = reconstruct_snapshot(&observation).unwrap();
+
+    for spec in all_specs() {
+        assert_eq!(
+            spec.extract(&reconstructed),
+            spec.extract(&snapshot),
+            "{} did not round trip",
+            spec.observation_spec().id
+        );
+    }
+}
+
+async fn round_trip_diagnosis(
+    snapshot: MetricSeriesSnapshot,
+) -> (
+    vllm_doctor::core::models::DiagnosisResult,
+    vllm_doctor::core::models::DiagnosisResult,
+) {
+    let config = Config::default();
+    let registry = build_registry(&config);
+    let target = TargetMetadata {
+        id: Some("parity-target".to_string()),
+        environment: Some("production".to_string()),
+        ..Default::default()
+    };
+    let local = diagnose(
+        &StubProvider(snapshot),
+        &registry,
+        "5m",
+        Some("model"),
+        &target,
+        &config,
+    )
+    .await
+    .unwrap();
+    let observation = build_observation(&local, &fixed_ctx(), 300).unwrap();
+    let reconstructed_snapshot = reconstruct_snapshot(&observation).unwrap();
+    let reconstructed = diagnose_snapshot(
+        reconstructed_snapshot,
+        diagnosis_context(&observation),
+        &registry,
+        &config,
+    );
+    assert_eq!(reconstructed.context.since, "300s");
+    assert_eq!(reconstructed.context.target, target);
+    assert_eq!(reconstructed.context.model_name.as_deref(), Some("model"));
+    (local, reconstructed)
+}
+
+fn assert_diagnosis_parity(
+    local: &vllm_doctor::core::models::DiagnosisResult,
+    reconstructed: &vllm_doctor::core::models::DiagnosisResult,
+) {
+    assert_eq!(reconstructed.checks, local.checks);
+    assert_eq!(reconstructed.assessment, local.assessment);
+    assert_eq!(reconstructed.health(), local.health());
+}
+
+#[tokio::test]
+async fn healthy_and_pressured_diagnoses_survive_round_trip() {
+    let (healthy_local, healthy_reconstructed) =
+        round_trip_diagnosis(MetricSeriesSnapshot::default()).await;
+    assert_diagnosis_parity(&healthy_local, &healthy_reconstructed);
+
+    let pressured = MetricSeriesSnapshot {
+        num_requests_waiting: MetricSeries::scalar(8.0),
+        num_requests_running: MetricSeries::scalar(60.0),
+        kv_cache_usage_perc: MetricSeries::scalar(0.95),
+        request_success_total: MetricSeries::scalar(1000.0),
+        request_error_total: MetricSeries::scalar(80.0),
+        request_abort_total: MetricSeries::scalar(30.0),
+        ..Default::default()
+    };
+    let (pressured_local, pressured_reconstructed) = round_trip_diagnosis(pressured).await;
+    assert_diagnosis_parity(&pressured_local, &pressured_reconstructed);
+}
+
+#[tokio::test]
+async fn local_diagnosis_is_not_trusted_during_reconstruction() {
+    let observation = build_batch_from_snapshot(golden_snapshot(), "prod").await;
+    let baseline = reconstruct_snapshot(&observation).unwrap();
+    let mut value = serde_json::to_value(&observation).unwrap();
+    value["local_diagnosis"]["health"] = Value::String("critical".to_string());
+    value["local_diagnosis"]["likely_bottleneck"] = Value::String("error_issue".to_string());
+    value["local_diagnosis"]["confidence"] = Value::String("low".to_string());
+    value["local_diagnosis"]["firing_rule_ids"] =
+        serde_json::json!(["invented_rule", "another_rule"]);
+    let changed = observation_from_value(value);
+
+    assert_eq!(reconstruct_snapshot(&changed).unwrap(), baseline);
+}
+
+#[tokio::test]
+async fn missing_measurements_remain_unknown() {
+    let observation = build_batch_from_snapshot(MetricSeriesSnapshot::default(), "prod").await;
+    let reconstructed = reconstruct_snapshot(&observation).unwrap();
+    for spec in all_specs() {
+        assert_eq!(spec.extract(&reconstructed), None);
+    }
+}
+
+#[tokio::test]
+async fn replica_imbalance_and_authoritative_aggregate_survive_round_trip() {
+    let snapshot = MetricSeriesSnapshot {
+        num_requests_running: MetricSeries {
+            samples: vec![
+                sample(20.0, &[("pod", "a"), ("model_name", "model")]),
+                sample(2.0, &[("pod", "b"), ("model_name", "model")]),
+            ],
+            aggregate_by: Aggregate::Sum,
+        },
+        num_requests_waiting: MetricSeries {
+            samples: vec![
+                sample(4.0, &[("pod", "a"), ("model_name", "model")]),
+                sample(0.0, &[("pod", "b"), ("model_name", "model")]),
+            ],
+            aggregate_by: Aggregate::Sum,
+        },
+        kv_cache_usage_perc: MetricSeries {
+            samples: vec![
+                sample(0.95, &[("pod", "a"), ("model_name", "model")]),
+                sample(0.4, &[("pod", "b"), ("model_name", "model")]),
+            ],
+            aggregate_by: Aggregate::Max,
+        },
+        ..Default::default()
+    };
+    let (local, reconstructed) = round_trip_diagnosis(snapshot).await;
+    assert_diagnosis_parity(&local, &reconstructed);
+    assert!(
+        reconstructed
+            .checks
+            .iter()
+            .any(|check| check.id == "replica_imbalance" && check.finding.is_some())
+    );
+    assert!(
+        reconstructed
+            .checks
+            .iter()
+            .filter_map(|check| check.finding.as_ref())
+            .flat_map(|finding| &finding.evidence)
+            .any(|evidence| matches!(
+                evidence,
+                vllm_doctor::core::models::EvidenceItem::ReplicaDistribution {
+                    model: Some(model),
+                    ..
+                } if model == "model"
+            ))
+    );
+    assert_eq!(
+        reconstructed.metric_series.num_requests_running.value(),
+        Some(22.0)
+    );
+    assert_eq!(
+        reconstructed
+            .metric_series
+            .num_requests_running
+            .samples
+            .len(),
+        3,
+        "one aggregate and two replicas should be retained without summing all three"
+    );
+}
+
+#[test]
+fn inbound_validation_rejects_unknown_ids_and_metadata_mismatches() {
+    let mut unknown = observation_value();
+    unknown["observations"][0]["id"] = Value::String("unknown_metric".to_string());
+    assert!(matches!(
+        validate_observation(&observation_from_value(unknown)),
+        Err(ObservationValidationError::UnknownMeasurement(_))
+    ));
+
+    for (field, replacement) in [("unit", "seconds"), ("kind", "quantile"), ("rollup", "max")] {
+        let mut value = observation_value();
+        value["observations"][0][field] = Value::String(replacement.to_string());
+        assert!(matches!(
+            validate_observation(&observation_from_value(value)),
+            Err(ObservationValidationError::MetadataMismatch { .. })
+        ));
+    }
+
+    let mut quantile = observation_value();
+    quantile["observations"][0]["quantile"] = serde_json::json!(0.95);
+    assert!(matches!(
+        validate_observation(&observation_from_value(quantile)),
+        Err(ObservationValidationError::MetadataMismatch { .. })
+    ));
+}
+
+#[test]
+fn inbound_validation_rejects_duplicates_conflicts_and_dimensions() {
+    let mut duplicate_aggregate = observation_value();
+    let first = duplicate_aggregate["observations"][0].clone();
+    duplicate_aggregate["observations"]
+        .as_array_mut()
+        .unwrap()
+        .push(first);
+    assert!(matches!(
+        validate_observation(&observation_from_value(duplicate_aggregate)),
+        Err(ObservationValidationError::DuplicateAggregate(_))
+    ));
+
+    let mut duplicate_replica = observation_value();
+    let replica = duplicate_replica["observations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|measurement| !measurement["dimensions"].is_null())
+        .unwrap()
+        .clone();
+    duplicate_replica["observations"]
+        .as_array_mut()
+        .unwrap()
+        .push(replica);
+    assert!(matches!(
+        validate_observation(&observation_from_value(duplicate_replica)),
+        Err(ObservationValidationError::DuplicateReplica { .. })
+    ));
+
+    let mut conflict = observation_value();
+    let measured_id = conflict["observations"][0]["id"].clone();
+    conflict["availability"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "id": measured_id,
+            "status": "not_collected"
+        }));
+    assert!(matches!(
+        validate_observation(&observation_from_value(conflict)),
+        Err(ObservationValidationError::ConflictingAvailability(_))
+    ));
+
+    let mut dimensions = observation_value();
+    dimensions["observations"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({
+            "id": "requests_succeeded",
+            "unit": "count",
+            "kind": "window_delta",
+            "rollup": "sum",
+            "dimensions": { "replica": "replica-1" },
+            "value": 1.0
+        }));
+    assert!(matches!(
+        validate_observation(&observation_from_value(dimensions)),
+        Err(ObservationValidationError::InvalidDimensions(_))
+    ));
+}
+
+#[test]
+fn inbound_wire_types_reject_unknown_fields() {
+    let mut root = observation_value();
+    root["unexpected"] = serde_json::json!(true);
+    assert!(serde_json::from_value::<ObservationV1>(root).is_err());
+
+    let mut nested = observation_value();
+    nested["observations"][0]["unexpected"] = serde_json::json!(true);
+    assert!(serde_json::from_value::<ObservationV1>(nested).is_err());
 }
